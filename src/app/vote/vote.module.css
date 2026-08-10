@@ -1,0 +1,145 @@
+.main {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 48px;
+  gap: 16px;
+}
+
+.header {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nickname {
+  font-weight: 600;
+}
+
+.logoutButton {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  padding: 28px 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+}
+
+.title {
+  font-size: 1.25rem;
+  margin: 0 0 8px;
+}
+
+.dateLine {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.instruction {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin: 0 0 20px;
+}
+
+.buttonRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.voteButton {
+  padding: 14px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.voteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.grey {
+  border-color: var(--muted);
+}
+.green {
+  border-color: #2f9e44;
+  color: #2f9e44;
+}
+.danger {
+  border-color: #e5484d;
+  color: #e5484d;
+}
+
+.selected {
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.notice {
+  margin-top: 16px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.warning {
+  margin-top: 16px;
+  font-size: 0.9rem;
+  color: #f0a000;
+  line-height: 1.5;
+}
+
+.message {
+  margin-top: 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.error {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #e5484d;
+}
+
+.classSection {
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.classSelector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.select {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.95rem;
+}

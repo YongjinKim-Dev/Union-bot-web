@@ -1,0 +1,29 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    # Uncomment if the existing MySQL instance runs on the Vultr host itself
+    # (outside this compose network) rather than in its own container:
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+
+  # If the bot's MySQL database is not already running elsewhere, run it
+  # alongside the app and point DB_HOST=mysql in .env. Otherwise delete this
+  # service and point DB_HOST at the existing instance.
+  # mysql:
+  #   image: mysql:8.0
+  #   restart: unless-stopped
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+  #     MYSQL_DATABASE: ${DB_NAME}
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #   ports:
+  #     - "3306:3306"
+
+# volumes:
+#   mysql_data:
