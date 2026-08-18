@@ -10,6 +10,7 @@ import {
   type ClassType,
   type VotingType,
 } from "@/lib/types";
+import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
 import styles from "./vote.module.css";
 
 const BUTTONS: { type: VotingType; className: string }[] = [
@@ -22,15 +23,18 @@ const BUTTONS: { type: VotingType; className: string }[] = [
 export function VoteButtons({
   surveyId,
   initialVote,
+  initialVotedAt,
   closed,
   initialClassInfo,
 }: {
   surveyId: string;
   initialVote: VotingType | null;
+  initialVotedAt: Date | null;
   closed: boolean;
   initialClassInfo: { name: string; type: ClassType } | null;
 }) {
   const [currentVote, setCurrentVote] = useState<VotingType | null>(initialVote);
+  const [votedAt, setVotedAt] = useState<Date | null>(initialVotedAt);
   const [classInfo, setClassInfo] = useState(initialClassInfo);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +50,7 @@ export function VoteButtons({
         const kor = VOTING_TYPE_LABEL[result.votingType];
         setMessage(result.isDuplicated ? `이미 ${kor}를 선택한 상태입니다.` : `${kor} 선택.`);
         setCurrentVote(result.votingType);
+        setVotedAt(result.votedAt);
       } catch (e) {
         setError(e instanceof Error ? e.message : "투표 처리 중 오류가 발생했습니다.");
       }
@@ -67,6 +72,12 @@ export function VoteButtons({
           </button>
         ))}
       </div>
+
+      {currentVote && votedAt && (
+        <p className={styles.notice}>
+          {formatSurveyDate(votedAt)} {formatSurveyTime(votedAt)}에 투표 완료
+        </p>
+      )}
 
       {closed && <p className={styles.notice}>투표가 마감되었습니다.</p>}
       {message && <p className={styles.message}>{message}</p>}

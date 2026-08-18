@@ -8,7 +8,8 @@ import {
   getCharacterClassesByType,
   setUserCharacterClass,
 } from "@/lib/queries";
-import type { ClassType, VotingType } from "@/lib/types";
+import { sendVoteLog } from "@/lib/discord";
+import { VOTING_TYPE_LABEL, type ClassType, type VotingType } from "@/lib/types";
 
 async function requireSessionUser() {
   const session = await auth();
@@ -27,6 +28,11 @@ export async function submitVote(surveyId: string, votingType: VotingType) {
   }
 
   const result = await castVote(surveyId, user.dbUserId, votingType);
+
+  if (!result.isDuplicated) {
+    void sendVoteLog(user.nickname, VOTING_TYPE_LABEL[result.votingType]);
+  }
+
   revalidatePath("/vote");
   return result;
 }

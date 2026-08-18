@@ -54,6 +54,7 @@ export default async function VotePage() {
             <VoteButtons
               surveyId={survey.id}
               initialVote={vote?.votingType ?? null}
+              initialVotedAt={vote?.votedAt ?? null}
               closed={closed}
               initialClassInfo={classInfo}
             />

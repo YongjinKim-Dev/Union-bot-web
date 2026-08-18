@@ -19,7 +19,7 @@ export default async function LoginPage({
   return (
     <main className={styles.main}>
       <div className={styles.card}>
-        <h1 className={styles.title}>아지다하카 거점전 투표</h1>
+        <h1 className={styles.title}>아시바당 거점전 투표</h1>
         <p className={styles.subtitle}>디스코드 계정으로 로그인해주세요.</p>
         {errorMessage && <p className={styles.error}>{errorMessage}</p>}
         <form

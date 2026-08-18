@@ -29,20 +29,31 @@ export async function getActiveSurvey(): Promise<DbSurvey | null> {
   return (rows[0] as DbSurvey) ?? null;
 }
 
-export async function getVoteForUser(surveyId: string, userId: string) {
+export interface VoteRecord {
+  id: string;
+  votingType: VotingType;
+  votedAt: Date;
+}
+
+export async function getVoteForUser(surveyId: string, userId: string): Promise<VoteRecord | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, voting_type FROM survey_history WHERE survey_id = ? AND user_id = ?",
+    "SELECT id, voting_type, updated_at FROM survey_history WHERE survey_id = ? AND user_id = ?",
     [surveyId, userId],
   );
   const row = rows[0];
   if (!row) return null;
-  return { id: row.id as string, votingType: row.voting_type as VotingType };
+  return {
+    id: row.id as string,
+    votingType: row.voting_type as VotingType,
+    votedAt: row.updated_at as Date,
+  };
 }
 
 export interface CastVoteResult {
   votingType: VotingType;
   isDuplicated: boolean;
   isAttend: boolean;
+  votedAt: Date;
 }
 
 export async function castVote(
@@ -54,7 +65,12 @@ export async function castVote(
 
   if (existing) {
     if (existing.votingType === votingType) {
-      return { votingType, isDuplicated: true, isAttend: ATTEND_TYPES.includes(votingType) };
+      return {
+        votingType,
+        isDuplicated: true,
+        isAttend: ATTEND_TYPES.includes(votingType),
+        votedAt: existing.votedAt,
+      };
     }
     // Switching between two "attending" types (attend <-> boarding) keeps the
     // original queue position; any other change resets updated_at, matching
@@ -73,7 +89,15 @@ export async function castVote(
     );
   }
 
-  return { votingType, isDuplicated: false, isAttend: ATTEND_TYPES.includes(votingType) };
+  // Re-read the row so votedAt reflects the actual DB-computed NOW() rather
+  // than an approximate client-side timestamp.
+  const updated = await getVoteForUser(surveyId, userId);
+  return {
+    votingType,
+    isDuplicated: false,
+    isAttend: ATTEND_TYPES.includes(votingType),
+    votedAt: updated!.votedAt,
+  };
 }
 
 export async function getUserCharacterClass(userId: string): Promise<UserCharacterClass | null> {

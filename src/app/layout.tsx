@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "아지다하카 거점전 투표",
+  title: "아시바당 거점전 투표",
   description: "거점전 참여 투표",
 };
 
