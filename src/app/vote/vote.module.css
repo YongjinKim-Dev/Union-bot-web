@@ -143,3 +143,176 @@
   color: var(--foreground);
   font-size: 0.95rem;
 }
+
+/* Tabs */
+
+.tabBar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--background);
+  border: 1px solid var(--border-color);
+}
+
+.tabButton {
+  padding: 10px 8px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabButtonActive {
+  background: var(--card-bg);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 480px) {
+  .tabBar {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+}
+
+/* Countdown (대기중 탭) */
+
+.countdown {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdownSegment {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.countdownSoon {
+  margin-top: 16px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* 지난 설문 summary */
+
+.summaryList {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summaryItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  font-size: 0.9rem;
+}
+
+/* Class type step (1단계) */
+
+.classStep {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.classTypeRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.classTypeButton {
+  padding: 14px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.classTypeButton:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.classBackButton {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* Class grid (2단계) */
+
+.classGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 10px;
+}
+
+.classCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 2px solid var(--border-color);
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.classCard:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.classCardSelected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.classCardLabel {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.classIconImg {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--background);
+}
+
+.classIconPlaceholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: var(--border-color);
+}

@@ -96,7 +96,11 @@ export function VoteButtons({
               ⚠️ 직업 미등록! 아래에서 직업을 등록해야 인원제한결과에 포함됩니다.
             </p>
           )}
-          <ClassSelector onSelected={(name, type) => setClassInfo({ name, type })} />
+          <ClassSelector
+            initialType={classInfo?.type}
+            initialName={classInfo?.name}
+            onSelected={(name, type) => setClassInfo({ name, type })}
+          />
         </div>
       )}
     </div>
