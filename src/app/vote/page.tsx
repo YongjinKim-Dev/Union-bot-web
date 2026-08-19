@@ -1,8 +1,16 @@
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
-import { getActiveSurvey, getUserCharacterClass, getVoteForUser } from "@/lib/queries";
+import {
+  getSurveysByStatus,
+  getUserCharacterClass,
+  getVoteCounts,
+  getVoteForUser,
+} from "@/lib/queries";
 import { formatSurveyDate, formatSurveyTime, getVotingClosesAt } from "@/lib/format";
 import { VoteButtons } from "./VoteButtons";
+import { VoteTabs, type TabKey } from "./VoteTabs";
+import { WaitingSurveyPanel } from "./WaitingSurveyPanel";
+import { PastSurveySummary } from "./PastSurveySummary";
 import styles from "./vote.module.css";
 
 // This page always reflects the live survey/vote state, so it must never be
@@ -15,15 +23,25 @@ export default async function VotePage() {
     redirect("/login");
   }
 
-  const survey = await getActiveSurvey();
-  const [vote, classInfo] = survey
-    ? await Promise.all([
-        getVoteForUser(survey.id, session.user.dbUserId),
-        getUserCharacterClass(session.user.dbUserId),
-      ])
-    : [null, null];
+  const surveys = await getSurveysByStatus(["process", "wait", "complete"]);
+  const processSurvey = surveys.find((s) => s.status === "process") ?? null;
+  const waitSurvey =
+    surveys
+      .filter((s) => s.status === "wait")
+      .sort((a, b) => a.exposed_at.getTime() - b.exposed_at.getTime())[0] ?? null;
+  const pastSurvey =
+    surveys
+      .filter((s) => s.status === "complete")
+      .sort((a, b) => b.executed_at.getTime() - a.executed_at.getTime())[0] ?? null;
 
-  const closed = survey ? new Date() >= getVotingClosesAt(survey.executed_at) : false;
+  const [vote, classInfo, pastCounts] = await Promise.all([
+    processSurvey ? getVoteForUser(processSurvey.id, session.user.dbUserId) : Promise.resolve(null),
+    processSurvey ? getUserCharacterClass(session.user.dbUserId) : Promise.resolve(null),
+    pastSurvey ? getVoteCounts(pastSurvey.id) : Promise.resolve(null),
+  ]);
+
+  const closed = processSurvey ? new Date() >= getVotingClosesAt(processSurvey.executed_at) : false;
+  const defaultTab: TabKey = processSurvey ? "process" : "wait";
 
   return (
     <main className={styles.main}>
@@ -42,24 +60,47 @@ export default async function VotePage() {
       </div>
 
       <div className={styles.card}>
-        {!survey ? (
-          <p className={styles.notice}>현재 진행중인 설문이 없습니다.</p>
-        ) : (
-          <>
-            <h1 className={styles.title}>거점전 설문조사</h1>
-            <p className={styles.dateLine}>
-              거점 일시 {formatSurveyDate(survey.executed_at)} {formatSurveyTime(survey.executed_at)}
-            </p>
-            <p className={styles.instruction}>선택지는 하나만 선택해주세요. (부속인 경우 부속만 선택)</p>
-            <VoteButtons
-              surveyId={survey.id}
-              initialVote={vote?.votingType ?? null}
-              initialVotedAt={vote?.votedAt ?? null}
-              closed={closed}
-              initialClassInfo={classInfo}
-            />
-          </>
-        )}
+        <VoteTabs
+          defaultTab={defaultTab}
+          hasProcessSurvey={Boolean(processSurvey)}
+          processContent={
+            processSurvey ? (
+              <>
+                <h1 className={styles.title}>거점전 설문조사</h1>
+                <p className={styles.dateLine}>
+                  거점 일시 {formatSurveyDate(processSurvey.executed_at)}{" "}
+                  {formatSurveyTime(processSurvey.executed_at)}
+                </p>
+                <p className={styles.instruction}>
+                  선택지는 하나만 선택해주세요. (부속인 경우 부속만 선택)
+                </p>
+                <VoteButtons
+                  surveyId={processSurvey.id}
+                  initialVote={vote?.votingType ?? null}
+                  initialVotedAt={vote?.votedAt ?? null}
+                  closed={closed}
+                  initialClassInfo={classInfo}
+                />
+              </>
+            ) : (
+              <p className={styles.notice}>현재 진행중인 설문이 없습니다.</p>
+            )
+          }
+          waitContent={
+            waitSurvey ? (
+              <WaitingSurveyPanel survey={waitSurvey} />
+            ) : (
+              <p className={styles.notice}>대기중인 설문이 없습니다.</p>
+            )
+          }
+          completeContent={
+            pastSurvey && pastCounts ? (
+              <PastSurveySummary survey={pastSurvey} counts={pastCounts} />
+            ) : (
+              <p className={styles.notice}>지난 설문이 없습니다.</p>
+            )
+          }
+        />
       </div>
     </main>
   );

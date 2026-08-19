@@ -29,6 +29,19 @@ export async function getActiveSurvey(): Promise<DbSurvey | null> {
   return (rows[0] as DbSurvey) ?? null;
 }
 
+export async function getSurveysByStatus(
+  statuses: DbSurvey["status"][],
+): Promise<DbSurvey[]> {
+  if (statuses.length === 0) return [];
+  const placeholders = statuses.map(() => "?").join(", ");
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
+      `WHERE status IN (${placeholders}) ORDER BY exposed_at DESC`,
+    statuses,
+  );
+  return rows as DbSurvey[];
+}
+
 export interface VoteRecord {
   id: string;
   votingType: VotingType;
@@ -98,6 +111,28 @@ export async function castVote(
     isAttend: ATTEND_TYPES.includes(votingType),
     votedAt: updated!.votedAt,
   };
+}
+
+// Same tally the bot's !결과 command computes: per voting_type counts among
+// currently active (status = 1) members.
+export async function getVoteCounts(surveyId: string): Promise<Record<VotingType, number>> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT survey_history.voting_type, COUNT(*) AS count FROM survey_history " +
+      "JOIN user ON survey_history.user_id = user.id " +
+      "WHERE survey_history.survey_id = ? AND user.status = 1 " +
+      "GROUP BY survey_history.voting_type",
+    [surveyId],
+  );
+  const counts: Record<VotingType, number> = {
+    attend: 0,
+    non_attend: 0,
+    boarding: 0,
+    late_attend: 0,
+  };
+  for (const row of rows) {
+    counts[row.voting_type as VotingType] = Number(row.count);
+  }
+  return counts;
 }
 
 export async function getUserCharacterClass(userId: string): Promise<UserCharacterClass | null> {
