@@ -1,25 +1,17 @@
-:root {
-  --background: #f5f6f8;
-  --foreground: #171717;
-  --card-bg: #ffffff;
-  --border-color: #e2e4e9;
-  --muted: #6b7280;
-  --accent: #5865f2;
-}
+@import "./theme.css";
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card-bg: #161616;
-    --border-color: #2a2a2a;
-    --muted: #9ca3af;
-    --accent: #6f7bff;
-  }
+:root {
+  --background: var(--color-bg-deep);
+  --foreground: var(--color-text-main);
+  --card-bg: var(--color-bg-mid);
+  --border-color: var(--color-line);
+  --muted: var(--color-text-dim);
+  --accent: var(--color-accent);
 }
 
 html {
   height: 100%;
+  color-scheme: dark;
 }
 
 html,
@@ -53,10 +45,4 @@ a {
 
 button {
   font-family: inherit;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
 }
