@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import {
   getSurveysByStatus,
@@ -46,17 +47,22 @@ export default async function VotePage() {
   return (
     <main className={styles.main}>
       <div className={styles.header}>
-        <span className={styles.nickname}>{session.user.nickname}</span>
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/login" });
-          }}
-        >
-          <button type="submit" className={styles.logoutButton}>
-            로그아웃
-          </button>
-        </form>
+        <Link href="/" className={styles.homeLink}>
+          ← 홈
+        </Link>
+        <div className={styles.headerRight}>
+          <span className={styles.nickname}>{session.user.nickname}</span>
+          <form
+            action={async () => {
+              "use server";
+              await signOut({ redirectTo: "/login" });
+            }}
+          >
+            <button type="submit" className={styles.logoutButton}>
+              로그아웃
+            </button>
+          </form>
+        </div>
       </div>
 
       <div className={styles.card}>

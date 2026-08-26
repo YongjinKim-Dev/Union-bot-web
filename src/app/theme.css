@@ -3,10 +3,10 @@
    globals.css aliases the legacy --background/--foreground/etc. tokens to
    these so existing pages (e.g. /vote) pick up the palette automatically. */
 :root {
-  --color-bg-deep: #0c0a12;
-  --color-bg-mid: #17131f;
+  --color-bg-deep: #16131f;
+  --color-bg-mid: #211d2e;
   --color-accent: #a56cff;
-  --color-accent-soft: rgba(165, 108, 255, 0.16);
+  --color-accent-soft: rgba(165, 108, 255, 0.24);
   --color-text-main: #f2eee6;
   --color-text-dim: #a79fb8;
   --color-text-faint: #5c5568;

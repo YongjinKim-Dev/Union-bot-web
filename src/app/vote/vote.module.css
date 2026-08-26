@@ -15,6 +15,22 @@
   justify-content: space-between;
 }
 
+.homeLink {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.homeLink:hover {
+  color: var(--accent);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .nickname {
   font-weight: 600;
 }
@@ -315,4 +331,13 @@
   height: 48px;
   border-radius: 8px;
   background: var(--border-color);
+}
+
+/* Widen the content column on desktop instead of staying pinned at mobile
+   width — mobile/tablet (≤1023px) keeps the original 480px column. */
+@media (min-width: 1024px) {
+  .header,
+  .card {
+    max-width: 880px;
+  }
 }
