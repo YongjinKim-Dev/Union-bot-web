@@ -1,7 +1,8 @@
 // Maps character_class.name (Korean) to the English filename used under
-// public/classes/Class Icon {filename}.png. Add a line here once artwork
-// exists for a currently-unmapped class (e.g. 오공, 세라핌, 에이전트) — no
-// other code needs to change.
+// public/classes/Class Icon {filename}.png. Keys match the live
+// character_class table exactly (32 distinct names across 57 rows — the same
+// name appears under both Succession and Awaken and shares one icon, the mark
+// badge is what distinguishes them). Add a line here if a new class ships.
 const CLASS_ICON_FILENAME: Record<string, string> = {
   워리어: "Warrior",
   소서러: "Sorceress",
@@ -32,6 +33,9 @@ const CLASS_ICON_FILENAME: Record<string, string> = {
   스칼라: "Scholar",
   도사: "Dosa",
   데드아이: "Deadeye",
+  오공: "WuKong",
+  세라핌: "Serapin",
+  에이전트: "Agent",
 };
 
 export const DEFAULT_CLASS_ICON = "/classes/default.png";

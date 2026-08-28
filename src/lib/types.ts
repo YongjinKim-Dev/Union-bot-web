@@ -14,7 +14,14 @@ export type ClassType = "Succession" | "Awaken" | "Else";
 export const CLASS_TYPE_LABEL: Record<ClassType, string> = {
   Succession: "전승",
   Awaken: "각성",
-  Else: "기타(아처, 샤이, 스칼라)",
+  Else: "기타",
+};
+
+// Sub-label for the 계열 cards on the class-registration screen.
+export const CLASS_TYPE_SUBLABEL: Record<ClassType, string> = {
+  Succession: "주 무기 계열",
+  Awaken: "각성 무기 계열",
+  Else: "개방 · 재능 계열",
 };
 
 export interface DbUser {

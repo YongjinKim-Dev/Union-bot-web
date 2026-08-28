@@ -42,6 +42,21 @@ export async function getSurveysByStatus(
   return rows as DbSurvey[];
 }
 
+/**
+ * Surveys whose 거점전 falls inside [from, to). Used for the home page's
+ * weekly grid. `cancel` rows are excluded so a cancelled day reads as having
+ * no survey at all.
+ */
+export async function getSurveysInRange(from: Date, to: Date): Promise<DbSurvey[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
+      "WHERE executed_at >= ? AND executed_at < ? AND status <> 'cancel' " +
+      "ORDER BY executed_at ASC",
+    [from, to],
+  );
+  return rows as DbSurvey[];
+}
+
 export interface VoteRecord {
   id: string;
   votingType: VotingType;
@@ -60,6 +75,35 @@ export async function getVoteForUser(surveyId: string, userId: string): Promise<
     votingType: row.voting_type as VotingType,
     votedAt: row.updated_at as Date,
   };
+}
+
+/**
+ * This user's vote across several surveys at once, keyed by survey id. The
+ * home page needs six of these, so they go out as one IN query rather than
+ * six round trips.
+ */
+export async function getVotesForUser(
+  surveyIds: string[],
+  userId: string,
+): Promise<Map<string, VoteRecord>> {
+  const result = new Map<string, VoteRecord>();
+  if (surveyIds.length === 0) return result;
+
+  const placeholders = surveyIds.map(() => "?").join(", ");
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, survey_id, voting_type, updated_at FROM survey_history ` +
+      `WHERE user_id = ? AND survey_id IN (${placeholders})`,
+    [userId, ...surveyIds],
+  );
+
+  for (const row of rows) {
+    result.set(String(row.survey_id), {
+      id: row.id as string,
+      votingType: row.voting_type as VotingType,
+      votedAt: row.updated_at as Date,
+    });
+  }
+  return result;
 }
 
 export interface CastVoteResult {

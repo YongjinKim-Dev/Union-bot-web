@@ -6,7 +6,7 @@
   justify-content: flex-end;
   overflow: hidden;
   /* Shows through if login-bg.jpg is missing or still loading. */
-  background: var(--color-bg-deep);
+  background: var(--color-dark);
 }
 
 .backgroundImage {
@@ -18,12 +18,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(
-    180deg,
-    rgba(22, 19, 31, 0.35) 0%,
-    rgba(22, 19, 31, 0.55) 55%,
-    rgba(22, 19, 31, 0.92) 100%
-  );
+  background: var(--scrim-dark-hero);
 }
 
 .content {
@@ -44,36 +39,37 @@
 }
 
 .brand {
-  font-size: 2.25rem;
-  font-weight: 800;
-  color: var(--color-text-main);
-  letter-spacing: -0.02em;
+  font-size: 46px;
+  font-weight: 400;
+  line-height: 1.05;
+  color: var(--color-dark-ink);
 }
 
 .subtitle {
-  color: var(--color-text-dim);
-  font-size: 0.95rem;
+  color: var(--color-dark-ink-dim);
+  font-size: 13px;
 }
 
 .error {
   max-width: 320px;
   color: #ff8a8a;
-  font-size: 0.85rem;
-  line-height: 1.4;
+  font-size: 11.5px;
+  line-height: 1.5;
 }
 
 .discordButton {
   width: min(420px, 86vw);
-  padding: 16px 20px;
-  border: none;
-  border-radius: 12px;
-  background: var(--color-accent);
-  color: var(--color-bg-deep);
-  font-size: 1rem;
-  font-weight: 700;
+  min-height: 48px;
+  padding: 13.8px 22px;
+  border: 1px solid var(--color-dark-accent);
+  border-radius: 4px;
+  background: rgba(225, 173, 102, 0.16);
+  color: var(--color-dark-accent-bright);
+  font-size: 13.5px;
   cursor: pointer;
+  transition: background 0.18s ease;
 }
 
 .discordButton:hover {
-  filter: brightness(1.08);
+  background: rgba(225, 173, 102, 0.28);
 }

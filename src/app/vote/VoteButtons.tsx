@@ -13,12 +13,8 @@ import {
 import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
 import styles from "./vote.module.css";
 
-const BUTTONS: { type: VotingType; className: string }[] = [
-  { type: "attend", className: styles.primary },
-  { type: "non_attend", className: styles.grey },
-  { type: "boarding", className: styles.green },
-  { type: "late_attend", className: styles.danger },
-];
+// Order follows the design handoff's 2×2 grid: 참여 / 부속 / 늦참 / 미참.
+const BUTTONS: VotingType[] = ["attend", "boarding", "late_attend", "non_attend"];
 
 export function VoteButtons({
   surveyId,
@@ -60,11 +56,11 @@ export function VoteButtons({
   return (
     <div>
       <div className={styles.buttonRow}>
-        {BUTTONS.map(({ type, className }) => (
+        {BUTTONS.map((type) => (
           <button
             key={type}
             type="button"
-            className={`${styles.voteButton} ${className} ${currentVote === type ? styles.selected : ""}`}
+            className={`${styles.voteButton} ${currentVote === type ? styles.selected : ""}`}
             disabled={closed || isPending}
             onClick={() => handleVote(type)}
           >

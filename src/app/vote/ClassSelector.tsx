@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { fetchClassesByType, selectCharacterClass } from "./actions";
-import { ClassIcon } from "./ClassIcon";
+import { ClassIcon } from "@/components/ClassIcon";
 import { CLASS_TYPE_LABEL, type ClassType, type DbCharacterClass } from "@/lib/types";
 import styles from "./vote.module.css";
 
@@ -105,7 +105,11 @@ export function ClassSelector({
               disabled={isSelecting}
               onClick={() => handleClassSelect(c)}
             >
-              <ClassIcon name={c.name} />
+              <ClassIcon
+                name={c.name}
+                type={c.type}
+                tone={selectedName === c.name ? "selected" : "default"}
+              />
               <span className={styles.classCardLabel}>{c.name}</span>
             </button>
           ))}

@@ -1,188 +1,557 @@
 .main {
   min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-bg-deep);
-  color: var(--color-text-main);
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  background: var(--color-paper);
+  color: var(--color-ink);
 }
 
-/* Logged-out state */
+.kicker {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--color-ink-dim);
+}
+
+/* ── Logged out ─────────────────────────────────────────────── */
+
+.loginMain {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--color-paper);
+}
 
 .loginHero {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 24px;
+  gap: 8px;
   text-align: center;
 }
 
-.tagline {
-  color: var(--color-text-dim);
-  font-size: 0.95rem;
+.loginBrand {
+  font-size: 46px;
+  font-weight: 400;
+  line-height: 1.05;
+}
+
+.loginTagline {
+  color: var(--color-ink-dim);
+  font-size: 13px;
 }
 
 .loginButton {
-  margin-top: 12px;
-  padding: 12px 28px;
-  border-radius: 10px;
-  background: var(--color-accent);
-  color: var(--color-bg-deep);
-  font-weight: 700;
-  font-size: 0.95rem;
+  margin-top: 18.4px;
+  padding: 12px 27.6px;
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  background: var(--color-accent-tint);
+  color: var(--color-accent-deeper);
+  font-size: 13.5px;
 }
 
 .loginButton:hover {
-  filter: brightness(1.08);
+  border-color: var(--color-accent-deep);
 }
 
-/* Logged-in state */
+/* ── Header ─────────────────────────────────────────────────── */
 
+/* Desktop lays out as [brand] … [nav] [logout] in one row. On mobile the nav
+   wraps to its own full-width row (see the media query) so nothing squeezes. */
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--color-line);
+  flex-wrap: wrap;
+  gap: 18.4px;
+  padding: 27.6px 46px 18.4px;
+  border-bottom: 1px solid var(--color-hairline);
 }
 
-.brandRow {
+.brandBlock {
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.logo {
-  font-size: 1.25rem;
+  align-items: baseline;
+  gap: 13.8px;
+  margin-right: auto;
 }
 
 .brand {
-  font-size: 1.75rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-family: var(--font-cormorant), var(--font-nanum-myeongjo), serif;
+  font-size: 22px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.headerRight {
+.nav {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 18.4px;
 }
 
-.nickname {
-  font-size: 0.9rem;
-  color: var(--color-text-dim);
+.logoutForm {
+  order: 1;
+}
+
+.navLink,
+.navLinkSoon {
+  font-size: 12.5px;
+  color: var(--color-ink-dim);
+}
+
+.navLink:hover {
+  color: var(--color-accent-deep);
+}
+
+.navLinkActive {
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-accent);
+}
+
+.navLinkSoon {
+  color: var(--color-ink-faint);
+  cursor: default;
 }
 
 .logoutButton {
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--color-line);
+  padding: 6px 13.8px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 4px;
   background: transparent;
-  color: var(--color-text-dim);
-  font-size: 0.8rem;
+  color: var(--color-ink-dim);
+  font-size: 11.5px;
   cursor: pointer;
 }
 
 .logoutButton:hover {
   border-color: var(--color-accent);
-  color: var(--color-accent);
+  color: var(--color-accent-deep);
 }
 
+/* ── Hero band ──────────────────────────────────────────────── */
+
 .hero {
-  padding: 40px 24px 24px;
-  text-align: center;
+  position: relative;
+  height: 320px;
+  overflow: hidden;
+  background: var(--color-dark);
+}
+
+.heroImage {
+  object-fit: cover;
+}
+
+.heroScrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72%;
+  pointer-events: none;
+  background: var(--scrim-band);
+}
+
+.heroContent {
+  position: absolute;
+  left: 46px;
+  right: 46px;
+  bottom: 27.6px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 36.8px;
+  /* The scrim alone can't guarantee contrast — a wallpaper with a blown-out
+     bright area will swallow the light-on-dark text. This keeps the hero
+     legible whatever image is dropped in. */
+  text-shadow: 0 1px 4px rgba(26, 25, 24, 0.85), 0 0 18px rgba(26, 25, 24, 0.55);
+}
+
+.heroKicker {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--color-dark-accent-bright);
 }
 
 .heroTitle {
-  font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  margin-top: 9.2px;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 46px;
+  line-height: 1.05;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--color-dark-ink);
 }
 
-.heroSubtitle {
-  margin-top: 8px;
-  color: var(--color-text-dim);
-  font-size: 0.95rem;
+.heroActions {
+  display: flex;
+  align-items: center;
+  gap: 13.8px;
+  margin-top: 18.4px;
+  flex-wrap: wrap;
 }
 
-.grid {
-  flex: 1;
+.heroButton,
+.heroButtonGhost {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 9.2px 22px;
+  border-radius: 4px;
+  font-size: 13.5px;
+}
+
+.heroButton {
+  border: 1px solid var(--color-dark-accent);
+  background: rgba(225, 173, 102, 0.14);
+  color: var(--color-dark-accent-bright);
+}
+
+.heroButton:hover {
+  background: rgba(225, 173, 102, 0.24);
+}
+
+.heroButtonGhost {
+  border: 1px solid rgba(243, 242, 242, 0.28);
+  color: var(--color-dark-ink-soft);
+}
+
+.heroMyVote {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 11.5px;
+  color: var(--color-dark-ink-soft);
+}
+
+/* ── Body ───────────────────────────────────────────────────── */
+
+.body {
+  padding: 27.6px 46px 46px;
+}
+
+.columns {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 8px 24px 48px;
+  grid-template-columns: 1fr 280px;
+  gap: 36.8px;
+  align-items: start;
 }
 
-.card {
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 9.2px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.sectionTitle {
+  font-size: 18px;
+}
+
+.sectionMeta {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--color-ink-dim);
+}
+
+.sectionLink {
+  font-size: 11.5px;
+  color: var(--color-accent-deep);
+}
+
+.sectionLink:hover {
+  color: var(--color-accent-deeper);
+}
+
+/* Weekday grid */
+
+.dayGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9.2px;
+  margin-top: 18.4px;
+}
+
+.dayCard {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 24px;
-  border-radius: 16px;
-  border: 1px solid var(--color-line);
-  background: var(--color-bg-mid);
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  gap: 9.2px;
+  /* Sized for 요일/날짜 + 상태. Bump back toward 112px if the "내 표" line
+     (currently commented out in page.tsx) returns. */
+  min-height: 84px;
+  padding: 13.8px 11px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 4px;
+  background: transparent;
 }
 
-.cardActive {
-  grid-column: span 2;
+.dayCardLive {
   border-color: var(--color-accent);
-  background: linear-gradient(160deg, var(--color-accent-soft), var(--color-bg-mid) 60%);
+  background: var(--color-accent-tint);
 }
 
-.cardActive:hover {
-  transform: translateY(-2px);
+.dayCardTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
 }
 
-.cardSoon {
+.dayLabel {
+  font-family: var(--font-cormorant), var(--font-nanum-myeongjo), serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.dayLabelLive {
+  color: var(--color-accent-deeper);
+}
+
+.dayDate {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--color-ink-dim);
+}
+
+.dayState {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--color-ink-dim);
+}
+
+.dayStateLive {
+  color: var(--color-accent-deep);
+}
+
+.dayVote {
+  margin-top: auto;
+  font-size: 12.5px;
+  color: var(--color-ink-faint);
+}
+
+.dayVoteSet {
+  color: var(--color-accent-deep);
+}
+
+/* Registered class */
+
+.classCard {
+  display: flex;
+  align-items: center;
+  gap: 13.8px;
+  margin-top: 18.4px;
+  padding: 9.2px 11px;
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  background: var(--color-accent-tint);
+}
+
+.classCardEmpty {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 24px;
-  border-radius: 16px;
-  border: 1px dashed var(--color-line);
-  color: var(--color-text-faint);
+  gap: 4px;
+  margin-top: 18.4px;
+  padding: 13.8px 11px;
+  border: 1px dashed rgba(32, 31, 29, 0.26);
+  border-radius: 4px;
 }
 
-.cardTitle {
-  font-size: 1.1rem;
-  font-weight: 700;
+.className {
+  font-size: 13.5px;
+  color: var(--color-accent-deeper);
 }
 
-.cardDescription {
-  font-size: 0.85rem;
-  color: var(--color-text-dim);
+.classCardEmpty .className {
+  color: var(--color-ink);
 }
 
-.cardSoon .cardDescription {
-  color: var(--color-text-faint);
+.classSub {
+  font-size: 11px;
+  color: var(--color-accent-deep);
 }
 
-.cardMeta {
-  margin-top: auto;
-  padding-top: 8px;
-  font-size: 0.8rem;
+.classCardEmpty .classSub {
+  color: var(--color-ink-dim);
+  line-height: 1.5;
+}
+
+.classNote {
+  margin-top: 13.8px;
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: rgba(32, 31, 29, 0.72);
+}
+
+/* Reference cards */
+
+.refGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18.4px;
+  margin-top: 18.4px;
+}
+
+.refCard {
+  display: flex;
+  flex-direction: column;
+  gap: 9.2px;
+  padding: 22px;
+  border: 1px dashed rgba(32, 31, 29, 0.26);
+  border-radius: 4px;
+}
+
+.refKicker {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--color-ink-faint);
+}
+
+.refTitle {
+  font-family: var(--font-cormorant), var(--font-nanum-myeongjo), serif;
+  font-size: 24px;
   font-weight: 600;
-  color: var(--color-accent);
+  color: var(--color-ink);
 }
 
-.soonBadge {
+.refDescription {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: rgba(32, 31, 29, 0.72);
+}
+
+.refSoon {
   align-self: flex-start;
   margin-top: auto;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--color-line);
-  font-size: 0.7rem;
-  color: var(--color-text-faint);
+  padding: 2px 9.2px;
+  border: 1px solid rgba(32, 31, 29, 0.22);
+  border-radius: 4px;
+  font-size: 10.5px;
+  color: var(--color-ink-dim);
 }
 
-@media (max-width: 640px) {
-  .cardActive {
-    grid-column: span 1;
+/* ── Mobile ─────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .header {
+    gap: 11px;
+    padding: 18.4px 22px;
+  }
+
+  .brand {
+    font-size: 19px;
+  }
+
+  /* Nav drops to its own row beneath brand + logout. */
+  .nav {
+    order: 2;
+    flex-basis: 100%;
+    gap: 15px;
+  }
+
+  .navLink,
+  .navLinkSoon {
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+
+  .hero {
+    height: 190px;
+  }
+
+  /* Full-height scrim on mobile: at 190px the text block sits high enough
+     that a bottom-anchored gradient is still transparent behind the kicker. */
+  .heroScrim {
+    height: 100%;
+    background: linear-gradient(
+      180deg,
+      rgba(26, 25, 24, 0.3) 0%,
+      rgba(26, 25, 24, 0.5) 42%,
+      rgba(26, 25, 24, 0.95) 100%
+    );
+  }
+
+  .heroContent {
+    left: 22px;
+    right: 22px;
+    bottom: 18.4px;
+  }
+
+  .heroTitle {
+    font-size: 26px;
+    line-height: 1.15;
+    margin-top: 4px;
+  }
+
+
+  .body {
+    padding: 18.4px 22px 36.8px;
+  }
+
+  .columns {
+    grid-template-columns: 1fr;
+    gap: 27.6px;
+  }
+
+  /* Six days across one row — day/date/state only, no vote line. */
+  .dayGrid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+  }
+
+  .dayCard {
+    min-height: 0;
+    gap: 4px;
+    padding: 9.2px 4px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .dayCardTop {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .dayLabel {
+    font-size: 17px;
+  }
+
+  .dayDate {
+    font-size: 9.5px;
+  }
+
+  .dayState {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+  }
+
+  .dayVote {
+    display: none;
+  }
+
+  .refGrid {
+    grid-template-columns: 1fr;
+    gap: 9.2px;
+  }
+
+  .refCard {
+    padding: 15px;
+  }
+
+  .refKicker {
+    display: none;
+  }
+
+  .refTitle {
+    font-size: 18px;
+  }
+
+  .refDescription {
+    font-size: 11.5px;
+    line-height: 1.6;
   }
 }

@@ -1,14 +1,50 @@
-/* Site-wide color tokens. Change only the values here to re-theme the whole
-   app — every new component (homepage, login) reads these directly, and
-   globals.css aliases the legacy --background/--foreground/etc. tokens to
-   these so existing pages (e.g. /vote) pick up the palette automatically. */
+/* Classical 디자인 시스템 색 토큰.
+   전체 리테마는 이 파일 값만 교체하면 된다 — globals.css가 레거시 별칭
+   (--background/--foreground/…)을 여기에 다시 매핑하므로 기존 CSS 모듈도
+   따라온다. 값 출처: docs/design_handoff_union_ledger/README.md > Design Tokens */
 :root {
-  --color-bg-deep: #16131f;
-  --color-bg-mid: #211d2e;
-  --color-accent: #a56cff;
-  --color-accent-soft: rgba(165, 108, 255, 0.24);
-  --color-text-main: #f2eee6;
-  --color-text-dim: #a79fb8;
-  --color-text-faint: #5c5568;
-  --color-line: rgba(255, 255, 255, 0.08);
+  /* 지면 */
+  --color-paper: #f3f2f2;
+  --color-surface: #eae9e9;
+
+  /* 글자 */
+  --color-ink: #201f1d;
+  --color-ink-dim: #605d5d;
+  --color-ink-faint: #7d7979;
+
+  /* 선 */
+  --color-hairline: rgba(32, 31, 29, 0.16);
+  --color-rule: rgba(32, 31, 29, 0.12);
+
+  /* 강조(금색) */
+  --color-accent: #b68235;
+  --color-accent-deep: #7d5411;
+  --color-accent-deeper: #5a3b0a;
+  --color-accent-tint: #fff3e4;
+
+  /* 다크 지면 — 히어로 밴드처럼 이미지 위에 얹는 구간 */
+  --color-dark: #1a1918;
+  --color-dark-ink: #f3f2f2;
+  --color-dark-ink-soft: #e2e0dd;
+  --color-dark-ink-dim: #bab6b6;
+  --color-dark-accent: #e1ad66;
+  --color-dark-accent-bright: #facb8d;
+
+  /* 계열 마크 테두리 */
+  --color-mark-succession: #5b7fb5;
+  --color-mark-awakening: #b0555f;
+  --color-mark-neutral: rgba(32, 31, 29, 0.22);
+
+  /* 그림자 */
+  --shadow-card: 0 3px 10px rgba(45, 43, 43, 0.12);
+  --shadow-modal: 0 8px 28px rgba(45, 43, 43, 0.22);
+
+  /* 스크림 그라디언트 */
+  --scrim-band: linear-gradient(180deg, transparent, rgba(26, 25, 24, 0.82));
+  --scrim-dark-hero: linear-gradient(
+    180deg,
+    rgba(26, 25, 24, 0.86),
+    rgba(26, 25, 24, 0.5) 42%,
+    rgba(26, 25, 24, 0.94)
+  );
 }
