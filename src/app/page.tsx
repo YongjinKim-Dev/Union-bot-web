@@ -6,8 +6,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { ReferenceSection } from "./ReferenceSection";
 // getVotesForUser is still exported for when "내 표" comes back.
 import { getSurveysInRange, getUserCharacterClass } from "@/lib/queries";
-import { formatSurveyTime, getVotingClosesAt } from "@/lib/format";
-import { buildWeekSlots, formatShortDate, getKstWeekRange, isSameKstDay } from "@/lib/week";
+import { buildWeekSlots, getKstWeekRange } from "@/lib/week";
 // VOTING_TYPE_LABEL is needed again once the "내 표" blocks are restored.
 import { CLASS_TYPE_LABEL } from "@/lib/types";
 import styles from "./page.module.css";
@@ -23,7 +22,6 @@ export default async function HomePage() {
     return (
       <main className={styles.loginMain}>
         <section className={styles.loginHero}>
-          <span className={styles.kicker}>UNION LEDGER</span>
           <h1 className={styles.loginBrand}>아시바당</h1>
           <p className={styles.loginTagline}>거점전 투표와 연맹 정보를 한 곳에서.</p>
           <Link href="/login?callbackUrl=%2F" className={styles.loginButton}>
@@ -51,7 +49,6 @@ export default async function HomePage() {
   // );
 
   const slots = buildWeekSlots(now, weekSurveys);
-  const todaySurvey = weekSurveys.find((s) => isSameKstDay(s.executed_at, now)) ?? null;
   // const todayVote = todaySurvey ? votes.get(todaySurvey.id) : undefined;
 
   return (
@@ -70,32 +67,6 @@ export default async function HomePage() {
           className={styles.heroImage}
         />
         <div className={styles.heroScrim} />
-        <div className={styles.heroContent}>
-          <div>
-            <span className={styles.heroKicker}>
-              {todaySurvey
-                ? `마감 ${formatSurveyTime(getVotingClosesAt(todaySurvey.executed_at))}`
-                : "설문 등록 대기중"}
-            </span>
-            <h1 className={styles.heroTitle}>{formatShortDate(now)}</h1>
-            {todaySurvey && (
-              <div className={styles.heroActions}>
-                {todaySurvey.status === "process" ? (
-                  <Link href="/vote" className={styles.heroButton}>
-                    투표하러 가기
-                  </Link>
-                ) : (
-                  <Link href="/vote" className={styles.heroButtonGhost}>
-                    {todaySurvey.status === "complete" ? "마감된 설문 보기" : "설문 대기중"}
-                  </Link>
-                )}
-                {/* <span className={styles.heroMyVote}>
-                  내 표 · {todayVote ? VOTING_TYPE_LABEL[todayVote.votingType] : "미등록"}
-                </span> */}
-              </div>
-            )}
-          </div>
-        </div>
       </section>
 
       <div className={styles.body}>

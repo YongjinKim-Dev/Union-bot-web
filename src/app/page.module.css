@@ -7,13 +7,6 @@
   color: var(--color-ink);
 }
 
-.kicker {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  color: var(--color-ink-dim);
-}
-
 /* ── Logged out ─────────────────────────────────────────────── */
 
 .loginMain {
@@ -63,6 +56,8 @@
 .hero {
   position: relative;
   height: 320px;
+  margin: 0 46px;
+  border-radius: 4px;
   overflow: hidden;
   background: var(--color-dark);
 }
@@ -81,77 +76,6 @@
   background: var(--scrim-band);
 }
 
-.heroContent {
-  position: absolute;
-  left: 46px;
-  right: 46px;
-  bottom: 27.6px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 36.8px;
-  /* The scrim alone can't guarantee contrast — a wallpaper with a blown-out
-     bright area will swallow the light-on-dark text. This keeps the hero
-     legible whatever image is dropped in. */
-  text-shadow: 0 1px 4px rgba(26, 25, 24, 0.85), 0 0 18px rgba(26, 25, 24, 0.55);
-}
-
-.heroKicker {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  color: var(--color-dark-accent-bright);
-}
-
-.heroTitle {
-  margin-top: 9.2px;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 46px;
-  line-height: 1.05;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  color: var(--color-dark-ink);
-}
-
-.heroActions {
-  display: flex;
-  align-items: center;
-  gap: 13.8px;
-  margin-top: 18.4px;
-  flex-wrap: wrap;
-}
-
-.heroButton,
-.heroButtonGhost {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 9.2px 22px;
-  border-radius: 4px;
-  font-size: 13.5px;
-}
-
-.heroButton {
-  border: 1px solid var(--color-dark-accent);
-  background: rgba(225, 173, 102, 0.14);
-  color: var(--color-dark-accent-bright);
-}
-
-.heroButton:hover {
-  background: rgba(225, 173, 102, 0.24);
-}
-
-.heroButtonGhost {
-  border: 1px solid rgba(243, 242, 242, 0.28);
-  color: var(--color-dark-ink-soft);
-}
-
-.heroMyVote {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--color-dark-ink-soft);
-}
 
 /* ── Body ───────────────────────────────────────────────────── */
 
@@ -318,6 +242,7 @@
 @media (max-width: 768px) {
   .hero {
     height: 190px;
+    margin: 0 22px;
   }
 
   /* Full-height scrim on mobile: at 190px the text block sits high enough
@@ -330,18 +255,6 @@
       rgba(26, 25, 24, 0.5) 42%,
       rgba(26, 25, 24, 0.95) 100%
     );
-  }
-
-  .heroContent {
-    left: 22px;
-    right: 22px;
-    bottom: 18.4px;
-  }
-
-  .heroTitle {
-    font-size: 26px;
-    line-height: 1.15;
-    margin-top: 4px;
   }
 
   .body {
