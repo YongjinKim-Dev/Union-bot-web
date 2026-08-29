@@ -24,7 +24,7 @@ interface NavItem {
 // A null href renders as a muted, non-interactive "준비 중" item.
 const NAV_ITEMS: NavItem[] = [
   { key: "home", label: "홈", href: "/" },
-  { key: "classes", label: "직업 등록", href: null },
+  { key: "classes", label: "직업 등록", href: "/classes" },
   { key: "about", label: "연맹 소개", href: null },
   { key: "docs", label: "문서", href: null },
 ];
@@ -199,7 +199,7 @@ export default async function HomePage() {
           <section>
             <div className={styles.sectionHeader}>
               <h3 className={styles.sectionTitle}>내 등록 직업</h3>
-              <Link href="/vote" className={styles.sectionLink}>
+              <Link href="/classes" className={styles.sectionLink}>
                 변경
               </Link>
             </div>

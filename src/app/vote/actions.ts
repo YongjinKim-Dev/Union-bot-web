@@ -2,14 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-import {
-  castVote,
-  getActiveSurvey,
-  getCharacterClassesByType,
-  setUserCharacterClass,
-} from "@/lib/queries";
+import { castVote, getActiveSurvey } from "@/lib/queries";
 import { sendVoteLog } from "@/lib/discord";
-import { VOTING_TYPE_LABEL, type ClassType, type VotingType } from "@/lib/types";
+import { VOTING_TYPE_LABEL, type VotingType } from "@/lib/types";
 
 async function requireSessionUser() {
   const session = await auth();
@@ -35,14 +30,4 @@ export async function submitVote(surveyId: string, votingType: VotingType) {
 
   revalidatePath("/vote");
   return result;
-}
-
-export async function fetchClassesByType(type: ClassType) {
-  return getCharacterClassesByType(type);
-}
-
-export async function selectCharacterClass(characterClassId: string) {
-  const user = await requireSessionUser();
-  await setUserCharacterClass(user.dbUserId, characterClassId);
-  revalidatePath("/vote");
 }

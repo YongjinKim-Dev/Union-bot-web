@@ -1,8 +1,12 @@
 // Maps character_class.name (Korean) to the English filename used under
-// public/classes/Class Icon {filename}.png. Keys match the live
+// public/class-icons/Class Icon {filename}.png. Keys match the live
 // character_class table exactly (32 distinct names across 57 rows — the same
 // name appears under both Succession and Awaken and shares one icon, the mark
 // badge is what distinguishes them). Add a line here if a new class ships.
+//
+// The folder is class-icons, not classes, on purpose: /classes is an app route
+// and its auth guard in proxy.ts would otherwise intercept these static files
+// and 307 them to /login.
 const CLASS_ICON_FILENAME: Record<string, string> = {
   워리어: "Warrior",
   소서러: "Sorceress",
@@ -38,9 +42,9 @@ const CLASS_ICON_FILENAME: Record<string, string> = {
   에이전트: "Agent",
 };
 
-export const DEFAULT_CLASS_ICON = "/classes/default.png";
+export const DEFAULT_CLASS_ICON = "/class-icons/default.png";
 
 export function getClassIconPath(name: string): string {
   const filename = CLASS_ICON_FILENAME[name];
-  return filename ? `/classes/Class Icon ${filename}.png` : DEFAULT_CLASS_ICON;
+  return filename ? `/class-icons/Class Icon ${filename}.png` : DEFAULT_CLASS_ICON;
 }

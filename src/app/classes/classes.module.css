@@ -1,0 +1,360 @@
+.main {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 13.8px;
+  padding: 18.4px 36.8px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.brandBlock {
+  display: flex;
+  align-items: baseline;
+  gap: 13.8px;
+}
+
+.brand {
+  font-family: var(--font-cormorant), var(--font-nanum-myeongjo), serif;
+  font-size: 19px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.headerKicker {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--color-ink-dim);
+}
+
+.homeLink {
+  font-size: 12.5px;
+  color: var(--color-ink-dim);
+  white-space: nowrap;
+}
+
+.homeLink:hover {
+  color: var(--color-accent-deep);
+}
+
+/* ── Body ───────────────────────────────────────────────────── */
+
+.body {
+  flex: 1;
+  padding: 36.8px;
+}
+
+.kicker {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--color-accent-deep);
+}
+
+.stepTitle {
+  margin-top: 4px;
+  font-size: 26px;
+  font-weight: 400;
+}
+
+.divider {
+  height: 1px;
+  margin: 27.6px 0;
+  background: var(--color-hairline);
+}
+
+/* Step 1 — branch */
+
+.branchRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 13.8px;
+  margin-top: 13.8px;
+}
+
+.branchCard {
+  padding: 13.8px 18.4px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 4px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.branchCard:hover {
+  border-color: var(--color-accent);
+}
+
+.branchCardSelected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+}
+
+.branchNum {
+  display: block;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--color-accent-deep);
+}
+
+.branchLabel {
+  display: block;
+  font-family: var(--font-nanum-myeongjo), serif;
+  font-size: 17px;
+  color: var(--color-ink);
+}
+
+.branchCardSelected .branchLabel {
+  color: var(--color-accent-deeper);
+}
+
+.branchSub {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--color-ink-dim);
+}
+
+/* Step 2 — class grid. Dimmed until a branch is chosen. */
+
+.stepTwo {
+  opacity: 0.38;
+  transition: opacity 0.22s ease;
+}
+
+.stepTwoActive {
+  opacity: 1;
+}
+
+.stepTwoHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 13.8px;
+}
+
+.stepTwoHint {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--color-ink-dim);
+}
+
+.loading {
+  margin-top: 18.4px;
+  font-size: 12.5px;
+  color: var(--color-ink-dim);
+}
+
+.classGrid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 9.2px;
+  margin-top: 18.4px;
+}
+
+.classTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 76px;
+  padding: 9.2px 4.6px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.classTile:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+}
+
+.classTile:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.classTileSelected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+}
+
+.classTileName {
+  font-family: var(--font-nanum-myeongjo), serif;
+  font-size: 11.5px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.classTileSelected .classTileName {
+  color: var(--color-accent-deeper);
+}
+
+/* ── Footer bar ─────────────────────────────────────────────── */
+
+.footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 13.8px;
+  padding: 18.4px 36.8px;
+  border-top: 1px solid var(--color-hairline);
+  background: var(--color-surface);
+}
+
+.summaryKicker {
+  display: block;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--color-ink-dim);
+}
+
+.summary {
+  margin-top: 2px;
+  font-size: 13.5px;
+}
+
+.summaryStrong {
+  color: var(--color-accent-deeper);
+}
+
+.summaryDim {
+  color: var(--color-ink-dim);
+}
+
+.footerActions {
+  display: flex;
+  align-items: center;
+  gap: 9.2px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.error {
+  font-size: 11.5px;
+  color: #b3261e;
+}
+
+.done {
+  font-size: 11.5px;
+  color: var(--color-accent-deep);
+}
+
+.resetButton {
+  min-height: 44px;
+  padding: 6px 13.8px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-ink-dim);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+.resetButton:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-deep);
+}
+
+.submitButton {
+  min-height: 44px;
+  padding: 9.2px 22px;
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  background: var(--color-accent-tint);
+  color: var(--color-accent-deeper);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.submitButton:disabled {
+  border-color: var(--color-hairline);
+  background: transparent;
+  color: var(--color-ink-faint);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .header {
+    padding: 18.4px 22px;
+  }
+
+  .body {
+    padding: 22px;
+  }
+
+  .stepTitle {
+    font-size: 19px;
+  }
+
+  /* Branch becomes a vertical list; the step number is desktop-only. */
+  .branchRow {
+    grid-template-columns: 1fr;
+    gap: 9.2px;
+  }
+
+  .branchNum {
+    display: none;
+  }
+
+  .divider {
+    margin: 22px 0;
+  }
+
+  .classGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* Summary above, full-width submit below. */
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9.2px;
+    padding: 13.8px 22px;
+  }
+
+  .summaryBlock {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 9.2px;
+  }
+
+  .summary {
+    margin-top: 0;
+  }
+
+  .footerActions {
+    justify-content: stretch;
+  }
+
+  .submitButton {
+    flex: 1;
+  }
+}

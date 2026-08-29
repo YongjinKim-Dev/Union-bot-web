@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { submitVote } from "./actions";
-import { ClassSelector } from "./ClassSelector";
 import {
   ATTEND_TYPES,
   CLASS_TYPE_LABEL,
@@ -31,7 +31,8 @@ export function VoteButtons({
 }) {
   const [currentVote, setCurrentVote] = useState<VotingType | null>(initialVote);
   const [votedAt, setVotedAt] = useState<Date | null>(initialVotedAt);
-  const [classInfo, setClassInfo] = useState(initialClassInfo);
+  // Registration now lives on /classes, so this never changes here.
+  const classInfo = initialClassInfo;
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -84,19 +85,15 @@ export function VoteButtons({
           {classInfo ? (
             <p className={styles.notice}>
               현재 직업: {classInfo.name} ({CLASS_TYPE_LABEL[classInfo.type]})
-              <br />
-              직업을 변경하시려면 아래에서 다시 선택해주세요.
             </p>
           ) : (
             <p className={styles.warning}>
-              ⚠️ 직업 미등록! 아래에서 직업을 등록해야 인원제한결과에 포함됩니다.
+              ⚠️ 직업 미등록! 직업을 등록해야 인원제한결과에 포함됩니다.
             </p>
           )}
-          <ClassSelector
-            initialType={classInfo?.type}
-            initialName={classInfo?.name}
-            onSelected={(name, type) => setClassInfo({ name, type })}
-          />
+          <Link href="/classes" className={styles.classLink}>
+            직업 등록 화면 →
+          </Link>
         </div>
       )}
     </div>
