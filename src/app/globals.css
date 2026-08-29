@@ -21,10 +21,10 @@
      --font-prose is for reading text at 13px and up. Anything smaller stays on
      --font-body even when it reads like prose — a 11.5px caption in 명조 is
      exactly the smearing this split exists to avoid. */
-  --font-heading: "Cormorant Garamond", var(--font-korean-serif), Georgia, serif;
-  --font-prose: "Lora", var(--font-korean-serif), Georgia, serif;
-  --font-body: "Lora", var(--font-korean-sans), Georgia, sans-serif;
-  --font-mono: "JetBrains Mono", var(--font-korean-sans), ui-monospace, monospace;
+  --font-heading: "Cinzel", "Pretendard Variable", Pretendard, var(--font-korean-sans), serif;
+  --font-prose: "Pretendard Variable", Pretendard, var(--font-korean-sans), sans-serif;
+  --font-body: "Pretendard Variable", Pretendard, var(--font-korean-sans), sans-serif;
+  --font-mono: "JetBrains Mono", "Pretendard Variable", var(--font-korean-sans), ui-monospace, monospace;
 }
 
 /* Legacy aliases: the /vote CSS modules were written against these names, so
