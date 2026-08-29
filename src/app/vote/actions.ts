@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-import { castVote, getActiveSurvey } from "@/lib/queries";
+import { castVote, getOpenSurvey } from "@/lib/queries";
 import { sendVoteLog } from "@/lib/discord";
 import { VOTING_TYPE_LABEL, type VotingType } from "@/lib/types";
 
@@ -17,7 +17,7 @@ async function requireSessionUser() {
 export async function submitVote(surveyId: string, votingType: VotingType) {
   const user = await requireSessionUser();
 
-  const survey = await getActiveSurvey();
+  const survey = await getOpenSurvey();
   if (!survey || survey.id !== surveyId) {
     throw new Error("이미 마감되었거나 존재하지 않는 설문입니다.");
   }

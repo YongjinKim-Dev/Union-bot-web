@@ -18,35 +18,48 @@ export async function getUserByDiscordId(discordId: string): Promise<DbUser | nu
   return (rows[0] as DbUser) ?? null;
 }
 
-// Mirrors the bot's check_sendable_survey / close_survey window: a survey is
-// open for voting once it has been sent (status = 'process') and until one
-// hour before executed_at.
-export async function getActiveSurvey(): Promise<DbSurvey | null> {
+/**
+ * The survey a member can actually vote on right now.
+ *
+ * `status = 'process'` alone is not enough: the bot's close task needs to edit
+ * its Discord message, and when that fails the row is left at 'process'
+ * forever — the live DB has 13 such rows, the newest from a node war 11 days
+ * past. Requiring executed_at to be recent keeps a stale row from presenting
+ * itself as the open survey, while still covering one that closed minutes ago
+ * and is waiting on the bot to mark it complete.
+ *
+ * `now` is passed rather than using SQL NOW() because the DB server's clock is
+ * UTC while the app reasons in KST; mysql2 converts a JS Date correctly using
+ * the pool's timezone setting.
+ */
+export async function getOpenSurvey(now: Date = new Date()): Promise<DbSurvey | null> {
+  const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
-      "WHERE status = 'process' ORDER BY exposed_at DESC LIMIT 1",
+      "WHERE status = 'process' AND executed_at >= ? ORDER BY executed_at ASC LIMIT 1",
+    [since],
   );
   return (rows[0] as DbSurvey) ?? null;
 }
 
-export async function getSurveysByStatus(
-  statuses: DbSurvey["status"][],
-): Promise<DbSurvey[]> {
-  if (statuses.length === 0) return [];
-  const placeholders = statuses.map(() => "?").join(", ");
+/** The next survey the bot has registered but not yet posted. */
+export async function getNextWaitingSurvey(): Promise<DbSurvey | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
-      `WHERE status IN (${placeholders}) ORDER BY exposed_at DESC`,
-    statuses,
+      "WHERE status = 'wait' ORDER BY exposed_at ASC LIMIT 1",
   );
-  return rows as DbSurvey[];
+  return (rows[0] as DbSurvey) ?? null;
 }
 
-/**
- * Surveys whose 거점전 falls inside [from, to). Used for the home page's
- * weekly grid. `cancel` rows are excluded so a cancelled day reads as having
- * no survey at all.
- */
+/** The most recently held survey, for the 지난 설문 tab. */
+export async function getLatestCompletedSurvey(): Promise<DbSurvey | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
+      "WHERE status = 'complete' ORDER BY executed_at DESC LIMIT 1",
+  );
+  return (rows[0] as DbSurvey) ?? null;
+}
+
 export async function getSurveysInRange(from: Date, to: Date): Promise<DbSurvey[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +

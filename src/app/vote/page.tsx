@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import {
-  getSurveysByStatus,
+  getLatestCompletedSurvey,
+  getNextWaitingSurvey,
+  getOpenSurvey,
   getUserCharacterClass,
   getVoteCounts,
   getVoteForUser,
@@ -24,16 +26,13 @@ export default async function VotePage() {
     redirect("/login");
   }
 
-  const surveys = await getSurveysByStatus(["process", "wait", "complete"]);
-  const processSurvey = surveys.find((s) => s.status === "process") ?? null;
-  const waitSurvey =
-    surveys
-      .filter((s) => s.status === "wait")
-      .sort((a, b) => a.exposed_at.getTime() - b.exposed_at.getTime())[0] ?? null;
-  const pastSurvey =
-    surveys
-      .filter((s) => s.status === "complete")
-      .sort((a, b) => b.executed_at.getTime() - a.executed_at.getTime())[0] ?? null;
+  // One targeted query per tab. Loading every survey to pick three meant
+  // pulling all 776 rows (52KB of `content`) on each request.
+  const [processSurvey, waitSurvey, pastSurvey] = await Promise.all([
+    getOpenSurvey(),
+    getNextWaitingSurvey(),
+    getLatestCompletedSurvey(),
+  ]);
 
   const [vote, classInfo, pastCounts] = await Promise.all([
     processSurvey ? getVoteForUser(processSurvey.id, session.user.dbUserId) : Promise.resolve(null),
