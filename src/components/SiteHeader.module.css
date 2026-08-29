@@ -17,14 +17,14 @@
 }
 
 .brand {
-  font-family: var(--font-cormorant), var(--font-nanum-myeongjo), serif;
+  font-family: var(--font-heading);
   font-size: 22px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .kicker {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.16em;
   color: var(--color-ink-dim);

@@ -41,7 +41,7 @@
 }
 
 .heroKicker {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.16em;
   color: var(--color-dark-accent-bright);
@@ -57,7 +57,7 @@
 
 .heroSub {
   margin-top: 9.2px;
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--color-dark-ink-soft);
 }
@@ -151,7 +151,7 @@
     #eae9e9 6px 12px
   );
   color: var(--color-ink-faint);
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.04em;
 }
@@ -183,7 +183,7 @@
 }
 
 .staffRole {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--color-ink-faint);
 }

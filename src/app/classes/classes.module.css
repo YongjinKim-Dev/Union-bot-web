@@ -27,14 +27,14 @@
 }
 
 .brand {
-  font-family: var(--font-cormorant), var(--font-nanum-myeongjo), serif;
+  font-family: var(--font-heading);
   font-size: 19px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .headerKicker {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   color: var(--color-ink-dim);
@@ -58,7 +58,7 @@
 }
 
 .kicker {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.16em;
   color: var(--color-accent-deep);
@@ -106,7 +106,7 @@
 
 .branchNum {
   display: block;
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   color: var(--color-accent-deep);
@@ -114,7 +114,7 @@
 
 .branchLabel {
   display: block;
-  font-family: var(--font-nanum-myeongjo), serif;
+  font-family: var(--font-body);
   font-size: 17px;
   color: var(--color-ink);
 }
@@ -150,7 +150,7 @@
 }
 
 .stepTwoHint {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--color-ink-dim);
 }
@@ -199,7 +199,7 @@
 }
 
 .classTileName {
-  font-family: var(--font-nanum-myeongjo), serif;
+  font-family: var(--font-body);
   font-size: 11.5px;
   line-height: 1.2;
   text-align: center;
@@ -225,7 +225,7 @@
 
 .summaryKicker {
   display: block;
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   color: var(--color-ink-dim);

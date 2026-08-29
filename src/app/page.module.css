@@ -8,7 +8,7 @@
 }
 
 .kicker {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.16em;
   color: var(--color-ink-dim);
@@ -97,7 +97,7 @@
 }
 
 .heroKicker {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.16em;
   color: var(--color-dark-accent-bright);
@@ -105,7 +105,7 @@
 
 .heroTitle {
   margin-top: 9.2px;
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: 46px;
   line-height: 1.05;
@@ -148,7 +148,7 @@
 }
 
 .heroMyVote {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--color-dark-ink-soft);
 }
@@ -179,7 +179,7 @@
 }
 
 .sectionMeta {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--color-ink-dim);
 }
@@ -227,7 +227,7 @@
 }
 
 .dayLabel {
-  font-family: var(--font-cormorant), var(--font-nanum-myeongjo), serif;
+  font-family: var(--font-heading);
   font-size: 24px;
   font-weight: 600;
   color: var(--color-ink);
@@ -238,13 +238,13 @@
 }
 
 .dayDate {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--color-ink-dim);
 }
 
 .dayState {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   color: var(--color-ink-dim);
@@ -316,11 +316,6 @@
 /* ── Mobile ─────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-
-
-  /* Nav drops to its own row beneath brand + logout. */
-
-
   .hero {
     height: 190px;
   }
@@ -348,7 +343,6 @@
     line-height: 1.15;
     margin-top: 4px;
   }
-
 
   .body {
     padding: 18.4px 22px 36.8px;
@@ -395,9 +389,5 @@
   .dayVote {
     display: none;
   }
-
-
-
-
 
 }

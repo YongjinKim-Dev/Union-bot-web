@@ -21,7 +21,7 @@
 }
 
 .sidebarKicker {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   color: var(--color-ink-dim);
@@ -63,7 +63,7 @@
 }
 
 .kicker {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.16em;
   color: var(--color-ink-dim);
@@ -165,7 +165,7 @@
 }
 
 .calloutKicker {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   color: var(--color-accent-deep);
@@ -182,7 +182,7 @@
   margin-top: 27.6px;
   padding-top: 18.4px;
   border-top: 1px solid var(--color-hairline);
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--color-ink-faint);
 }
