@@ -139,7 +139,6 @@
 .dayCardLive {
   border-color: var(--color-accent);
   background: var(--color-accent-tint);
-  box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
 .dayCardTop {
