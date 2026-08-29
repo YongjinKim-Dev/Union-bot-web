@@ -5,8 +5,10 @@ import { ClassIcon } from "@/components/ClassIcon";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ReferenceSection } from "./ReferenceSection";
 // getVotesForUser is still exported for when "내 표" comes back.
-import { getSurveysInRange, getUserCharacterClass } from "@/lib/queries";
+import { getNextWaitingSurvey, getOpenSurvey, getSurveysInRange, getUserCharacterClass } from "@/lib/queries";
+import { getVotingClosesAt } from "@/lib/format";
 import { buildWeekSlots, getKstWeekRange } from "@/lib/week";
+import { HeroCountdown } from "./HeroCountdown";
 // VOTING_TYPE_LABEL is needed again once the "내 표" blocks are restored.
 import { CLASS_TYPE_LABEL } from "@/lib/types";
 import styles from "./page.module.css";
@@ -36,10 +38,17 @@ export default async function HomePage() {
   const now = new Date();
   const { from, to } = getKstWeekRange(now);
 
-  const [weekSurveys, classInfo] = await Promise.all([
+  const [weekSurveys, classInfo, openSurvey, nextWaiting] = await Promise.all([
     getSurveysInRange(from, to),
     getUserCharacterClass(userId),
+    getOpenSurvey(now),
+    getNextWaitingSurvey(),
   ]);
+
+  // 히어로 카운트다운이 세는 시간: 투표 열려 있음 → 마감까지 / 없음 → 다음 투표 노출까지
+  const closesAt = openSurvey ? getVotingClosesAt(openSurvey.executed_at) : null;
+  const closesAtMs = closesAt && closesAt > now ? closesAt.getTime() : null;
+  const nextOpenMs = nextWaiting ? new Date(nextWaiting.exposed_at).getTime() : null;
 
   // "내 표" display is parked for now — the week grid shows survey state only.
   // Restore this (and the two commented blocks below) to bring it back.
@@ -67,6 +76,28 @@ export default async function HomePage() {
           className={styles.heroImage}
         />
         <div className={styles.heroScrim} />
+        <div className={styles.heroContent}>
+          <div>
+            {closesAtMs ? (
+              <HeroCountdown label="투표 마감까지" targetMs={closesAtMs} />
+            ) : nextOpenMs ? (
+              <HeroCountdown label="다음 투표까지" targetMs={nextOpenMs} />
+            ) : (
+              <span className={styles.heroKicker}>설문 등록 대기중</span>
+            )}
+            <div className={styles.heroActions}>
+              {closesAtMs ? (
+                <Link href="/vote" className={styles.heroButton}>
+                  투표하러 가기 <span className={styles.heroArrow}>→</span>
+                </Link>
+              ) : (
+                <Link href="/vote" className={styles.heroButtonGhost}>
+                  투표 페이지 <span className={styles.heroArrow}>→</span>
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
       </section>
 
       <div className={styles.body}>
