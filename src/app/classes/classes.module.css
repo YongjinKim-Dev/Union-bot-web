@@ -36,7 +36,7 @@
 .headerKicker {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.04em;
   color: var(--color-ink-dim);
 }
 
@@ -124,6 +124,7 @@
 }
 
 .branchSub {
+  font-family: var(--font-prose);
   display: block;
   margin-top: 4px;
   font-size: 11.5px;
@@ -227,7 +228,7 @@
   display: block;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.04em;
   color: var(--color-ink-dim);
 }
 

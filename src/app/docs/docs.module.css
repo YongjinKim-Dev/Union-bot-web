@@ -23,7 +23,7 @@
 .sidebarKicker {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.04em;
   color: var(--color-ink-dim);
 }
 
@@ -65,7 +65,7 @@
 .kicker {
   font-family: var(--font-mono);
   font-size: 10.5px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.06em;
   color: var(--color-ink-dim);
 }
 
@@ -78,6 +78,7 @@
 
 .lead,
 .paragraph {
+  font-family: var(--font-prose);
   margin-top: 13.8px;
   font-size: 14px;
   line-height: 1.85;
@@ -115,6 +116,7 @@
 }
 
 .defDescription {
+  font-family: var(--font-prose);
   font-size: 13px;
   color: rgba(32, 31, 29, 0.75);
 }
@@ -167,11 +169,12 @@
 .calloutKicker {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.04em;
   color: var(--color-accent-deep);
 }
 
 .calloutText {
+  font-family: var(--font-prose);
   margin-top: 4px;
   font-size: 13px;
   line-height: 1.75;

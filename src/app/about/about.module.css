@@ -114,11 +114,13 @@
 }
 
 .introLead {
+  font-family: var(--font-prose);
   font-size: 14px;
   color: var(--color-ink-dim);
 }
 
 .introNote {
+  font-family: var(--font-prose);
   font-size: 12px;
   line-height: 1.7;
   color: var(--color-ink-faint);
@@ -228,6 +230,7 @@
 }
 
 .sideNote {
+  font-family: var(--font-prose);
   margin-top: 13.8px;
   font-size: 11.5px;
   line-height: 1.75;

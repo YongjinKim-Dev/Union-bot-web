@@ -1,21 +1,26 @@
 @import "./theme.css";
 
 :root {
-  /* Nanum Myeongjo comes from a Google Fonts <link> (see layout.tsx); the
-     other three come from next/font. */
-  --font-nanum-myeongjo: "Nanum Myeongjo";
+  /* Both Korean faces load from one Google Fonts <link> (see layout.tsx). */
+  --font-korean-serif: "Nanum Myeongjo";
+  --font-korean-sans: "Noto Sans KR";
 
   /* Compose the stacks from the real family names rather than next/font's
      --font-* variables. Those variables append a "<name> Fallback" family
      backed by local(Times New Roman). Hangul is absent from the Latin faces,
      so it lands on that fallback — and Windows font-links Times New Roman to
-     바탕/굴림, so Korean never reaches Nanum Myeongjo and picks up the
+     바탕/굴림, so Korean never reaches the intended face and picks up the
      Latin-tuned size-adjust on the way. Naming the faces directly keeps the
      fallback out of the chain. (next/font's adjustFontFallback:false is the
-     documented switch for this, but Turbopack emits the fallback anyway.) */
-  --font-heading: "Cormorant Garamond", var(--font-nanum-myeongjo), Georgia, serif;
-  --font-body: "Lora", var(--font-nanum-myeongjo), Georgia, serif;
-  --font-mono: "JetBrains Mono", var(--font-nanum-myeongjo), ui-monospace, monospace;
+     documented switch for this, but Turbopack emits the fallback anyway.)
+
+     명조 for headings and prose, 고딕 for everything else: Nanum Myeongjo's
+     strokes smear together below ~13px on Windows, and most UI chrome here
+     (nav, states, kickers, captions) sits at 9–12.5px. */
+  --font-heading: "Cormorant Garamond", var(--font-korean-serif), Georgia, serif;
+  --font-prose: "Lora", var(--font-korean-serif), Georgia, serif;
+  --font-body: "Lora", var(--font-korean-sans), Georgia, sans-serif;
+  --font-mono: "JetBrains Mono", var(--font-korean-sans), ui-monospace, monospace;
 }
 
 /* Legacy aliases: the /vote CSS modules were written against these names, so

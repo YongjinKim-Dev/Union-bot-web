@@ -45,14 +45,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           These sit in an explicit <head>: a <link> rendered as a direct child
           of <html> is invalid markup and trips a hydration error.
-          --font-nanum-myeongjo is declared in globals.css.
+          Noto Sans KR rides along on the same request: 명조 is beautiful for
+          headings and prose but its thin strokes smear below ~13px on Windows,
+          so small UI chrome uses the sans instead. Both variables are declared
+          in globals.css.
         */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font -- that rule targets the Pages Router; in the App Router the root layout is the every-page equivalent of pages/_document. */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap"
         />
       </head>
       <body>{children}</body>

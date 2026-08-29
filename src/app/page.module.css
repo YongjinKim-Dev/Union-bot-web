@@ -99,7 +99,7 @@
 .heroKicker {
   font-family: var(--font-mono);
   font-size: 10.5px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.04em;
   color: var(--color-dark-accent-bright);
 }
 
@@ -246,7 +246,7 @@
 .dayState {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.02em;
   color: var(--color-ink-dim);
 }
 
@@ -307,6 +307,7 @@
 }
 
 .classNote {
+  font-family: var(--font-prose);
   margin-top: 13.8px;
   font-size: 11.5px;
   line-height: 1.75;
@@ -382,8 +383,8 @@
   }
 
   .dayState {
-    font-size: 9px;
-    letter-spacing: 0.08em;
+    font-size: 10px;
+    letter-spacing: 0.02em;
   }
 
   .dayVote {
