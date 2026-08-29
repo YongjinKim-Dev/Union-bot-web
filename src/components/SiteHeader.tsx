@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { signOut } from "@/auth";
+import { auth, signOut } from "@/auth";
 import Image from "next/image";
 import styles from "./SiteHeader.module.css";
 
-export type NavKey = "home" | "vote" | "classes" | "about" | "docs";
+export type NavKey = "home" | "vote" | "classes" | "about" | "docs" | "admin";
 
 interface NavItem {
   key: NavKey;
@@ -26,7 +26,13 @@ const NAV_ITEMS: NavItem[] = [
   { key: "docs", label: "문서", href: "/docs" },
 ];
 
-export function SiteHeader({ active, kicker = "" }: { active: NavKey; kicker?: string }) {
+const ADMIN_NAV_ITEM: NavItem[] = [{ key: "admin", label: "관리자", href: "/admin" }];
+
+export async function SiteHeader({ active, kicker = "" }: { active: NavKey; kicker?: string }) {
+  // 관리자 항목은 디스코드 부대장·대장에게만 보인다. 화면에서 숨기는 것과 별개로
+  // /admin 페이지와 서버 액션이 각각 다시 확인한다.
+  const session = await auth();
+  const isAdmin = session?.user?.isAdmin === true;
   return (
     <header className={styles.header}>
       <div className={styles.brandBlock}>
@@ -46,7 +52,7 @@ export function SiteHeader({ active, kicker = "" }: { active: NavKey; kicker?: s
         </button>
       </form>
       <nav className={styles.nav}>
-        {NAV_ITEMS.map((item) =>
+        {[...NAV_ITEMS, ...(isAdmin ? ADMIN_NAV_ITEM : [])].map((item) =>
           item.href ? (
             <Link
               key={item.key}

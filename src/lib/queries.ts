@@ -241,3 +241,86 @@ export async function setUserCharacterClass(userId: string, characterClassId: st
     connection.release();
   }
 }
+
+// ── 관리자용 ─────────────────────────────────────────────────
+
+export interface VoterRow {
+  nickname: string;
+  guildName: string;
+  votingType: VotingType;
+  className: string | null;
+  classType: ClassType | null;
+  votedAt: Date;
+}
+
+/**
+ * 한 설문의 투표자 명단. 봇의 !결과 와 같은 범위(활성 회원만)를 보되, 순번을
+ * 볼 수 있도록 인원제한 결과와 같은 정렬(updated_at, id)을 쓴다.
+ */
+export async function getVoters(surveyId: string): Promise<VoterRow[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT u.user_nickname, g.name AS guild_name, sh.voting_type, sh.updated_at, " +
+      "       cc.name AS class_name, cc.type AS class_type " +
+      "FROM survey_history sh " +
+      "JOIN user u ON sh.user_id = u.id " +
+      "JOIN guild g ON u.guild_id = g.id " +
+      "LEFT JOIN user_character_class_map m ON u.id = m.user_id " +
+      "LEFT JOIN character_class cc ON m.character_class_id = cc.id " +
+      "WHERE sh.survey_id = ? AND u.status = 1 " +
+      "ORDER BY sh.updated_at ASC, sh.id ASC",
+    [surveyId],
+  );
+  return rows.map((r) => ({
+    nickname: r.user_nickname as string,
+    guildName: r.guild_name as string,
+    votingType: r.voting_type as VotingType,
+    className: (r.class_name as string) ?? null,
+    classType: (r.class_type as ClassType) ?? null,
+    votedAt: r.updated_at as Date,
+  }));
+}
+
+/** 아직 투표하지 않은 활성 회원. */
+export async function getNonVoters(surveyId: string): Promise<{ nickname: string; guildName: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT u.user_nickname, g.name AS guild_name FROM user u " +
+      "JOIN guild g ON u.guild_id = g.id " +
+      "WHERE u.status = 1 AND u.id NOT IN (SELECT user_id FROM survey_history WHERE survey_id = ?) " +
+      "ORDER BY g.id ASC, u.user_nickname ASC",
+    [surveyId],
+  );
+  return rows.map((r) => ({
+    nickname: r.user_nickname as string,
+    guildName: r.guild_name as string,
+  }));
+}
+
+/** 관리자 화면의 설문 목록. 최근 것부터. */
+export async function getRecentSurveys(limit = 20): Promise<DbSurvey[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
+      "WHERE status <> 'cancel' ORDER BY executed_at DESC LIMIT ?",
+    [limit],
+  );
+  return rows as DbSurvey[];
+}
+
+/**
+ * 설문 등록. 봇의 !거점설문등록 이 하던 일을 웹에서 한다.
+ *
+ * status 는 'wait' 으로 넣지만 투표 가능 여부와는 무관하다 — 창은 exposed_at 과
+ * executed_at 으로만 정해진다(getCurrentSurvey 참조). 봇 명령어들이 아직 이 값을
+ * 읽으므로 기존 값 체계를 그대로 따른다.
+ */
+export async function createSurvey(params: {
+  content: string;
+  executedAt: Date;
+  exposedAt: Date;
+}): Promise<string> {
+  const [result] = await pool.execute(
+    "INSERT INTO survey (type, content, status, executed_at, exposed_at, created_at, updated_at) " +
+      "VALUES ('node_war', ?, 'wait', ?, ?, NOW(), NOW())",
+    [params.content, params.executedAt, params.exposedAt],
+  );
+  return String((result as { insertId: number }).insertId);
+}

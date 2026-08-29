@@ -1,12 +1,18 @@
 import NextAuth from "next-auth";
 import Discord from "next-auth/providers/discord";
 import { getUserByDiscordId } from "@/lib/queries";
+import { fetchIsGuildAdmin } from "@/lib/discordRoles";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Discord({
       clientId: process.env.DISCORD_CLIENT_ID,
       clientSecret: process.env.DISCORD_CLIENT_SECRET,
+      // guilds.members.read 는 관리자 메뉴 노출 여부를 디스코드 역할로 판단하기
+      // 위해 필요하다. 추가 시점부터 기존 사용자도 동의 화면을 한 번 더 본다.
+      authorization: {
+        params: { scope: "identify email guilds.members.read" },
+      },
     }),
   ],
   session: { strategy: "jwt" },
@@ -23,7 +29,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (!dbUser) return "/login?error=unregistered";
       return true;
     },
-    async jwt({ token, profile }) {
+    async jwt({ token, profile, account }) {
+      // account 는 최초 로그인 때만 온다. 역할은 그때 한 번 확인해 토큰에 담고,
+      // 이후 요청에서는 DB 조회 없이 그 값을 쓴다.
+      if (account?.access_token) {
+        token.isAdmin = await fetchIsGuildAdmin(account.access_token);
+      }
+
       const discordId = (profile?.id as string | undefined) ?? (token.discordId as string | undefined);
       if (discordId) {
         const dbUser = await getUserByDiscordId(discordId);
@@ -44,6 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.nickname = token.nickname as string;
         session.user.guildId = token.guildId as string;
         session.user.permission = token.permission as string;
+        session.user.isAdmin = token.isAdmin === true;
       }
       return session;
     },
