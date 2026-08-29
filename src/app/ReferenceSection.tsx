@@ -25,7 +25,7 @@ const CARDS = [
   {
     key: "ec" as const,
     kicker: "REFERENCE 02",
-    title: "에크레타 악세사리",
+    title: "에크레타 악세사리 강화 정보",
     description: "반지·귀걸이·목걸이·허리띠의 단계별 수치와 강화 확률·기준 스택·필요 크론석.",
   },
 ];
@@ -42,7 +42,6 @@ export function ReferenceSection() {
     <>
       <div className={styles.sectionHeader}>
         <h3 className={styles.sectionTitle}>참고 자료</h3>
-        <span className={styles.sectionMeta}>카드를 누르면 표가 열립니다</span>
       </div>
 
       <div className={styles.cardGrid}>
@@ -55,7 +54,6 @@ export function ReferenceSection() {
           >
             <span className={styles.cardKicker}>{card.kicker}</span>
             <span className={styles.cardTitle}>{card.title}</span>
-            <span className={styles.cardDescription}>{card.description}</span>
             <span className={styles.cardCta}>표 열기 →</span>
           </button>
         ))}
@@ -117,7 +115,7 @@ export function ReferenceSection() {
       {open === "ec" && (
         <ReferenceModal
           kicker="REFERENCE 02"
-          title="에크레타 악세사리"
+          title="에크레타 악세사리 강화 정보"
           width={900}
           onClose={() => setOpen(null)}
           headerExtra={
