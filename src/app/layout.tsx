@@ -34,22 +34,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="ko"
       className={`${cormorant.variable} ${lora.variable} ${jetbrainsMono.variable}`}
     >
-      {/*
-        Nanum Myeongjo loads from Google's CDN rather than next/font. next/font
-        types this family for "latin" only, and omitting `subsets` to keep the
-        Hangul ranges makes it pull ~100 subset files at build time — one flaky
-        fetch there fails the whole production build (seen ~1 run in 5), which
-        would make Docker deploys unreliable. Loading it at runtime degrades to
-        a fallback serif instead of breaking the build.
-        --font-nanum-myeongjo is declared in globals.css.
-      */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-      {/* eslint-disable-next-line @next/next/no-page-custom-font -- that rule targets the Pages Router; in the App Router the root layout is the every-page equivalent of pages/_document. */}
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap"
-      />
+      <head>
+        {/*
+          Nanum Myeongjo loads from Google's CDN rather than next/font.
+          next/font types this family for "latin" only, and omitting `subsets`
+          to keep the Hangul ranges makes it pull ~100 subset files at build
+          time — one flaky fetch there fails the whole production build (seen
+          ~1 run in 5), which would make Docker deploys unreliable. Loading it
+          at runtime degrades to a fallback serif instead of breaking the build.
+
+          These sit in an explicit <head>: a <link> rendered as a direct child
+          of <html> is invalid markup and trips a hydration error.
+          --font-nanum-myeongjo is declared in globals.css.
+        */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font -- that rule targets the Pages Router; in the App Router the root layout is the every-page equivalent of pages/_document. */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap"
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

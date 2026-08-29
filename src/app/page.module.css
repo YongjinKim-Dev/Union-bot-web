@@ -58,78 +58,6 @@
   border-color: var(--color-accent-deep);
 }
 
-/* ── Header ─────────────────────────────────────────────────── */
-
-/* Desktop lays out as [brand] … [nav] [logout] in one row. On mobile the nav
-   wraps to its own full-width row (see the media query) so nothing squeezes. */
-.header {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 18.4px;
-  padding: 27.6px 46px 18.4px;
-  border-bottom: 1px solid var(--color-hairline);
-}
-
-.brandBlock {
-  display: flex;
-  align-items: baseline;
-  gap: 13.8px;
-  margin-right: auto;
-}
-
-.brand {
-  font-family: var(--font-cormorant), var(--font-nanum-myeongjo), serif;
-  font-size: 22px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.nav {
-  display: flex;
-  align-items: center;
-  gap: 18.4px;
-}
-
-.logoutForm {
-  order: 1;
-}
-
-.navLink,
-.navLinkSoon {
-  font-size: 12.5px;
-  color: var(--color-ink-dim);
-}
-
-.navLink:hover {
-  color: var(--color-accent-deep);
-}
-
-.navLinkActive {
-  color: var(--color-ink);
-  border-bottom: 1px solid var(--color-accent);
-}
-
-.navLinkSoon {
-  color: var(--color-ink-faint);
-  cursor: default;
-}
-
-.logoutButton {
-  padding: 6px 13.8px;
-  border: 1px solid var(--color-hairline);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-ink-dim);
-  font-size: 11.5px;
-  cursor: pointer;
-}
-
-.logoutButton:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent-deep);
-}
-
 /* ── Hero band ──────────────────────────────────────────────── */
 
 .hero {
@@ -385,78 +313,13 @@
   color: rgba(32, 31, 29, 0.72);
 }
 
-/* Reference cards */
-
-.refGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18.4px;
-  margin-top: 18.4px;
-}
-
-.refCard {
-  display: flex;
-  flex-direction: column;
-  gap: 9.2px;
-  padding: 22px;
-  border: 1px dashed rgba(32, 31, 29, 0.26);
-  border-radius: 4px;
-}
-
-.refKicker {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  color: var(--color-ink-faint);
-}
-
-.refTitle {
-  font-family: var(--font-cormorant), var(--font-nanum-myeongjo), serif;
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--color-ink);
-}
-
-.refDescription {
-  font-size: 12.5px;
-  line-height: 1.7;
-  color: rgba(32, 31, 29, 0.72);
-}
-
-.refSoon {
-  align-self: flex-start;
-  margin-top: auto;
-  padding: 2px 9.2px;
-  border: 1px solid rgba(32, 31, 29, 0.22);
-  border-radius: 4px;
-  font-size: 10.5px;
-  color: var(--color-ink-dim);
-}
-
 /* ── Mobile ─────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  .header {
-    gap: 11px;
-    padding: 18.4px 22px;
-  }
 
-  .brand {
-    font-size: 19px;
-  }
 
   /* Nav drops to its own row beneath brand + logout. */
-  .nav {
-    order: 2;
-    flex-basis: 100%;
-    gap: 15px;
-  }
 
-  .navLink,
-  .navLinkSoon {
-    font-size: 11.5px;
-    white-space: nowrap;
-  }
 
   .hero {
     height: 190px;
@@ -533,25 +396,8 @@
     display: none;
   }
 
-  .refGrid {
-    grid-template-columns: 1fr;
-    gap: 9.2px;
-  }
 
-  .refCard {
-    padding: 15px;
-  }
 
-  .refKicker {
-    display: none;
-  }
 
-  .refTitle {
-    font-size: 18px;
-  }
 
-  .refDescription {
-    font-size: 11.5px;
-    line-height: 1.6;
-  }
 }

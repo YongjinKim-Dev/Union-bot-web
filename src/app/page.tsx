@@ -1,7 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { auth, signOut } from "@/auth";
+import { auth } from "@/auth";
 import { ClassIcon } from "@/components/ClassIcon";
+import { SiteHeader } from "@/components/SiteHeader";
+import { ReferenceSection } from "./ReferenceSection";
 // getVotesForUser is still exported for when "내 표" comes back.
 import { getSurveysInRange, getUserCharacterClass } from "@/lib/queries";
 import { formatSurveyTime, getVotingClosesAt } from "@/lib/format";
@@ -13,37 +15,6 @@ import styles from "./page.module.css";
 // Survey state and the user's own votes are live data, so this page must
 // never be statically cached.
 export const dynamic = "force-dynamic";
-
-interface NavItem {
-  key: string;
-  label: string;
-  href: string | null;
-}
-
-// Menu entries live here so later phases only need to fill in an href.
-// A null href renders as a muted, non-interactive "준비 중" item.
-const NAV_ITEMS: NavItem[] = [
-  { key: "home", label: "홈", href: "/" },
-  { key: "classes", label: "직업 등록", href: "/classes" },
-  { key: "about", label: "연맹 소개", href: null },
-  { key: "docs", label: "문서", href: null },
-];
-
-const REFERENCE_CARDS = [
-  {
-    key: "gb",
-    kicker: "REFERENCE 01",
-    title: "공방합 구간 정보",
-    description:
-      "표기 공격력 395–450 구간의 보너스 공격력·몬스터 추가 공격력, 표기 방어력 481–531 구간의 보너스 피해 감소.",
-  },
-  {
-    key: "ec",
-    kicker: "REFERENCE 02",
-    title: "에크레타 악세사리",
-    description: "반지·귀걸이·목걸이·허리띠의 단계별 수치와 강화 확률·기준 스택·필요 크론석.",
-  },
-];
 
 export default async function HomePage() {
   const session = await auth();
@@ -85,40 +56,7 @@ export default async function HomePage() {
 
   return (
     <main className={styles.main}>
-      <header className={styles.header}>
-        <div className={styles.brandBlock}>
-          <span className={styles.brand}>아시바당</span>
-          <span className={styles.kicker}>UNION LEDGER</span>
-        </div>
-        <form
-          className={styles.logoutForm}
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/login" });
-          }}
-        >
-          <button type="submit" className={styles.logoutButton}>
-            로그아웃
-          </button>
-        </form>
-        <nav className={styles.nav}>
-          {NAV_ITEMS.map((item) =>
-            item.href ? (
-              <Link
-                key={item.key}
-                href={item.href}
-                className={`${styles.navLink} ${item.key === "home" ? styles.navLinkActive : ""}`}
-              >
-                {item.label}
-              </Link>
-            ) : (
-              <span key={item.key} className={styles.navLinkSoon} title="준비 중">
-                {item.label}
-              </span>
-            ),
-          )}
-        </nav>
-      </header>
+      <SiteHeader active="home" />
 
       <section className={styles.hero}>
         <Image
@@ -225,20 +163,7 @@ export default async function HomePage() {
           </section>
         </div>
 
-        <div className={styles.sectionHeader} style={{ marginTop: "36.8px" }}>
-          <h3 className={styles.sectionTitle}>참고 자료</h3>
-          <span className={styles.sectionMeta}>준비 중</span>
-        </div>
-        <div className={styles.refGrid}>
-          {REFERENCE_CARDS.map((card) => (
-            <div key={card.key} className={styles.refCard}>
-              <span className={styles.refKicker}>{card.kicker}</span>
-              <span className={styles.refTitle}>{card.title}</span>
-              <span className={styles.refDescription}>{card.description}</span>
-              <span className={styles.refSoon}>준비 중</span>
-            </div>
-          ))}
-        </div>
+        <ReferenceSection />
       </div>
     </main>
   );

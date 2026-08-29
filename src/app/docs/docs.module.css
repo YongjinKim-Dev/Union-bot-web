@@ -1,0 +1,227 @@
+.main {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 200px 1px 1fr;
+  align-items: start;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────── */
+
+.sidebar {
+  padding: 27.6px 18.4px;
+  background: var(--color-surface);
+}
+
+.sidebarKicker {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--color-ink-dim);
+}
+
+.toc {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+}
+
+/* Only one doc for now, so it is rendered as the active item rather than a
+   link to the page you are already on. */
+.tocLinkActive {
+  display: block;
+  padding: 5px 0 5px 13.8px;
+  font-size: 12.5px;
+  border-left: 2px solid var(--color-accent);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.sidebarNote {
+  margin-top: 18.4px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--color-ink-faint);
+}
+
+.divider {
+  align-self: stretch;
+  background: var(--color-hairline);
+}
+
+/* ── Article ────────────────────────────────────────────────── */
+
+.article {
+  padding: 36.8px 46px 46px;
+}
+
+.kicker {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--color-ink-dim);
+}
+
+.title {
+  margin-top: 6px;
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 1.15;
+}
+
+.lead,
+.paragraph {
+  margin-top: 13.8px;
+  font-size: 14px;
+  line-height: 1.85;
+  color: rgba(32, 31, 29, 0.8);
+  text-align: justify;
+  text-wrap: pretty;
+}
+
+.heading {
+  margin-top: 27.6px;
+  padding-bottom: 6px;
+  font-size: 22px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+/* 표 종류 */
+
+.defList {
+  display: flex;
+  flex-direction: column;
+  margin-top: 13.8px;
+}
+
+.defRow {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 13.8px;
+  padding: 9.2px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.defTerm {
+  font-size: 13px;
+  color: var(--color-accent-deep);
+}
+
+.defDescription {
+  font-size: 13px;
+  color: rgba(32, 31, 29, 0.75);
+}
+
+/* 직업 칩 */
+
+.chipRow {
+  display: flex;
+  align-items: center;
+  gap: 13.8px;
+  margin-top: 13.8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9.2px;
+  padding: 7px 11px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 4px;
+}
+
+.chipLabel {
+  font-size: 12.5px;
+}
+
+.inlineLink {
+  font-size: 12.5px;
+  color: var(--color-accent-deep);
+  border-bottom: 1px solid rgba(182, 130, 53, 0.45);
+}
+
+.inlineLink:hover {
+  color: var(--color-accent-deeper);
+  border-bottom-color: var(--color-accent);
+}
+
+/* 참고 박스 */
+
+.calloutBox {
+  margin-top: 18.4px;
+  padding: 13.8px 18.4px;
+  border: 1px solid var(--color-hairline);
+  border-left: 2px solid var(--color-accent);
+  border-radius: 4px;
+  background: var(--color-surface);
+}
+
+.calloutKicker {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--color-accent-deep);
+}
+
+.calloutText {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: rgba(32, 31, 29, 0.78);
+}
+
+.updated {
+  margin-top: 27.6px;
+  padding-top: 18.4px;
+  border-top: 1px solid var(--color-hairline);
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--color-ink-faint);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  /* Sidebar stacks above the article; the vertical rule is dropped. */
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    padding: 18.4px 22px;
+  }
+
+  .divider {
+    display: none;
+  }
+
+  .article {
+    padding: 22px 22px 36.8px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+
+  .heading {
+    font-size: 18px;
+  }
+
+  .lead,
+  .paragraph {
+    font-size: 13px;
+  }
+
+  .defRow {
+    grid-template-columns: 60px 1fr;
+    gap: 9.2px;
+  }
+}

@@ -1,0 +1,282 @@
+.main {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* ── Hero ───────────────────────────────────────────────────── */
+
+.hero {
+  position: relative;
+  height: 280px;
+  overflow: hidden;
+  background: var(--color-dark);
+}
+
+.heroImage {
+  object-fit: cover;
+}
+
+.heroScrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72%;
+  pointer-events: none;
+  background: var(--scrim-band);
+}
+
+.heroContent {
+  position: absolute;
+  left: 46px;
+  right: 46px;
+  bottom: 27.6px;
+  /* Same reason as the home hero: the wallpaper has a blown-out area that a
+     bottom-anchored scrim alone cannot hold text against. */
+  text-shadow: 0 1px 4px rgba(26, 25, 24, 0.85), 0 0 18px rgba(26, 25, 24, 0.55);
+}
+
+.heroKicker {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--color-dark-accent-bright);
+}
+
+.heroTitle {
+  margin-top: 9.2px;
+  font-size: 44px;
+  line-height: 1.05;
+  font-weight: 400;
+  color: var(--color-dark-ink);
+}
+
+.heroSub {
+  margin-top: 9.2px;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 11.5px;
+  color: var(--color-dark-ink-soft);
+}
+
+/* ── Body ───────────────────────────────────────────────────── */
+
+.body {
+  padding: 36.8px 46px 46px;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 36.8px;
+  align-items: start;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 9.2px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.sectionHeaderSpaced {
+  margin-top: 36.8px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+}
+
+.tbdBadge {
+  padding: 2px 9.2px;
+  border: 1px solid rgba(32, 31, 29, 0.22);
+  border-radius: 4px;
+  font-size: 10.5px;
+  color: var(--color-ink-dim);
+}
+
+/* Intro */
+
+.introBox {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 9.2px;
+  margin-top: 18.4px;
+  padding: 27.6px;
+  min-height: 150px;
+  border: 1px dashed rgba(32, 31, 29, 0.26);
+  border-radius: 4px;
+}
+
+.introLead {
+  font-size: 14px;
+  color: var(--color-ink-dim);
+}
+
+.introNote {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-ink-faint);
+}
+
+/* Photos */
+
+.plateGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13.8px;
+  margin-top: 18.4px;
+}
+
+.plate {
+  padding: 9.2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: 4px;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+  background: repeating-linear-gradient(
+    135deg,
+    #e2e0dd 0 6px,
+    #eae9e9 6px 12px
+  );
+  color: var(--color-ink-faint);
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
+/* Staff */
+
+.staffGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 13.8px;
+  margin-top: 18.4px;
+}
+
+.staffCard {
+  padding: 13.8px;
+  border: 1px dashed rgba(32, 31, 29, 0.26);
+  border-radius: 4px;
+}
+
+.staffPortrait {
+  height: 60px;
+  border-radius: 2px;
+}
+
+.staffName {
+  margin-top: 9.2px;
+  font-size: 13px;
+  color: var(--color-ink-dim);
+}
+
+.staffRole {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--color-ink-faint);
+}
+
+/* Side column */
+
+.infoList {
+  display: flex;
+  flex-direction: column;
+  margin-top: 13.8px;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 9.2px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.infoLabel {
+  font-size: 12.5px;
+  color: var(--color-ink-dim);
+}
+
+.infoValue {
+  font-size: 12.5px;
+  color: var(--color-ink-faint);
+}
+
+.discordButton {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 18.4px;
+  padding: 9.2px 18.4px;
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-accent-deep);
+  font-size: 13px;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sideNote {
+  margin-top: 13.8px;
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: rgba(32, 31, 29, 0.72);
+  text-align: justify;
+  text-wrap: pretty;
+}
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .hero {
+    height: 190px;
+  }
+
+  .heroContent {
+    left: 22px;
+    right: 22px;
+    bottom: 18.4px;
+  }
+
+  .heroScrim {
+    height: 100%;
+    background: linear-gradient(
+      180deg,
+      rgba(26, 25, 24, 0.3) 0%,
+      rgba(26, 25, 24, 0.5) 42%,
+      rgba(26, 25, 24, 0.95) 100%
+    );
+  }
+
+  .heroTitle {
+    font-size: 26px;
+  }
+
+  .body {
+    padding: 22px 22px 36.8px;
+  }
+
+  .columns {
+    grid-template-columns: 1fr;
+    gap: 27.6px;
+  }
+
+  .plateGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .staffGrid {
+    grid-template-columns: 1fr;
+  }
+}
