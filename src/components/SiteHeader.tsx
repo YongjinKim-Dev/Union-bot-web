@@ -2,7 +2,7 @@ import Link from "next/link";
 import { signOut } from "@/auth";
 import styles from "./SiteHeader.module.css";
 
-export type NavKey = "home" | "classes" | "about" | "docs";
+export type NavKey = "home" | "vote" | "classes" | "about" | "docs";
 
 interface NavItem {
   key: NavKey;
@@ -12,8 +12,14 @@ interface NavItem {
 
 // Add a menu entry here and every page picks it up. A null href renders as a
 // muted, non-interactive "준비 중" item.
+//
+// 투표 is in the nav even though the handoff's header omits it: that design
+// assumed the hero's "투표하러 가기" button was the way in, but the button only
+// renders when a survey is scheduled for today. On a Saturday, or before the
+// week's surveys are registered, that left no route to /vote at all.
 const NAV_ITEMS: NavItem[] = [
   { key: "home", label: "홈", href: "/" },
+  { key: "vote", label: "투표", href: "/vote" },
   { key: "classes", label: "직업 등록", href: "/classes" },
   { key: "about", label: "연맹 소개", href: "/about" },
   { key: "docs", label: "문서", href: "/docs" },
