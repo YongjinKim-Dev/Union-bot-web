@@ -74,7 +74,6 @@ export default async function HomePage() {
           <section>
             <div className={styles.sectionHeader}>
               <h3 className={styles.sectionTitle}>이번 주 거점전</h3>
-              <span className={styles.sectionMeta}>월 · 화 · 수 · 목 · 금 · 일</span>
             </div>
             <div className={styles.dayGrid}>
               {slots.map((slot) => {
