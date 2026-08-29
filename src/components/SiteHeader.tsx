@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signOut } from "@/auth";
+import Image from "next/image";
 import styles from "./SiteHeader.module.css";
 
 export type NavKey = "home" | "vote" | "classes" | "about" | "docs";
@@ -25,12 +26,13 @@ const NAV_ITEMS: NavItem[] = [
   { key: "docs", label: "문서", href: "/docs" },
 ];
 
-export function SiteHeader({ active, kicker = "UNION LEDGER" }: { active: NavKey; kicker?: string }) {
+export function SiteHeader({ active, kicker = "" }: { active: NavKey; kicker?: string }) {
   return (
     <header className={styles.header}>
       <div className={styles.brandBlock}>
+        <Image src="/brand-icon.png" alt="" width={28} height={28} className={styles.brandIcon} />
         <span className={styles.brand}>아시바당</span>
-        <span className={styles.kicker}>{kicker}</span>
+        {kicker && <span className={styles.kicker}>{kicker}</span>}
       </div>
       <form
         className={styles.logoutForm}
