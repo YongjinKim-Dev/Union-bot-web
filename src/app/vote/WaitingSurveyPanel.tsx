@@ -6,9 +6,10 @@ import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
 import type { DbSurvey } from "@/lib/types";
 import styles from "./vote.module.css";
 
-// The bot's check_sendable_survey loop (ashi_bot.py) polls every 30s and
-// posts once exposed_at has passed, so exposed_at + 30s is the latest the
-// survey can actually go live.
+// exposed_at is when voting opens. The bot posts the Discord link 15 minutes
+// earlier as a heads-up, then flips the survey to 'process' at exposed_at on
+// its 30s loop (ashi_bot.py check_sendable_survey) — so exposed_at + 30s is
+// the latest it can actually be open.
 const REVEAL_BUFFER_MS = 30_000;
 const POLL_INTERVAL_MS = 5_000;
 
@@ -55,11 +56,11 @@ export function WaitingSurveyPanel({ survey }: { survey: DbSurvey }) {
 
   return (
     <div>
-      <h1 className={styles.title}>거점전 설문조사 (대기중)</h1>
+      <h1 className={styles.title}>거점전 설문조사</h1>
       <p className={styles.dateLine}>
         거점 일시 {formatSurveyDate(survey.executed_at)} {formatSurveyTime(survey.executed_at)}
       </p>
-      <p className={styles.instruction}>설문이 공개되면 자동으로 진행중 탭으로 전환됩니다.</p>
+      <p className={styles.instruction}>설문이 열리면 이 화면이 투표 화면으로 바뀝니다.</p>
 
       {isImminent ? (
         <p className={styles.countdownSoon}>곧 설문이 열립니다...</p>

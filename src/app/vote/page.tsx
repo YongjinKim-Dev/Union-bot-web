@@ -11,7 +11,7 @@ import {
 } from "@/lib/queries";
 import { formatSurveyDate, formatSurveyTime, getVotingClosesAt } from "@/lib/format";
 import { VoteButtons } from "./VoteButtons";
-import { VoteTabs, type TabKey } from "./VoteTabs";
+import { VoteTabs } from "./VoteTabs";
 import { WaitingSurveyPanel } from "./WaitingSurveyPanel";
 import { PastSurveySummary } from "./PastSurveySummary";
 import styles from "./vote.module.css";
@@ -41,7 +41,6 @@ export default async function VotePage() {
   ]);
 
   const closed = processSurvey ? new Date() >= getVotingClosesAt(processSurvey.executed_at) : false;
-  const defaultTab: TabKey = processSurvey ? "process" : "wait";
 
   return (
     <main className={styles.main}>
@@ -66,9 +65,7 @@ export default async function VotePage() {
 
       <div className={styles.card}>
         <VoteTabs
-          defaultTab={defaultTab}
-          hasProcessSurvey={Boolean(processSurvey)}
-          processContent={
+          currentContent={
             processSurvey ? (
               <>
                 <h1 className={styles.title}>거점전 설문조사</h1>
@@ -87,18 +84,15 @@ export default async function VotePage() {
                   initialClassInfo={classInfo}
                 />
               </>
-            ) : (
-              <p className={styles.notice}>현재 진행중인 설문이 없습니다.</p>
-            )
-          }
-          waitContent={
-            waitSurvey ? (
+            ) : waitSurvey ? (
+              // 아직 열리지 않은 설문. 패널이 5초마다 서버 데이터를 다시 받아
+              // 오므로, 열리는 순간 탭 이동 없이 위 투표 화면으로 바뀐다.
               <WaitingSurveyPanel survey={waitSurvey} />
             ) : (
-              <p className={styles.notice}>대기중인 설문이 없습니다.</p>
+              <p className={styles.notice}>현재 진행중이거나 대기중인 설문이 없습니다.</p>
             )
           }
-          completeContent={
+          pastContent={
             pastSurvey && pastCounts ? (
               <PastSurveySummary survey={pastSurvey} counts={pastCounts} />
             ) : (

@@ -1,48 +1,35 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import styles from "./vote.module.css";
 
-export type TabKey = "process" | "wait" | "complete";
+export type TabKey = "current" | "past";
 
 const TAB_LABEL: Record<TabKey, string> = {
-  process: "진행중",
-  wait: "대기중",
-  complete: "지난 설문",
+  current: "현재 설문",
+  past: "지난 설문",
 };
 
-const TAB_ORDER: TabKey[] = ["process", "wait", "complete"];
+const TAB_ORDER: TabKey[] = ["current", "past"];
 
+/**
+ * 진행중·대기중을 "현재 설문" 하나로 합쳤다. 예전에는 대기중 탭에서 카운트다운이
+ * 0이 되어도 진행중 탭을 다시 눌러야 투표 화면이 보였는데, 이제 같은 탭 안에서
+ * 대기 상태가 투표 화면으로 그대로 바뀐다 (WaitingSurveyPanel의 5초 폴링이
+ * 서버 데이터를 갱신하면 자동 전환).
+ */
 export function VoteTabs({
-  defaultTab,
-  hasProcessSurvey,
-  processContent,
-  waitContent,
-  completeContent,
+  currentContent,
+  pastContent,
 }: {
-  defaultTab: TabKey;
-  hasProcessSurvey: boolean;
-  processContent: ReactNode;
-  waitContent: ReactNode;
-  completeContent: ReactNode;
+  currentContent: ReactNode;
+  pastContent: ReactNode;
 }) {
-  const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
-  const prevHasProcessSurvey = useRef(hasProcessSurvey);
-
-  // A wait-tab poll (see WaitingSurveyPanel) refreshes this page's server
-  // data every 5s. The moment that refresh reports a survey just went live,
-  // jump the user to the 진행중 tab regardless of which tab they're on.
-  useEffect(() => {
-    if (!prevHasProcessSurvey.current && hasProcessSurvey) {
-      setActiveTab("process");
-    }
-    prevHasProcessSurvey.current = hasProcessSurvey;
-  }, [hasProcessSurvey]);
+  const [activeTab, setActiveTab] = useState<TabKey>("current");
 
   const content: Record<TabKey, ReactNode> = {
-    process: processContent,
-    wait: waitContent,
-    complete: completeContent,
+    current: currentContent,
+    past: pastContent,
   };
 
   return (
