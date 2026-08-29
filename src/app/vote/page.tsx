@@ -2,17 +2,15 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import {
-  getLatestCompletedSurvey,
-  getNextWaitingSurvey,
-  getOpenSurvey,
+  getCurrentSurvey,
+  getLatestClosedSurvey,
   getUserCharacterClass,
   getVoteCounts,
   getVoteForUser,
 } from "@/lib/queries";
-import { formatSurveyDate, formatSurveyTime, getVotingClosesAt } from "@/lib/format";
-import { VoteButtons } from "./VoteButtons";
+import { getVotingClosesAt } from "@/lib/format";
 import { VoteTabs } from "./VoteTabs";
-import { WaitingSurveyPanel } from "./WaitingSurveyPanel";
+import { CurrentSurveyPanel } from "./CurrentSurveyPanel";
 import { PastSurveySummary } from "./PastSurveySummary";
 import styles from "./vote.module.css";
 
@@ -26,21 +24,18 @@ export default async function VotePage() {
     redirect("/login");
   }
 
-  // One targeted query per tab. Loading every survey to pick three meant
-  // pulling all 776 rows (52KB of `content`) on each request.
-  const [processSurvey, waitSurvey, pastSurvey] = await Promise.all([
-    getOpenSurvey(),
-    getNextWaitingSurvey(),
-    getLatestCompletedSurvey(),
+  // 열려 있든 아직 아니든 "이번 설문" 하나만 가져온다. 클라이언트가 서버 시각으로
+  // 열리는 순간을 직접 판단하므로, 상태별로 나눠 받을 필요가 없다.
+  const [currentSurvey, pastSurvey] = await Promise.all([
+    getCurrentSurvey(),
+    getLatestClosedSurvey(),
   ]);
 
   const [vote, classInfo, pastCounts] = await Promise.all([
-    processSurvey ? getVoteForUser(processSurvey.id, session.user.dbUserId) : Promise.resolve(null),
-    processSurvey ? getUserCharacterClass(session.user.dbUserId) : Promise.resolve(null),
+    currentSurvey ? getVoteForUser(currentSurvey.id, session.user.dbUserId) : Promise.resolve(null),
+    currentSurvey ? getUserCharacterClass(session.user.dbUserId) : Promise.resolve(null),
     pastSurvey ? getVoteCounts(pastSurvey.id) : Promise.resolve(null),
   ]);
-
-  const closed = processSurvey ? new Date() >= getVotingClosesAt(processSurvey.executed_at) : false;
 
   return (
     <main className={styles.main}>
@@ -66,30 +61,18 @@ export default async function VotePage() {
       <div className={styles.card}>
         <VoteTabs
           currentContent={
-            processSurvey ? (
-              <>
-                <h1 className={styles.title}>거점전 설문조사</h1>
-                <p className={styles.dateLine}>
-                  거점 일시 {formatSurveyDate(processSurvey.executed_at)}{" "}
-                  {formatSurveyTime(processSurvey.executed_at)}
-                </p>
-                <p className={styles.instruction}>
-                  선택지는 하나만 선택해주세요. (부속인 경우 부속만 선택)
-                </p>
-                <VoteButtons
-                  surveyId={processSurvey.id}
-                  initialVote={vote?.votingType ?? null}
-                  initialVotedAt={vote?.votedAt ?? null}
-                  closed={closed}
-                  initialClassInfo={classInfo}
-                />
-              </>
-            ) : waitSurvey ? (
-              // 아직 열리지 않은 설문. 패널이 5초마다 서버 데이터를 다시 받아
-              // 오므로, 열리는 순간 탭 이동 없이 위 투표 화면으로 바뀐다.
-              <WaitingSurveyPanel survey={waitSurvey} />
+            currentSurvey ? (
+              <CurrentSurveyPanel
+                surveyId={currentSurvey.id}
+                opensAt={currentSurvey.exposed_at.getTime()}
+                executedAt={currentSurvey.executed_at.getTime()}
+                closesAt={getVotingClosesAt(currentSurvey.executed_at).getTime()}
+                initialVote={vote?.votingType ?? null}
+                initialVotedAt={vote?.votedAt ?? null}
+                initialClassInfo={classInfo}
+              />
             ) : (
-              <p className={styles.notice}>현재 진행중이거나 대기중인 설문이 없습니다.</p>
+              <p className={styles.notice}>예정되었거나 진행중인 설문이 없습니다.</p>
             )
           }
           pastContent={

@@ -18,44 +18,57 @@ export async function getUserByDiscordId(discordId: string): Promise<DbUser | nu
   return (rows[0] as DbUser) ?? null;
 }
 
+/** 투표가 열리는 시각. exposed_at 그대로다. */
+export function getVotingOpensAt(survey: DbSurvey): Date {
+  return survey.exposed_at;
+}
+
 /**
- * The survey a member can actually vote on right now.
+ * 이번에 다룰 설문 하나 — 지금 열려 있거나, 곧 열릴 설문.
  *
- * `status = 'process'` alone is not enough: the bot's close task needs to edit
- * its Discord message, and when that fails the row is left at 'process'
- * forever — the live DB has 13 such rows, the newest from a node war 11 days
- * past. Requiring executed_at to be recent keeps a stale row from presenting
- * itself as the open survey, while still covering one that closed minutes ago
- * and is waiting on the bot to mark it complete.
+ * 투표 가능 여부를 status 로 판단하지 않는 것이 핵심이다. 예전에는 봇이 30초
+ * 루프에서 status 를 'process' 로 바꿔야 투표가 열렸고, 각 클라이언트는 5초
+ * 폴링으로 그걸 발견했다. 그래서 같은 설문인데도 사람마다 최대 35초까지 늦게
+ * 열려 순번이 뒤틀렸다. 이제 창은 순수하게 시간으로 정해진다.
  *
- * `now` is passed rather than using SQL NOW() because the DB server's clock is
- * UTC while the app reasons in KST; mysql2 converts a JS Date correctly using
- * the pool's timezone setting.
+ *   exposed_at <= now < executed_at - 1시간
+ *
+ * 봇이 무엇을 하든(혹은 죽어 있든) 모두에게 같은 순간에 열린다. status 는 지난
+ * 설문 분류와 봇 명령어에만 쓰인다.
+ *
+ * now 를 인자로 받는 이유는 DB 서버 시계가 UTC 라서다. mysql2 가 풀의 timezone
+ * 설정으로 JS Date 를 올바르게 변환한다.
  */
-export async function getOpenSurvey(now: Date = new Date()): Promise<DbSurvey | null> {
-  const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+export async function getCurrentSurvey(now: Date = new Date()): Promise<DbSurvey | null> {
+  const closesAfter = new Date(now.getTime() + 60 * 60 * 1000);
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
-      "WHERE status = 'process' AND executed_at >= ? ORDER BY executed_at ASC LIMIT 1",
-    [since],
+      "WHERE status <> 'cancel' AND executed_at > ? ORDER BY exposed_at ASC LIMIT 1",
+    [closesAfter],
   );
   return (rows[0] as DbSurvey) ?? null;
 }
 
-/** The next survey the bot has registered but not yet posted. */
-export async function getNextWaitingSurvey(): Promise<DbSurvey | null> {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
-      "WHERE status = 'wait' ORDER BY exposed_at ASC LIMIT 1",
-  );
-  return (rows[0] as DbSurvey) ?? null;
+/** 지금 이 순간 투표를 받을 수 있는 설문인가. 서버가 최종 판단한다. */
+export function isVotingOpen(survey: DbSurvey, now: Date = new Date()): boolean {
+  const opensAt = survey.exposed_at.getTime();
+  const closesAt = survey.executed_at.getTime() - 60 * 60 * 1000;
+  return now.getTime() >= opensAt && now.getTime() < closesAt;
 }
 
-/** The most recently held survey, for the 지난 설문 tab. */
-export async function getLatestCompletedSurvey(): Promise<DbSurvey | null> {
+/**
+ * 지난 설문 탭에 보여줄, 투표가 이미 닫힌 가장 최근 설문.
+ *
+ * status = 'complete' 로 찾지 않는다. 그 값은 봇이 찍어주는 것이라, 봇이 멎으면
+ * 지난 설문 탭이 옛날에 멈춰 버린다. 마감 시각(거점전 1시간 전)이 지났는지로
+ * 판단하면 웹만으로 정확하다.
+ */
+export async function getLatestClosedSurvey(now: Date = new Date()): Promise<DbSurvey | null> {
+  const closedBy = new Date(now.getTime() + 60 * 60 * 1000);
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
-      "WHERE status = 'complete' ORDER BY executed_at DESC LIMIT 1",
+      "WHERE status <> 'cancel' AND executed_at <= ? ORDER BY executed_at DESC LIMIT 1",
+    [closedBy],
   );
   return (rows[0] as DbSurvey) ?? null;
 }
