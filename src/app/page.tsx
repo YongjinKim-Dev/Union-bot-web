@@ -64,7 +64,9 @@ export default async function HomePage() {
           alt=""
           fill
           priority
-          sizes="100vw"
+          // The hero never renders wider than the 1120px page column, so
+          // telling next/image that keeps it from serving 1920px+ variants.
+          sizes="(max-width: 1120px) 100vw, 1120px"
           className={styles.heroImage}
         />
         <div className={styles.heroScrim} />

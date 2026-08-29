@@ -20,7 +20,7 @@ export default function AboutPage() {
 
       <section className={styles.hero}>
         {/* Above the fold, so preload it — lazy loading flashes the dark band first. */}
-        <Image src="/Wallpaper.jpg" alt="" fill priority sizes="100vw" className={styles.heroImage} />
+        <Image src="/Wallpaper.jpg" alt="" fill priority sizes="(max-width: 1120px) 100vw, 1120px" className={styles.heroImage} />
         <div className={styles.heroScrim} />
         <div className={styles.heroContent}>
           <span className={styles.heroKicker}>ABOUT</span>
