@@ -194,6 +194,12 @@
   flex-direction: column;
   gap: 8px;
   flex: 1;
+  min-width: 0;
+}
+
+/* 날짜·시각 입력은 제 폭을 고집하므로 칸 너비에 맞춰 자른다 */
+.field > .input {
+  width: 100%;
 }
 
 .fieldRow > .input {
