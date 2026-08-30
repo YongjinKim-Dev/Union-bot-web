@@ -22,7 +22,7 @@ interface OperationTabProps {
   showToast: (text: string) => void;
   /* 순번 조정과 발표는 마감 뒤에만 연다. 라이브 중에는 집계만 지켜본다. */
   closed: boolean;
-  /* 거점전이 끝나고 다음 투표가 열리기 전까지의 대기 국면 */
+  /* 거점전이 끝나고 다음 투표가 열리기 전까지의 대기 상태 */
   waiting: boolean;
 }
 

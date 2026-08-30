@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getVotingClosesAt } from "@/lib/format";
+import type { DbSurvey } from "@/lib/types";
 import styles from "./admin.module.css";
 import { OperationTab } from "./OperationTab";
 import { PastVotesTab } from "./PastVotesTab";
@@ -10,15 +12,35 @@ import { DEFAULT_PRESETS } from "./adminMock";
 
 const TABS: TabKey[] = ["운영", "지난 투표"];
 
+export type Phase = "waiting" | "live" | "closed";
+
+function phaseOf(current: DbSurvey | null, now: Date): Phase {
+  if (!current) return "waiting";
+  if (now < current.exposed_at) return "waiting";
+  if (now < getVotingClosesAt(current.executed_at)) return "live";
+  return "closed";
+}
+
+interface AdminConsoleProps {
+  current: DbSurvey | null;
+  queue: DbSurvey[];
+}
+
 /* 탭 껍데기. 탭을 오가도 유지돼야 하는 상태(정원 프리셋, 마감 여부, 토스트)만 여기서 든다. */
-export function AdminConsole() {
+export function AdminConsole({ current, queue }: AdminConsoleProps) {
   const [tab, setTab] = useState<TabKey>("운영");
 
   const [cap, setCap] = useState(DEFAULT_PRESETS[0]);
-  // 배선 전 데모용 국면. 배선되면 서버 시각으로 계산한다: 라이브 -> 마감 -> (거점전 뒤) 다음 투표 대기
-  const [waiting] = useState(false);
-  const [closed, setClosed] = useState(false);
   const [presetList, setPresetList] = useState<number[]>([...DEFAULT_PRESETS]);
+
+  // 기기 시계로 1분마다 다시 판정한다. 관리자 화면은 몇 초 밀려도 상관없다
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const [forceClosed, setForceClosed] = useState(false);
+  const phase: Phase = forceClosed && phaseOf(current, now) === "live" ? "closed" : phaseOf(current, now);
 
   const [toast, setToast] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,8 +93,19 @@ export function AdminConsole() {
 
       {tab === "운영" && (
         <>
-          <SettingsTab showToast={showToast} closed={closed} waiting={waiting} onClose={() => setClosed(true)} />
-          <OperationTab presets={presets} showToast={showToast} closed={closed} waiting={waiting} />
+          <SettingsTab
+            current={current}
+            queue={queue}
+            phase={phase}
+            showToast={showToast}
+            onClose={() => setForceClosed(true)}
+          />
+          <OperationTab
+            presets={presets}
+            showToast={showToast}
+            closed={phase === "closed"}
+            waiting={phase === "waiting"}
+          />
         </>
       )}
       {tab === "지난 투표" && <PastVotesTab cap={cap} />}

@@ -1,19 +1,37 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { formatSurveyDate, formatSurveyTime, getVotingClosesAt } from "@/lib/format";
+import type { DbSurvey } from "@/lib/types";
+import type { Phase } from "./AdminConsole";
 import styles from "./admin.module.css";
-import { DAYS, type Dow, type ManualRound, buildQueue, closeOf, dowOf, isoOf, parseIso } from "./adminData";
-import { DEFAULT_RULE, NEXT_SURVEY, QUEUE_DAYS, QUEUE_FROM, SURVEYS } from "./adminMock";
+import { DAYS, type Dow } from "./adminData";
+import { DEFAULT_RULE } from "./adminMock";
 
 interface SettingsTabProps {
+  current: DbSurvey | null;
+  queue: DbSurvey[];
+  phase: Phase;
   showToast: (text: string) => void;
-  closed: boolean;
-  /* 거점전이 끝나고 다음 투표가 열리기 전까지의 대기 국면 */
-  waiting: boolean;
   onClose: () => void;
 }
 
-export function SettingsTab({ showToast, closed, waiting, onClose }: SettingsTabProps) {
+function battleLabel(s: DbSurvey) {
+  return `${formatSurveyDate(s.executed_at)} ${formatSurveyTime(s.executed_at)}`;
+}
+
+function closeLabel(s: DbSurvey) {
+  const closeAt = getVotingClosesAt(s.executed_at);
+  return `${formatSurveyDate(closeAt)} ${formatSurveyTime(closeAt)}`;
+}
+
+function announceLabel(s: DbSurvey) {
+  if (!s.announce_at) return "공지 안 함";
+  const minutes = Math.round((s.exposed_at.getTime() - s.announce_at.getTime()) / 60000);
+  return `공지 ${minutes}분 전`;
+}
+
+export function SettingsTab({ current, queue, phase, showToast, onClose }: SettingsTabProps) {
   const [recurDays, setRecurDays] = useState<Record<Dow, boolean>>({ ...DEFAULT_RULE.days });
   const [battleTime, setBattleTime] = useState(DEFAULT_RULE.battle);
   const [openTime, setOpenTime] = useState(DEFAULT_RULE.open);
@@ -28,8 +46,6 @@ export function SettingsTab({ showToast, closed, waiting, onClose }: SettingsTab
     announceText: DEFAULT_RULE.announceText,
   });
 
-  const [manualRounds, setManualRounds] = useState<ManualRound[]>([]);
-  const [skipped, setSkipped] = useState<Record<string, boolean>>({});
   const [formOpen, setFormOpen] = useState(false);
   const [qDate, setQDate] = useState("");
   const [qBattle, setQBattle] = useState(DEFAULT_RULE.battle);
@@ -38,52 +54,18 @@ export function SettingsTab({ showToast, closed, waiting, onClose }: SettingsTab
   const [qAnnounceMin, setQAnnounceMin] = useState(String(DEFAULT_RULE.announceMinutes));
   const [qAnnounceText, setQAnnounceText] = useState("");
 
-  const seqRef = useRef(0);
-
-  const queue = buildQueue(recurDays, battleTime, openTime, Number(announceMin) || 0, manualRounds, QUEUE_FROM, QUEUE_DAYS);
+  const waiting = phase === "waiting";
+  const closed = phase === "closed";
 
   // 투표는 보통 거점전 전날 열리므로 거점전 날짜를 고르면 오픈 날짜를 전날로 채워 준다
   function pickBattleDate(iso: string) {
     setQDate(iso);
     if (!iso) return;
-    const prev = parseIso(iso);
-    prev.setDate(prev.getDate() - 1);
-    setQOpenDate(isoOf(prev));
+    const [y, m, d] = iso.split("-").map(Number);
+    const prev = new Date(y, m - 1, d - 1);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setQOpenDate(`${prev.getFullYear()}-${pad(prev.getMonth() + 1)}-${pad(prev.getDate())}`);
   }
-
-  function addManualRound() {
-    if (!qDate) {
-      showToast("날짜를 먼저 입력해 주세요");
-      return;
-    }
-    seqRef.current += 1;
-    setManualRounds((prev) => [
-      ...prev,
-      {
-        id: `q-${seqRef.current}`,
-        iso: qDate,
-        battle: qBattle || DEFAULT_RULE.battle,
-        openIso: qOpenDate || qDate,
-        open: qOpen || DEFAULT_RULE.open,
-        announceMin: Number(qAnnounceMin) || 0,
-      },
-    ]);
-    setQDate("");
-    setQOpenDate("");
-    setQAnnounceText("");
-    setFormOpen(false);
-    showToast("수동 회차를 큐에 추가했습니다");
-  }
-
-  function removeRound(key: string) {
-    setSkipped((prev) => ({ ...prev, [key]: true }));
-    showToast("이 회차를 뺐습니다 · 반복 규칙은 유지");
-  }
-
-  // 대기 국면에는 다음 회차와 그 오픈 시점(거점전 전날 22:30)을 보여준다
-  const today = waiting ? NEXT_SURVEY : SURVEYS[0];
-  const openDay = parseIso(today.iso);
-  openDay.setDate(openDay.getDate() - 1);
 
   return (
     <section className={styles.opStack}>
@@ -93,33 +75,38 @@ export function SettingsTab({ showToast, closed, waiting, onClose }: SettingsTab
           <div className={styles.card}>
             <h3 className={styles.cardTitle}>{waiting ? "다음 투표" : "오늘 투표"}</h3>
             <div className={styles.liveLine}>
-              <i className={`${styles.dot} ${closed || waiting ? "" : `${styles.dotLive} ${styles.pulse}`}`} />
+              <i className={`${styles.dot} ${phase === "live" ? `${styles.dotLive} ${styles.pulse}` : ""}`} />
               {waiting ? "다음 투표 대기" : closed ? "마감됨" : "라이브 · 투표 집계 중"}
             </div>
-            <div className={styles.todayMeta}>
-              <span>거점전</span>
-              <b>
-                {today.key} ({today.dow}) {today.battle}
-              </b>
-            </div>
-            {waiting && (
+            {current ? (
+              <>
+                <div className={styles.todayMeta}>
+                  <span>거점전</span>
+                  <b>{battleLabel(current)}</b>
+                </div>
+                {waiting && (
+                  <div className={styles.todayMeta}>
+                    <span>투표 오픈</span>
+                    <b>
+                      {formatSurveyDate(current.exposed_at)} {formatSurveyTime(current.exposed_at)}
+                    </b>
+                  </div>
+                )}
+                <div className={styles.todayMeta}>
+                  <span>투표 마감</span>
+                  <b>{closeLabel(current)}</b>
+                </div>
+              </>
+            ) : (
               <div className={styles.todayMeta}>
-                <span>투표 오픈</span>
-                <b>
-                  {isoOf(openDay).slice(5).replace("-", ".")} ({dowOf(openDay)}) {today.open}
-                </b>
+                <span>예정</span>
+                <b>등록된 회차 없음</b>
               </div>
             )}
-            <div className={styles.todayMeta}>
-              <span>투표 마감</span>
-              <b>
-                {today.key} ({today.dow}) {closeOf(today.battle)}
-              </b>
-            </div>
             <button
               type="button"
-              className={`${styles.btnSm} ${styles.block} ${styles.closeBtn} ${closed || waiting ? "" : styles.btnPrimary}`}
-              disabled={closed || waiting}
+              className={`${styles.btnSm} ${styles.block} ${styles.closeBtn} ${phase === "live" ? styles.btnPrimary : ""}`}
+              disabled={phase !== "live"}
               onClick={() => {
                 onClose();
                 showToast("오늘 투표를 즉시 마감했습니다");
@@ -303,7 +290,12 @@ export function SettingsTab({ showToast, closed, waiting, onClose }: SettingsTab
                   <button type="button" className={styles.btnSm} onClick={() => setFormOpen(false)}>
                     취소
                   </button>
-                  <button type="button" className={`${styles.btnSm} ${styles.btnPrimary}`} onClick={addManualRound}>
+                  <button
+                    type="button"
+                    className={`${styles.btnSm} ${styles.btnPrimary}`}
+                    disabled
+                    title="다음 단계에서 등록과 연결됩니다"
+                  >
                     추가
                   </button>
                 </div>
@@ -314,26 +306,20 @@ export function SettingsTab({ showToast, closed, waiting, onClose }: SettingsTab
               {queue.length === 0 && (
                 <div className={styles.qEmpty}>예정된 회차가 없습니다. 진행 요일을 켜거나 회차를 추가하세요</div>
               )}
-              {queue
-                .filter((r) => !skipped[r.key])
-                .map((r) => (
-                  <div key={r.key} className={styles.qRow}>
-                    <span className={styles.sCol}>
-                      <span className={styles.sTitle}>
-                        {r.iso} ({r.dow}) {r.battle}
-                      </span>
-                      <span className={styles.sSub}>
-                        투표 오픈 {r.openIso} ({r.openDow}) {r.open} ·{" "}
-                        {r.announceMin > 0 ? `공지 ${r.announceMin}분 전` : "공지 안 함"}
-                      </span>
+              {queue.map((s) => (
+                <div key={s.id} className={styles.qRow}>
+                  <span className={styles.sCol}>
+                    <span className={styles.sTitle}>{battleLabel(s)}</span>
+                    <span className={styles.sSub}>
+                      투표 오픈 {formatSurveyDate(s.exposed_at)} {formatSurveyTime(s.exposed_at)} · {announceLabel(s)}
                     </span>
-                    <span className={styles.spacer} />
-                    <span className={`${styles.qBadge} ${r.src === "수동" ? styles.qBadgeManual : ""}`}>{r.src}</span>
-                    <button type="button" className={styles.btnXs} onClick={() => removeRound(r.key)}>
-                      빼기
-                    </button>
-                  </div>
-                ))}
+                  </span>
+                  <span className={styles.spacer} />
+                  <button type="button" className={styles.btnXs} disabled title="다음 단계에서 연결됩니다">
+                    빼기
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>

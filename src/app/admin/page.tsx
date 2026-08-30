@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { getScheduleOverview } from "@/lib/adminQueries";
 import { SiteHeader } from "@/components/SiteHeader";
 import { AdminConsole } from "./AdminConsole";
 import styles from "./admin.module.css";
@@ -17,12 +18,13 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  // 디자인 확정 전 단계라 콘솔은 자체 더미로 돌아간다. DB 조회는 배선 때 붙인다.
+  const schedule = await getScheduleOverview();
+
   return (
     <main className={styles.main}>
       <SiteHeader active="admin" kicker="ADMIN" />
       <div className={styles.body}>
-        <AdminConsole />
+        <AdminConsole current={schedule.current} queue={schedule.queue} />
       </div>
     </main>
   );
