@@ -28,13 +28,13 @@ export async function addManualSurveyAction(input: CreateSurveyInput) {
   return result;
 }
 
-/* 큐에서 빼기. 아직 투표가 안 열린 회차만 뺄 수 있다. */
+/* 큐에서 빼기 */
 export async function cancelSurveyAction(surveyId: string) {
   await requireAdmin();
-  await pool.execute(
-    "UPDATE survey SET status = 'cancel', updated_at = ? WHERE id = ? AND exposed_at > ?",
-    [new Date(), surveyId, new Date()],
-  );
+  await pool.execute("UPDATE survey SET status = 'cancel', updated_at = ? WHERE id = ?", [
+    new Date(),
+    surveyId,
+  ]);
   revalidatePath("/admin");
 }
 

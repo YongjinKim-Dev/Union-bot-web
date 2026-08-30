@@ -94,8 +94,17 @@ export async function removeVoteAction(surveyId: string, historyId: string) {
 }
 
 /* 결과 명단을 설문 공지 채널로 보낸다. 공지와 같은 웹훅을 그대로 쓴다. */
-export async function sendRosterAction(text: string): Promise<boolean> {
+export async function sendRosterAction(surveyId: string, text: string): Promise<boolean> {
   await requireAdmin();
   const messageId = await sendSurveyAnnouncement(text);
+  if (messageId !== null) {
+    // 발송이 끝난 회차만 다음 회차에 자리를 내준다
+    await pool.execute("UPDATE survey SET result_sent_at = ?, updated_at = ? WHERE id = ?", [
+      new Date(),
+      new Date(),
+      surveyId,
+    ]);
+    revalidatePath("/admin");
+  }
   return messageId !== null;
 }

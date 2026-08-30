@@ -109,6 +109,7 @@ export function AdminConsole({ current, queue, settings }: AdminConsoleProps) {
             showToast={showToast}
           />
           <OperationTab
+            key={current?.id ?? "no-current-survey"}
             presets={presets}
             showToast={showToast}
             closed={phase === "closed"}

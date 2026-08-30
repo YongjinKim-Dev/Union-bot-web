@@ -2,10 +2,12 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  const { ensureResultSentColumn } = await import("@/lib/adminQueries");
   const { ensureSettings } = await import("@/lib/settings");
   const { syncSurveyQueue } = await import("@/lib/surveyQueue");
   const { msUntilNextKstMidnight } = await import("@/lib/week");
   await ensureSettings();
+  await ensureResultSentColumn();
   await syncSurveyQueue();
 
   // 한국시간 자정마다 돌면서 투표 큐를 관리한다

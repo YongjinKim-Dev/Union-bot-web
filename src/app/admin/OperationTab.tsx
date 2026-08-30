@@ -42,20 +42,15 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
   const [history, setHistory] = useState<Member[][]>([]);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [isSaving, startSave] = useTransition();
+  const currentId = current?.id;
 
   /* 라이브 중에는 몇 초마다 표를 다시 읽어온다. 마감이나 대기 상태면 한 번만. */
   useEffect(() => {
-    setDraft(null);
-    setHistory([]);
-    if (!current) {
-      setVoters([]);
-      setNonVoters([]);
-      return;
-    }
+    if (!currentId) return;
     let alive = true;
     const load = async () => {
       try {
-        const r = await fetchVoters(current.id);
+        const r = await fetchVoters(currentId);
         if (alive) {
           setVoters(r.voters);
           setNonVoters(r.nonVoters);
@@ -75,7 +70,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
       alive = false;
       clearInterval(timer);
     };
-  }, [current, closed, waiting]);
+  }, [currentId, closed, waiting]);
 
   const loaded = useMemo(() => votersToMembers(voters), [voters]);
   const members = draft ?? loaded;
@@ -151,9 +146,10 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
   }
 
   function sendToDiscord() {
+    if (!current) return;
     startSave(async () => {
       try {
-        const ok = await sendRosterAction(buildExportText(members, cap, heading, false));
+        const ok = await sendRosterAction(current.id, buildExportText(members, cap, heading, false));
         setExportOpen(false);
         showToast(ok ? "디코로 결과를 보냈습니다" : "발송에 실패했습니다 · 웹훅 설정을 확인해 주세요");
       } catch (e) {

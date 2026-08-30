@@ -55,8 +55,15 @@ export async function syncSurveyQueue(now: Date = new Date()): Promise<number> {
  * 새 규칙대로 다시 채운다. 살아 있는 수동 회차와 이미 열린 투표는 건드리지 않는다.
  */
 export async function rebuildAutoQueue(now: Date = new Date()): Promise<void> {
+  // 거점전이 안 지난 자동 회차와 뺀(cancel) 회차를 지우고 새 규칙대로 다시 깐다.
+  // 결과를 디코로 보낸 회차는 발표까지 끝난 기록이므로 남긴다. 손으로 등록한 회차도 남는다.
   await pool.execute(
-    "DELETE FROM survey WHERE exposed_at > ? AND (type = 'node_war_auto' OR status = 'cancel')",
+    "DELETE h FROM survey_history h JOIN survey s ON h.survey_id = s.id " +
+      "WHERE s.executed_at > ? AND s.result_sent_at IS NULL AND (s.type = 'node_war_auto' OR s.status = 'cancel')",
+    [now],
+  );
+  await pool.execute(
+    "DELETE FROM survey WHERE executed_at > ? AND result_sent_at IS NULL AND (type = 'node_war_auto' OR status = 'cancel')",
     [now],
   );
   await syncSurveyQueue(now);
