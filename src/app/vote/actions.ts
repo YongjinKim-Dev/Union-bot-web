@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { castVote, getCurrentSurvey, isVotingOpen } from "@/lib/queries";
-import { sendVoteLog } from "@/lib/discord";
-import { VOTING_TYPE_LABEL, type VotingType } from "@/lib/types";
+import type { VotingType } from "@/lib/types";
 
 async function requireSessionUser() {
   const session = await auth();
@@ -28,10 +27,6 @@ export async function submitVote(surveyId: string, votingType: VotingType) {
   }
 
   const result = await castVote(surveyId, user.dbUserId, votingType);
-
-  if (!result.isDuplicated) {
-    void sendVoteLog(user.nickname, VOTING_TYPE_LABEL[result.votingType]);
-  }
 
   revalidatePath("/vote");
   return result;

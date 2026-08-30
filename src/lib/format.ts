@@ -29,6 +29,17 @@ export function formatSurveyTime(date: Date): string {
   }).format(date);
 }
 
+/** "22:30:07" — 투표 로그는 순번이 중요해서 초까지 보여준다. */
+export function formatKstTimeWithSeconds(date: Date): string {
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 // Voting closes one hour before executed_at, same window enforced by the
 // bot's close_survey background task.
 export function getVotingClosesAt(executedAt: Date): Date {

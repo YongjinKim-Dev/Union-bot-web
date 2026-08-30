@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { fetchVoters, registerSurvey } from "./actions";
 import { VOTING_TYPE_LABEL, CLASS_TYPE_LABEL, type ClassType, type VotingType } from "@/lib/types";
+import { formatKstTimeWithSeconds } from "@/lib/format";
 import styles from "./admin.module.css";
 
 interface SurveyRow {
@@ -166,6 +167,7 @@ export function AdminPanel({ surveys }: { surveys: SurveyRow[] }) {
                             <th className={styles.th}>길드</th>
                             <th className={styles.th}>표</th>
                             <th className={styles.th}>직업</th>
+                            <th className={styles.th}>투표 시각</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -179,6 +181,9 @@ export function AdminPanel({ surveys }: { surveys: SurveyRow[] }) {
                                 {v.className
                                   ? `${v.className} (${v.classType ? CLASS_TYPE_LABEL[v.classType] : "?"})`
                                   : "미등록"}
+                              </td>
+                              <td className={styles.tdTime}>
+                                {formatKstTimeWithSeconds(new Date(v.votedAt))}
                               </td>
                             </tr>
                           ))}
