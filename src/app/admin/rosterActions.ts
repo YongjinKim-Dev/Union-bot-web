@@ -61,3 +61,41 @@ export async function saveRosterOrderAction(surveyId: string, orderedHistoryIds:
 
   revalidatePath("/admin");
 }
+
+/*
+ * 명단에 사람을 수동으로 추가한다. 닉네임으로 활성 연맹원을 찾아 참여 표를
+ * 지금 시각으로 넣으므로 순번은 맨 뒤가 된다.
+ */
+export async function addVoteAction(surveyId: string, nickname: string) {
+  await requireAdmin();
+
+  const name = nickname.trim();
+  if (!name) throw new Error("닉네임을 입력해 주세요.");
+
+  const [users] = await pool.query<RowDataPacket[]>(
+    "SELECT id FROM user WHERE user_nickname = ? AND status = 1",
+    [name],
+  );
+  if (users.length === 0) throw new Error(`"${name}" 닉네임의 연맹원이 없습니다.`);
+  const userId = String(users[0].id);
+
+  const [existing] = await pool.query<RowDataPacket[]>(
+    "SELECT id FROM survey_history WHERE survey_id = ? AND user_id = ?",
+    [surveyId, userId],
+  );
+  if (existing.length > 0) throw new Error(`${name} 님은 이미 이 회차에 투표했습니다.`);
+
+  const now = new Date();
+  await pool.execute(
+    "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) VALUES ('attend', ?, ?, ?, ?)",
+    [surveyId, userId, now, now],
+  );
+  revalidatePath("/admin");
+}
+
+/* 이 회차에서 표 한 장을 뺀다. 그 사람은 미투표 상태로 돌아간다. */
+export async function removeVoteAction(surveyId: string, historyId: string) {
+  await requireAdmin();
+  await pool.execute("DELETE FROM survey_history WHERE id = ? AND survey_id = ?", [historyId, surveyId]);
+  revalidatePath("/admin");
+}

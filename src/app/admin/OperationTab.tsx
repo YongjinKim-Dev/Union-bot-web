@@ -6,7 +6,7 @@ import type { VoterRow } from "@/lib/queries";
 import { CLASS_TYPE_LABEL, type DbSurvey, VOTING_TYPE_LABEL } from "@/lib/types";
 import { formatDayDate } from "@/lib/week";
 import { fetchVoters } from "./actions";
-import { saveRosterOrderAction } from "./rosterActions";
+import { addVoteAction, removeVoteAction, saveRosterOrderAction } from "./rosterActions";
 import styles from "./admin.module.css";
 import { RosterTable } from "./RosterTable";
 import { type Member, type PresetControls, VOTES, type Vote, countsOf, ofVote, rosterOf } from "./adminData";
@@ -63,6 +63,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
   const [filter, setFilter] = useState<Vote | "미투표" | null>(null);
   /* 마감 뒤 드래그 조정은 저장을 누르기 전까지 화면에만 쌓인다 */
   const [draft, setDraft] = useState<Member[] | null>(null);
+  const [addName, setAddName] = useState("");
   const [history, setHistory] = useState<Member[][]>([]);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [isSaving, startSave] = useTransition();
@@ -129,6 +130,15 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
     });
   }
 
+  async function reload() {
+    if (!current) return;
+    const r = await fetchVoters(current.id);
+    setVoters(r.voters);
+    setNonVoters(r.nonVoters);
+    setDraft(null);
+    setHistory([]);
+  }
+
   function save() {
     if (!current || !draft) return;
     startSave(async () => {
@@ -137,14 +147,40 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
           current.id,
           rosterOf(draft).map((m) => m.id),
         );
-        const r = await fetchVoters(current.id);
-        setVoters(r.voters);
-        setNonVoters(r.nonVoters);
-        setDraft(null);
-        setHistory([]);
+        await reload();
         showToast("명단 조정이 저장되었습니다");
       } catch (e) {
         showToast(e instanceof Error ? e.message : "저장에 실패했습니다");
+      }
+    });
+  }
+
+  function addVote() {
+    if (!current) return;
+    const name = addName.trim();
+    if (!name) return;
+    startSave(async () => {
+      try {
+        await addVoteAction(current.id, name);
+        await reload();
+        setAddName("");
+        showToast(`${name} 님을 이 회차 명단에 추가했습니다`);
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : "추가에 실패했습니다");
+      }
+    });
+  }
+
+  function removeVote(historyId: string) {
+    if (!current) return;
+    const gone = members.find((m) => m.id === historyId);
+    startSave(async () => {
+      try {
+        await removeVoteAction(current.id, historyId);
+        await reload();
+        showToast(gone ? `${gone.nick} 님의 이 회차 표를 뺐습니다` : "표를 뺐습니다");
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : "빼기에 실패했습니다");
       }
     });
   }
@@ -243,11 +279,15 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
           </button>
           <input
             className={`${styles.input} ${styles.addInput} ${styles.pushRight}`}
-            placeholder="닉네임 입력"
-            disabled
-            title="명단 조작은 다음 커밋에서 연결됩니다"
+            placeholder={closed ? "닉네임 입력" : "마감 후 조정 가능"}
+            disabled={!closed || isSaving}
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addVote();
+            }}
           />
-          <button type="button" className={styles.btnSm} disabled title="명단 조작은 다음 커밋에서 연결됩니다">
+          <button type="button" className={styles.btnSm} onClick={addVote} disabled={!closed || isSaving}>
             추가
           </button>
         </div>
@@ -260,6 +300,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
             editable={closed}
             flashId={flashId}
             onReorder={reorder}
+            onRemove={removeVote}
           />
         ) : filter === "미투표" ? (
           <RosterTable
