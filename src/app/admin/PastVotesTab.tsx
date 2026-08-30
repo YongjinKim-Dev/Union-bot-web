@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
+import type { PastSurveyRow } from "@/lib/adminQueries";
 import styles from "./admin.module.css";
 import { RosterTable } from "./RosterTable";
-import { type Member, VOTES, type Vote, countsOf, ofVote } from "./adminData";
-import { PAST_SURVEYS, UNVOTED, buildMembers } from "./adminMock";
+import { type Member, VOTES, type Vote, countsOf, ofVote, votersToMembers } from "./adminData";
+import { fetchVoters } from "./actions";
+import { fetchPastSurveys } from "./pastActions";
 
 interface PastVotesTabProps {
   cap: number;
 }
-
-const PAGE_SIZE = 15;
 
 // 1 … (현재 주변 3칸) … 끝 모양으로 페이지 번호를 줄인다
 function pageWindow(cur: number, total: number): (number | "…")[] {
@@ -25,41 +26,91 @@ function pageWindow(cur: number, total: number): (number | "…")[] {
 }
 
 export function PastVotesTab({ cap }: PastVotesTabProps) {
-  const [openIso, setOpenIso] = useState<string | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [filter, setFilter] = useState<Vote | "미투표" | null>(null);
   const [page, setPage] = useState(1);
+  const [rows, setRows] = useState<PastSurveyRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(15);
 
-  const totalPages = Math.ceil(PAST_SURVEYS.length / PAGE_SIZE);
-  const survey = openIso ? PAST_SURVEYS.find((s) => s.iso === openIso) : undefined;
+  const [openSurvey, setOpenSurvey] = useState<PastSurveyRow | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [nonVoterCount, setNonVoterCount] = useState(0);
+  const [nonVoterList, setNonVoterList] = useState<Member[]>([]);
+  const [filter, setFilter] = useState<Vote | "미투표" | null>(null);
+  const [isLoading, startLoad] = useTransition();
+
+  useEffect(() => {
+    let alive = true;
+    fetchPastSurveys(page)
+      .then((r) => {
+        if (!alive) return;
+        setRows(r.rows);
+        setTotal(r.total);
+        setPageSize(r.pageSize);
+      })
+      .catch(() => {
+        // 목록 한 번 실패는 페이지를 다시 넘기면 만회된다
+      });
+    return () => {
+      alive = false;
+    };
+  }, [page]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const counts = countsOf(members);
 
-  function open(iso: string) {
-    const idx = PAST_SURVEYS.findIndex((s) => s.iso === iso);
-    if (idx < 0) return;
-    setOpenIso(iso);
-    setFilter(null);
-    setMembers(buildMembers(PAST_SURVEYS[idx], idx * 7));
+  function open(row: PastSurveyRow) {
+    startLoad(async () => {
+      try {
+        const r = await fetchVoters(row.id);
+        setMembers(votersToMembers(r.voters));
+        setNonVoterCount(r.nonVoters.length);
+        setNonVoterList(
+          r.nonVoters.map((n, i) => ({
+            id: n.nickname,
+            nick: n.nickname,
+            guild: n.guildName,
+            job: "-",
+            line: "-",
+            vote: "미참" as const,
+            ord: i,
+            origSeq: i + 1,
+            time: "-",
+          })),
+        );
+        setFilter(null);
+        setOpenSurvey(row);
+      } catch {
+        // 조회에 실패하면 목록에 그대로 남는다
+      }
+    });
   }
 
-  if (!survey) {
+  if (!openSurvey) {
     return (
       <section>
         <div className={styles.pastList}>
           <div className={styles.surveyList}>
-            {PAST_SURVEYS.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((s) => (
-              <button key={s.iso} type="button" className={styles.sRow} onClick={() => open(s.iso)}>
+            {rows.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={styles.sRow}
+                disabled={isLoading}
+                onClick={() => open(s)}
+              >
                 <span className={styles.sCol}>
                   <span className={styles.sTitle}>
-                    {s.key} ({s.dow}) {s.battle} 거점전
+                    {formatSurveyDate(s.executed_at)} {formatSurveyTime(s.executed_at)} 거점전
                   </span>
                   <span className={styles.sSub}>
-                    참여 {s.counts["참여"] + s.counts["부속"]} · 부속 {s.counts["부속"]} · 늦참 {s.counts["늦참"]} · 미참 {s.counts["미참"]}
+                    참여 {s.counts["참여"] + s.counts["부속"]} · 부속 {s.counts["부속"]} · 늦참 {s.counts["늦참"]} ·
+                    미참 {s.counts["미참"]}
                   </span>
                 </span>
                 <span className={styles.sLink}>투표자 보기</span>
               </button>
             ))}
+            {rows.length === 0 && <div className={styles.qEmpty}>지난 회차가 아직 없습니다</div>}
           </div>
           <div className={styles.pager}>
             <button
@@ -103,10 +154,8 @@ export function PastVotesTab({ cap }: PastVotesTabProps) {
   return (
     <section className={styles.opStack}>
       <div className={styles.pastHead}>
-        <h2 className={styles.rosterTitle}>
-          {survey.key} ({survey.dow}) 거점전 순번 명단
-        </h2>
-        <button type="button" className={styles.btnSm} onClick={() => setOpenIso(null)}>
+        <h2 className={styles.rosterTitle}>{formatSurveyDate(openSurvey.executed_at)} 거점전 순번 명단</h2>
+        <button type="button" className={styles.btnSm} onClick={() => setOpenSurvey(null)}>
           목록으로
         </button>
       </div>
@@ -132,7 +181,7 @@ export function PastVotesTab({ cap }: PastVotesTabProps) {
             onClick={() => setFilter(filter === "미투표" ? null : "미투표")}
           >
             <span className={styles.statKey}>미투표</span>
-            <div className={`${styles.statNum} ${styles.statNumMute}`}>{UNVOTED.length}</div>
+            <div className={`${styles.statNum} ${styles.statNumMute}`}>{nonVoterCount}</div>
           </button>
         </div>
       </div>
@@ -141,22 +190,7 @@ export function PastVotesTab({ cap }: PastVotesTabProps) {
         {filter === null || filter === "참여" ? (
           <RosterTable key={filter ?? "base"} members={members} cap={cap} />
         ) : filter === "미투표" ? (
-          <RosterTable
-            key="unvoted"
-            members={members}
-            list={UNVOTED.map((nick, i) => ({
-              id: `unvoted-${i}`,
-              nick,
-              guild: "—",
-              job: "—",
-              line: "—",
-              vote: "미참" as const,
-              ord: i,
-              origSeq: i + 1,
-              time: "—",
-            }))}
-            cap={cap}
-          />
+          <RosterTable key="unvoted" members={members} list={nonVoterList} cap={cap} />
         ) : (
           <RosterTable key={filter} members={members} list={ofVote(members, filter)} cap={cap} />
         )}

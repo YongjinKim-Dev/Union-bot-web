@@ -1,19 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/adminAuth";
 import { pool } from "@/lib/db";
 import { type AutoRule, saveAutoRule } from "@/lib/settings";
 import { rebuildAutoQueue } from "@/lib/surveyQueue";
 import { type CreateSurveyInput, registerSurvey } from "./actions";
-
-/* 서버 액션은 URL 만 알면 직접 호출될 수 있으므로 매번 역할을 확인한다. */
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.dbUserId) throw new Error("로그인이 필요합니다.");
-  if (!session.user.isAdmin) throw new Error("권한이 없습니다.");
-  return session.user;
-}
 
 /* 규칙을 저장하고 그 자리에서 예정 큐를 새 규칙대로 다시 채운다. */
 export async function saveAutoRuleAction(rule: AutoRule) {

@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { formatKstTimeWithSeconds, formatSurveyDate } from "@/lib/format";
+import { formatSurveyDate } from "@/lib/format";
 import type { VoterRow } from "@/lib/queries";
-import { CLASS_TYPE_LABEL, type DbSurvey, VOTING_TYPE_LABEL } from "@/lib/types";
-import { formatDayDate } from "@/lib/week";
+import type { DbSurvey } from "@/lib/types";
 import { fetchVoters } from "./actions";
 import { addVoteAction, removeVoteAction, saveRosterOrderAction, sendRosterAction } from "./rosterActions";
 import styles from "./admin.module.css";
 import { RosterTable } from "./RosterTable";
-import { type Member, type PresetControls, VOTES, type Vote, buildExportText, countsOf, ofVote, rosterOf } from "./adminData";
+import { type Member, type PresetControls, VOTES, type Vote, buildExportText, countsOf, ofVote, rosterOf, votersToMembers } from "./adminData";
 
 const POLL_MS = 5000;
 
@@ -26,31 +25,6 @@ interface OperationTabProps {
   /* 거점전이 끝나고 다음 투표가 열리기 전까지의 대기 상태 */
   waiting: boolean;
   current: DbSurvey | null;
-}
-
-/* 표 목록을 화면 명단으로 바꾼다. 순번은 참여와 부속끼리만 매긴다. */
-function toMembers(voters: VoterRow[]): Member[] {
-  let rosterSeq = 0;
-  let restSeq = 0;
-  return voters.map((v) => {
-    const vote = VOTING_TYPE_LABEL[v.votingType] as Vote;
-    const inRoster = vote === "참여" || vote === "부속";
-    const ord = inRoster ? rosterSeq : restSeq;
-    if (inRoster) rosterSeq += 1;
-    else restSeq += 1;
-    const votedAt = new Date(v.votedAt);
-    return {
-      id: v.historyId,
-      nick: v.nickname,
-      guild: v.guildName,
-      job: v.className ?? "-",
-      line: v.classType ? CLASS_TYPE_LABEL[v.classType] : "-",
-      vote,
-      ord,
-      origSeq: ord + 1,
-      time: `${formatDayDate(votedAt)} ${formatKstTimeWithSeconds(votedAt)}`,
-    };
-  });
 }
 
 export function OperationTab({ presets, showToast, closed, waiting, current }: OperationTabProps) {
@@ -103,7 +77,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
     };
   }, [current, closed, waiting]);
 
-  const loaded = useMemo(() => toMembers(voters), [voters]);
+  const loaded = useMemo(() => votersToMembers(voters), [voters]);
   const members = draft ?? loaded;
   const counts = countsOf(members);
   const roster = rosterOf(members);

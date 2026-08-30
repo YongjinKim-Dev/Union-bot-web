@@ -1,5 +1,10 @@
 /* 관리자 콘솔의 타입과 순수 계산. 화면을 채우는 더미는 adminMock.ts에 있다. */
 
+import { formatKstTimeWithSeconds } from "@/lib/format";
+import type { VoterRow } from "@/lib/queries";
+import { CLASS_TYPE_LABEL, VOTING_TYPE_LABEL } from "@/lib/types";
+import { formatDayDate } from "@/lib/week";
+
 export type Vote = "참여" | "부속" | "늦참" | "미참";
 export type TabKey = "운영" | "지난 투표";
 export type Dow = "월" | "화" | "수" | "목" | "금" | "토" | "일";
@@ -167,4 +172,29 @@ export function buildExportText(members: Member[], cap: number, heading: string,
     rest.forEach((m, i) => lines.push(`${cap + i + 1}. ${mark(m, false)}`));
   }
   return lines.join("\n");
+}
+
+/* 표 목록을 화면 명단으로 바꾼다. 순번은 참여와 부속끼리만 매긴다. */
+export function votersToMembers(voters: VoterRow[]): Member[] {
+  let rosterSeq = 0;
+  let restSeq = 0;
+  return voters.map((v) => {
+    const vote = VOTING_TYPE_LABEL[v.votingType] as Vote;
+    const inRoster = vote === "참여" || vote === "부속";
+    const ord = inRoster ? rosterSeq : restSeq;
+    if (inRoster) rosterSeq += 1;
+    else restSeq += 1;
+    const votedAt = new Date(v.votedAt);
+    return {
+      id: v.historyId,
+      nick: v.nickname,
+      guild: v.guildName,
+      job: v.className ?? "-",
+      line: v.classType ? CLASS_TYPE_LABEL[v.classType] : "-",
+      vote,
+      ord,
+      origSeq: ord + 1,
+      time: `${formatDayDate(votedAt)} ${formatKstTimeWithSeconds(votedAt)}`,
+    };
+  });
 }
