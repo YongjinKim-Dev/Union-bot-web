@@ -6,10 +6,11 @@ services:
       - "3000:3000"
     env_file:
       - .env
-    # Uncomment if the existing MySQL instance runs on the Vultr host itself
-    # (outside this compose network) rather than in its own container:
-    # extra_hosts:
-    #   - "host.docker.internal:host-gateway"
+    # MySQL 은 이 compose 네트워크 밖, Vultr 호스트에서 직접 돈다. .env 의
+    # DB_HOST=host.docker.internal 을 컨테이너가 풀 수 있게 매핑해 준다.
+    # 이 줄이 없으면 컨테이너가 DB 에 붙지 못한다.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # If the bot's MySQL database is not already running elsewhere, run it
   # alongside the app and point DB_HOST=mysql in .env. Otherwise delete this
