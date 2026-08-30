@@ -43,7 +43,8 @@ export async function getCurrentSurvey(now: Date = new Date()): Promise<DbSurvey
   const closesAfter = new Date(now.getTime() + 60 * 60 * 1000);
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id, announce_at, announce_content FROM survey " +
-      "WHERE status <> 'cancel' AND executed_at > ? ORDER BY exposed_at ASC LIMIT 1",
+      // 관리자가 즉시 마감(complete)한 설문은 건너뛰고 다음 설문을 연다
+      "WHERE status NOT IN ('cancel', 'complete') AND executed_at > ? ORDER BY exposed_at ASC LIMIT 1",
     [closesAfter],
   );
   return (rows[0] as DbSurvey) ?? null;
@@ -51,6 +52,8 @@ export async function getCurrentSurvey(now: Date = new Date()): Promise<DbSurvey
 
 /** 지금 이 순간 투표를 받을 수 있는 설문인가. 서버가 최종 판단한다. */
 export function isVotingOpen(survey: DbSurvey, now: Date = new Date()): boolean {
+  // 관리자가 즉시 마감을 누르면 complete 가 찍힌다. 시각과 무관하게 닫는다.
+  if (survey.status === "complete") return false;
   const opensAt = survey.exposed_at.getTime();
   const closesAt = survey.executed_at.getTime() - 60 * 60 * 1000;
   return now.getTime() >= opensAt && now.getTime() < closesAt;

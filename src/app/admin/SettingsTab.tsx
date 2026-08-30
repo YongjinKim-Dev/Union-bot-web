@@ -8,7 +8,7 @@ import type { Phase } from "./AdminConsole";
 import styles from "./admin.module.css";
 import { DAYS, type Dow } from "./adminData";
 import { DEFAULT_RULE } from "./adminMock";
-import { saveAutoRuleAction } from "./settingsActions";
+import { addManualSurveyAction, cancelSurveyAction, closeSurveyAction, saveAutoRuleAction } from "./settingsActions";
 
 /* 요일 이름과 getDay() 숫자(0=일 … 6=토) 사이 변환 */
 const DOW_NUM: Record<Dow, number> = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6 };
@@ -24,7 +24,6 @@ interface SettingsTabProps {
   autoRule: AutoRule;
   phase: Phase;
   showToast: (text: string) => void;
-  onClose: () => void;
 }
 
 function battleLabel(s: DbSurvey) {
@@ -42,7 +41,7 @@ function announceLabel(s: DbSurvey) {
   return `공지 ${minutes}분 전`;
 }
 
-export function SettingsTab({ current, queue, autoRule, phase, showToast, onClose }: SettingsTabProps) {
+export function SettingsTab({ current, queue, autoRule, phase, showToast }: SettingsTabProps) {
   const [recurDays, setRecurDays] = useState<Record<Dow, boolean>>(() => daysFromRule(autoRule));
   const [battleTime, setBattleTime] = useState(autoRule.battleTime);
   const [openTime, setOpenTime] = useState(autoRule.openTime);
@@ -57,6 +56,7 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast, onClos
   const [qOpen, setQOpen] = useState(DEFAULT_RULE.open);
   const [qAnnounceMin, setQAnnounceMin] = useState(String(DEFAULT_RULE.announceMinutes));
   const [qAnnounceText, setQAnnounceText] = useState("");
+  const [isQueueBusy, startQueueWork] = useTransition();
 
   const waiting = phase === "waiting";
   const closed = phase === "closed";
@@ -110,10 +110,17 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast, onClos
             <button
               type="button"
               className={`${styles.btnSm} ${styles.block} ${styles.closeBtn} ${phase === "live" ? styles.btnPrimary : ""}`}
-              disabled={phase !== "live"}
+              disabled={phase !== "live" || isQueueBusy}
               onClick={() => {
-                onClose();
-                showToast("오늘 투표를 즉시 마감했습니다");
+                if (!current) return;
+                startQueueWork(async () => {
+                  try {
+                    await closeSurveyAction(current.id);
+                    showToast("오늘 투표를 즉시 마감했습니다");
+                  } catch (e) {
+                    showToast(e instanceof Error ? e.message : "마감에 실패했습니다");
+                  }
+                });
               }}
             >
               {closed ? "마감됨" : "즉시 마감"}
@@ -303,10 +310,32 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast, onClos
                   <button
                     type="button"
                     className={`${styles.btnSm} ${styles.btnPrimary}`}
-                    disabled
-                    title="다음 단계에서 등록과 연결됩니다"
+                    disabled={isQueueBusy}
+                    onClick={() => {
+                      if (!qDate || !qOpenDate) {
+                        showToast("날짜를 먼저 입력해 주세요");
+                        return;
+                      }
+                      startQueueWork(async () => {
+                        try {
+                          await addManualSurveyAction({
+                            executedAt: `${qDate}T${qBattle}`,
+                            exposedAt: `${qOpenDate}T${qOpen}`,
+                            announceMinutesBefore: Number(qAnnounceMin) || 0,
+                            announceContent: qAnnounceText,
+                          });
+                          setQDate("");
+                          setQOpenDate("");
+                          setQAnnounceText("");
+                          setFormOpen(false);
+                          showToast("수동 회차를 큐에 추가했습니다");
+                        } catch (e) {
+                          showToast(e instanceof Error ? e.message : "등록에 실패했습니다");
+                        }
+                      });
+                    }}
                   >
-                    추가
+                    {isQueueBusy ? "추가 중..." : "추가"}
                   </button>
                 </div>
               </div>
@@ -325,7 +354,21 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast, onClos
                     </span>
                   </span>
                   <span className={styles.spacer} />
-                  <button type="button" className={styles.btnXs} disabled title="다음 단계에서 연결됩니다">
+                  <button
+                    type="button"
+                    className={styles.btnXs}
+                    disabled={isQueueBusy}
+                    onClick={() => {
+                      startQueueWork(async () => {
+                        try {
+                          await cancelSurveyAction(s.id);
+                          showToast("이 회차를 뺐습니다 · 반복 규칙은 유지");
+                        } catch (e) {
+                          showToast(e instanceof Error ? e.message : "빼기에 실패했습니다");
+                        }
+                      });
+                    }}
+                  >
                     빼기
                   </button>
                 </div>

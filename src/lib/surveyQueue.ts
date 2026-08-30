@@ -55,6 +55,9 @@ export async function syncSurveyQueue(now: Date = new Date()): Promise<number> {
  * 수동 등록 회차와 이미 열린 투표는 건드리지 않는다.
  */
 export async function rebuildAutoQueue(now: Date = new Date()): Promise<void> {
-  await pool.execute("DELETE FROM survey WHERE type = 'node_war_auto' AND exposed_at > ?", [now]);
+  await pool.execute(
+    "DELETE FROM survey WHERE type = 'node_war_auto' AND status <> 'cancel' AND exposed_at > ?",
+    [now],
+  );
   await syncSurveyQueue(now);
 }

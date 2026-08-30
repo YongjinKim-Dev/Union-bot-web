@@ -18,6 +18,8 @@ export type Phase = "waiting" | "live" | "closed";
 function phaseOf(current: DbSurvey | null, now: Date): Phase {
   if (!current) return "waiting";
   if (now < current.exposed_at) return "waiting";
+  // 관리자가 즉시 마감을 누르면 complete 가 찍힌다
+  if (current.status === "complete") return "closed";
   if (now < getVotingClosesAt(current.executed_at)) return "live";
   return "closed";
 }
@@ -43,8 +45,7 @@ export function AdminConsole({ current, queue, settings }: AdminConsoleProps) {
     const timer = setInterval(() => setNow(new Date()), 60 * 1000);
     return () => clearInterval(timer);
   }, []);
-  const [forceClosed, setForceClosed] = useState(false);
-  const phase: Phase = forceClosed && phaseOf(current, now) === "live" ? "closed" : phaseOf(current, now);
+  const phase: Phase = phaseOf(current, now);
 
   const [toast, setToast] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,7 +104,6 @@ export function AdminConsole({ current, queue, settings }: AdminConsoleProps) {
             autoRule={settings.autoRule}
             phase={phase}
             showToast={showToast}
-            onClose={() => setForceClosed(true)}
           />
           <OperationTab
             presets={presets}
