@@ -43,8 +43,18 @@ export async function syncSurveyQueue(now: Date = new Date()): Promise<number> {
       : null;
     const content = `${formatSurveyDate(executedAt)} ${formatSurveyTime(executedAt)} 거점전 설문조사`;
 
-    await createSurvey({ content, executedAt, exposedAt, announceAt, announceContent });
+    await createSurvey({ content, executedAt, exposedAt, announceAt, announceContent, type: "node_war_auto" });
     created += 1;
   }
   return created;
+}
+
+/*
+ * 자동 등록 규칙을 저장한 직후 부른다.
+ * 아직 투표가 안 열린 자동 생성 회차를 전부 지우고 새 규칙대로 다시 채운다.
+ * 수동 등록 회차와 이미 열린 투표는 건드리지 않는다.
+ */
+export async function rebuildAutoQueue(now: Date = new Date()): Promise<void> {
+  await pool.execute("DELETE FROM survey WHERE type = 'node_war_auto' AND exposed_at > ?", [now]);
+  await syncSurveyQueue(now);
 }

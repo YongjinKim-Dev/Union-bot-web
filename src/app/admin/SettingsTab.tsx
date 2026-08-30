@@ -1,16 +1,27 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState, useTransition } from "react";
 import { formatSurveyDate, formatSurveyTime, getVotingClosesAt } from "@/lib/format";
+import type { AutoRule } from "@/lib/settings";
 import type { DbSurvey } from "@/lib/types";
 import type { Phase } from "./AdminConsole";
 import styles from "./admin.module.css";
 import { DAYS, type Dow } from "./adminData";
 import { DEFAULT_RULE } from "./adminMock";
+import { saveAutoRuleAction } from "./settingsActions";
+
+/* 요일 이름과 getDay() 숫자(0=일 … 6=토) 사이 변환 */
+const DOW_NUM: Record<Dow, number> = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6 };
+
+function daysFromRule(rule: AutoRule): Record<Dow, boolean> {
+  const on = new Set(rule.weekdays);
+  return Object.fromEntries(DAYS.map((d) => [d, on.has(DOW_NUM[d])])) as Record<Dow, boolean>;
+}
 
 interface SettingsTabProps {
   current: DbSurvey | null;
   queue: DbSurvey[];
+  autoRule: AutoRule;
   phase: Phase;
   showToast: (text: string) => void;
   onClose: () => void;
@@ -31,20 +42,13 @@ function announceLabel(s: DbSurvey) {
   return `공지 ${minutes}분 전`;
 }
 
-export function SettingsTab({ current, queue, phase, showToast, onClose }: SettingsTabProps) {
-  const [recurDays, setRecurDays] = useState<Record<Dow, boolean>>({ ...DEFAULT_RULE.days });
-  const [battleTime, setBattleTime] = useState(DEFAULT_RULE.battle);
-  const [openTime, setOpenTime] = useState(DEFAULT_RULE.open);
-  const [announceMin, setAnnounceMin] = useState(String(DEFAULT_RULE.announceMinutes));
-  const [announceText, setAnnounceText] = useState(DEFAULT_RULE.announceText);
-  // 취소를 누르면 마지막으로 저장한 규칙으로 되돌린다
-  const savedRule = useRef({
-    days: { ...DEFAULT_RULE.days },
-    battle: DEFAULT_RULE.battle,
-    open: DEFAULT_RULE.open,
-    announceMin: String(DEFAULT_RULE.announceMinutes),
-    announceText: DEFAULT_RULE.announceText,
-  });
+export function SettingsTab({ current, queue, autoRule, phase, showToast, onClose }: SettingsTabProps) {
+  const [recurDays, setRecurDays] = useState<Record<Dow, boolean>>(() => daysFromRule(autoRule));
+  const [battleTime, setBattleTime] = useState(autoRule.battleTime);
+  const [openTime, setOpenTime] = useState(autoRule.openTime);
+  const [announceMin, setAnnounceMin] = useState(String(autoRule.announceMinutes));
+  const [announceText, setAnnounceText] = useState(autoRule.announceText);
+  const [isSaving, startSave] = useTransition();
 
   const [formOpen, setFormOpen] = useState(false);
   const [qDate, setQDate] = useState("");
@@ -180,12 +184,11 @@ export function SettingsTab({ current, queue, phase, showToast, onClose }: Setti
                 type="button"
                 className={styles.btnSm}
                 onClick={() => {
-                  const base = savedRule.current;
-                  setRecurDays({ ...base.days });
-                  setBattleTime(base.battle);
-                  setOpenTime(base.open);
-                  setAnnounceMin(base.announceMin);
-                  setAnnounceText(base.announceText);
+                  setRecurDays(daysFromRule(autoRule));
+                  setBattleTime(autoRule.battleTime);
+                  setOpenTime(autoRule.openTime);
+                  setAnnounceMin(String(autoRule.announceMinutes));
+                  setAnnounceText(autoRule.announceText);
                   showToast("저장 전 상태로 되돌렸습니다");
                 }}
               >
@@ -194,18 +197,25 @@ export function SettingsTab({ current, queue, phase, showToast, onClose }: Setti
               <button
                 type="button"
                 className={`${styles.btnSm} ${styles.btnPrimary}`}
+                disabled={isSaving}
                 onClick={() => {
-                  savedRule.current = {
-                    days: { ...recurDays },
-                    battle: battleTime,
-                    open: openTime,
-                    announceMin,
-                    announceText,
-                  };
-                  showToast("자동 등록 규칙이 저장되었습니다");
+                  startSave(async () => {
+                    try {
+                      await saveAutoRuleAction({
+                        weekdays: DAYS.filter((d) => recurDays[d]).map((d) => DOW_NUM[d]),
+                        battleTime,
+                        openTime,
+                        announceMinutes: Number(announceMin) || 0,
+                        announceText,
+                      });
+                      showToast("자동 등록 규칙이 저장되었습니다 · 큐에 반영됨");
+                    } catch (e) {
+                      showToast(e instanceof Error ? e.message : "저장에 실패했습니다");
+                    }
+                  });
                 }}
               >
-                저장
+                {isSaving ? "저장 중..." : "저장"}
               </button>
             </div>
           </div>

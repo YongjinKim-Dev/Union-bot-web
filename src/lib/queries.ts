@@ -318,11 +318,13 @@ export async function createSurvey(params: {
   exposedAt: Date;
   announceAt: Date | null;
   announceContent: string | null;
+  /** 자동 등록이 만든 회차는 'node_war_auto' 로 표시해 수동 등록과 구분한다 */
+  type?: string;
 }): Promise<string> {
   const [result] = await pool.execute(
     "INSERT INTO survey (type, content, status, executed_at, exposed_at, announce_at, announce_content, created_at, updated_at) " +
-      "VALUES ('node_war', ?, 'process', ?, ?, ?, ?, NOW(), NOW())",
-    [params.content, params.executedAt, params.exposedAt, params.announceAt, params.announceContent],
+      "VALUES (?, ?, 'process', ?, ?, ?, ?, NOW(), NOW())",
+    [params.type ?? "node_war", params.content, params.executedAt, params.exposedAt, params.announceAt, params.announceContent],
   );
   return String((result as { insertId: number }).insertId);
 }

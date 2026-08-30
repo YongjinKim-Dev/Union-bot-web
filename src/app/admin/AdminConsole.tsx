@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getVotingClosesAt } from "@/lib/format";
+import type { AdminSettings } from "@/lib/settings";
 import type { DbSurvey } from "@/lib/types";
 import styles from "./admin.module.css";
 import { OperationTab } from "./OperationTab";
@@ -24,14 +25,17 @@ function phaseOf(current: DbSurvey | null, now: Date): Phase {
 interface AdminConsoleProps {
   current: DbSurvey | null;
   queue: DbSurvey[];
+  settings: AdminSettings;
 }
 
 /* 탭 껍데기. 탭을 오가도 유지돼야 하는 상태(정원 프리셋, 마감 여부, 토스트)만 여기서 든다. */
-export function AdminConsole({ current, queue }: AdminConsoleProps) {
+export function AdminConsole({ current, queue, settings }: AdminConsoleProps) {
   const [tab, setTab] = useState<TabKey>("운영");
 
-  const [cap, setCap] = useState(DEFAULT_PRESETS[0]);
-  const [presetList, setPresetList] = useState<number[]>([...DEFAULT_PRESETS]);
+  const [cap, setCap] = useState(settings.capPresets[0] ?? DEFAULT_PRESETS[0]);
+  const [presetList, setPresetList] = useState<number[]>(
+    settings.capPresets.length > 0 ? [...settings.capPresets] : [...DEFAULT_PRESETS],
+  );
 
   // 기기 시계로 1분마다 다시 판정한다. 관리자 화면은 몇 초 밀려도 상관없다
   const [now, setNow] = useState(() => new Date());
@@ -96,6 +100,7 @@ export function AdminConsole({ current, queue }: AdminConsoleProps) {
           <SettingsTab
             current={current}
             queue={queue}
+            autoRule={settings.autoRule}
             phase={phase}
             showToast={showToast}
             onClose={() => setForceClosed(true)}

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getScheduleOverview } from "@/lib/adminQueries";
+import { getSettings } from "@/lib/settings";
 import { SiteHeader } from "@/components/SiteHeader";
 import { AdminConsole } from "./AdminConsole";
 import styles from "./admin.module.css";
@@ -18,13 +19,13 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const schedule = await getScheduleOverview();
+  const [schedule, settings] = await Promise.all([getScheduleOverview(), getSettings()]);
 
   return (
     <main className={styles.main}>
       <SiteHeader active="admin" kicker="ADMIN" />
       <div className={styles.body}>
-        <AdminConsole current={schedule.current} queue={schedule.queue} />
+        <AdminConsole current={schedule.current} queue={schedule.queue} settings={settings} />
       </div>
     </main>
   );
