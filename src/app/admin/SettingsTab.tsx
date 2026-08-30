@@ -7,7 +7,6 @@ import type { DbSurvey } from "@/lib/types";
 import type { Phase } from "./AdminConsole";
 import styles from "./admin.module.css";
 import { DAYS, type Dow } from "./adminData";
-import { DEFAULT_RULE } from "./adminMock";
 import { addManualSurveyAction, cancelSurveyAction, closeSurveyAction, saveAutoRuleAction } from "./settingsActions";
 
 /* 요일 이름과 getDay() 숫자(0=일 … 6=토) 사이 변환 */
@@ -51,10 +50,10 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast }: Sett
 
   const [formOpen, setFormOpen] = useState(false);
   const [qDate, setQDate] = useState("");
-  const [qBattle, setQBattle] = useState(DEFAULT_RULE.battle);
+  const [qBattle, setQBattle] = useState(autoRule.battleTime);
   const [qOpenDate, setQOpenDate] = useState("");
-  const [qOpen, setQOpen] = useState(DEFAULT_RULE.open);
-  const [qAnnounceMin, setQAnnounceMin] = useState(String(DEFAULT_RULE.announceMinutes));
+  const [qOpen, setQOpen] = useState(autoRule.openTime);
+  const [qAnnounceMin, setQAnnounceMin] = useState(String(autoRule.announceMinutes));
   const [qAnnounceText, setQAnnounceText] = useState("");
   const [isQueueBusy, startQueueWork] = useTransition();
 
@@ -149,7 +148,7 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast }: Sett
                   className={`${styles.input} ${styles.mono}`}
                   type="time"
                   value={battleTime}
-                  onChange={(e) => setBattleTime(e.target.value || DEFAULT_RULE.battle)}
+                  onChange={(e) => setBattleTime(e.target.value || autoRule.battleTime)}
                 />
               </label>
               <label className={styles.field}>
@@ -158,7 +157,7 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast }: Sett
                   className={`${styles.input} ${styles.mono}`}
                   type="time"
                   value={openTime}
-                  onChange={(e) => setOpenTime(e.target.value || DEFAULT_RULE.open)}
+                  onChange={(e) => setOpenTime(e.target.value || autoRule.openTime)}
                 />
               </label>
             </div>

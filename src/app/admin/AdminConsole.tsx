@@ -10,7 +10,6 @@ import { OperationTab } from "./OperationTab";
 import { PastVotesTab } from "./PastVotesTab";
 import { SettingsTab } from "./SettingsTab";
 import type { PresetControls, TabKey } from "./adminData";
-import { DEFAULT_PRESETS } from "./adminMock";
 
 const TABS: TabKey[] = ["운영", "지난 투표"];
 
@@ -35,10 +34,8 @@ interface AdminConsoleProps {
 export function AdminConsole({ current, queue, settings }: AdminConsoleProps) {
   const [tab, setTab] = useState<TabKey>("운영");
 
-  const [cap, setCap] = useState(settings.capPresets[0] ?? DEFAULT_PRESETS[0]);
-  const [presetList, setPresetList] = useState<number[]>(
-    settings.capPresets.length > 0 ? [...settings.capPresets] : [...DEFAULT_PRESETS],
-  );
+  const [cap, setCap] = useState(settings.capPresets[0]);
+  const [presetList, setPresetList] = useState<number[]>([...settings.capPresets]);
 
   // 기기 시계로 1분마다 다시 판정하고, 회차 전환이 시각으로 일어나므로
   // 일정 데이터도 같이 다시 읽어온다. 관리자 화면은 몇 초 밀려도 상관없다

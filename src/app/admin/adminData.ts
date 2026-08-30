@@ -1,4 +1,4 @@
-/* 관리자 콘솔의 타입과 순수 계산. 화면을 채우는 더미는 adminMock.ts에 있다. */
+/* 관리자 콘솔의 타입과 순수 계산 */
 
 import { formatKstTimeWithSeconds } from "@/lib/format";
 import type { VoterRow } from "@/lib/queries";
