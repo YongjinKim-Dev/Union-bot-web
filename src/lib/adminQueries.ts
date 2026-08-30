@@ -35,13 +35,11 @@ export async function getScheduleOverview(
     [now],
   );
   const list = rows as DbSurvey[];
-  // 다음 회차 투표가 열려 있어도, 앞 회차는 결과를 디코로 보낸 뒤에만 자리를 내준다.
-  // 발송을 안 하면 거점전 시각이 지날 때 넘어간다 (조회 조건에서 빠지므로).
-  let idx = 0;
-  for (let i = 1; i < list.length; i += 1) {
-    if (list[idx].result_sent_at && list[i].exposed_at <= now) idx = i;
-  }
-  return { current: list[idx] ?? null, queue: list.slice(idx + 1) };
+  // 결과를 보낸 회차는 그 즉시 지난 투표로 물러난다. 발송을 안 한 회차는 순번
+  // 조정과 발표를 위해 거점전 시각이 지날 때까지 자리를 지킨다 (조회 조건에서 빠지며 넘어간다).
+  const idx = list.findIndex((s) => !s.result_sent_at);
+  if (idx < 0) return { current: null, queue: [] };
+  return { current: list[idx], queue: list.slice(idx + 1) };
 }
 
 export interface PastSurveyRow {
