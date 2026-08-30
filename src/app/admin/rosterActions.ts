@@ -4,6 +4,7 @@ import type { RowDataPacket } from "mysql2";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { pool } from "@/lib/db";
+import { sendSurveyAnnouncement } from "@/lib/discord";
 
 /* 서버 액션은 URL 만 알면 직접 호출될 수 있으므로 매번 역할을 확인한다. */
 async function requireAdmin() {
@@ -98,4 +99,11 @@ export async function removeVoteAction(surveyId: string, historyId: string) {
   await requireAdmin();
   await pool.execute("DELETE FROM survey_history WHERE id = ? AND survey_id = ?", [historyId, surveyId]);
   revalidatePath("/admin");
+}
+
+/* 결과 명단을 설문 공지 채널로 보낸다. 공지와 같은 웹훅을 그대로 쓴다. */
+export async function sendRosterAction(text: string): Promise<boolean> {
+  await requireAdmin();
+  const messageId = await sendSurveyAnnouncement(text);
+  return messageId !== null;
 }

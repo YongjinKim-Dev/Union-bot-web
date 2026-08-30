@@ -148,7 +148,7 @@ export function buildQueue(
 }
 
 /* 디코로 나가는 발송본에는 예비 명단을 공개하지 않는다. 예비까지 붙는 건 관리자용 복사뿐. */
-export function buildExportText(members: Member[], cap: number, survey: SurveyDef, withReserve = true) {
+export function buildExportText(members: Member[], cap: number, heading: string, withReserve = true) {
   const roster = rosterOf(members);
   const main = roster.slice(0, cap);
   const rest = roster.slice(cap);
@@ -157,7 +157,7 @@ export function buildExportText(members: Member[], cap: number, survey: SurveyDe
     `${m.nick} (${m.job})${m.vote === "부속" ? " 부속" : ""}${pulledIn ? " <<<<<<<<<" : ""}`;
 
   const lines: string[] = [];
-  lines.push(`== ${survey.key} (${survey.dow}) 거점전 투표 결과 ==`);
+  lines.push(`== ${heading} 거점전 투표 결과 ==`);
   lines.push("");
   lines.push(`[참여 ${main.length}명]`);
   main.forEach((m, i) => lines.push(`${i + 1}. ${mark(m, m.origSeq > cap)}`));

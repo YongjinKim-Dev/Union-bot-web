@@ -6,10 +6,10 @@ import type { VoterRow } from "@/lib/queries";
 import { CLASS_TYPE_LABEL, type DbSurvey, VOTING_TYPE_LABEL } from "@/lib/types";
 import { formatDayDate } from "@/lib/week";
 import { fetchVoters } from "./actions";
-import { addVoteAction, removeVoteAction, saveRosterOrderAction } from "./rosterActions";
+import { addVoteAction, removeVoteAction, saveRosterOrderAction, sendRosterAction } from "./rosterActions";
 import styles from "./admin.module.css";
 import { RosterTable } from "./RosterTable";
-import { type Member, type PresetControls, VOTES, type Vote, countsOf, ofVote, rosterOf } from "./adminData";
+import { type Member, type PresetControls, VOTES, type Vote, buildExportText, countsOf, ofVote, rosterOf } from "./adminData";
 
 const POLL_MS = 5000;
 
@@ -64,6 +64,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
   /* 마감 뒤 드래그 조정은 저장을 누르기 전까지 화면에만 쌓인다 */
   const [draft, setDraft] = useState<Member[] | null>(null);
   const [addName, setAddName] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
   const [history, setHistory] = useState<Member[][]>([]);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [isSaving, startSave] = useTransition();
@@ -105,6 +106,9 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
   const loaded = useMemo(() => toMembers(voters), [voters]);
   const members = draft ?? loaded;
   const counts = countsOf(members);
+  const roster = rosterOf(members);
+  const reserve = Math.max(0, roster.length - cap);
+  const heading = current ? formatSurveyDate(current.executed_at) : "";
 
   // 드래그한 행과 놓은 자리 행의 순번을 서로 맞바꾼다
   function reorder(id: string, targetId: string) {
@@ -151,6 +155,35 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
         showToast("명단 조정이 저장되었습니다");
       } catch (e) {
         showToast(e instanceof Error ? e.message : "저장에 실패했습니다");
+      }
+    });
+  }
+
+  async function copyList() {
+    const text = buildExportText(members, cap, heading);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    showToast("명단이 복사되었습니다");
+  }
+
+  function sendToDiscord() {
+    startSave(async () => {
+      try {
+        const ok = await sendRosterAction(buildExportText(members, cap, heading, false));
+        setExportOpen(false);
+        showToast(ok ? "디코로 결과를 보냈습니다" : "발송에 실패했습니다 · 웹훅 설정을 확인해 주세요");
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : "발송에 실패했습니다");
       }
     });
   }
@@ -336,14 +369,53 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
             {isSaving ? "저장 중..." : "저장"}
           </button>
           <span className={styles.spacer} />
-          <button type="button" className={styles.btnSm} disabled title="발표는 다음 커밋에서 연결됩니다">
+          <button type="button" className={styles.btnSm} onClick={copyList} disabled={!closed}>
             명단 복사
           </button>
-          <button type="button" className={styles.btnSm} disabled title="발표는 다음 커밋에서 연결됩니다">
+          <button
+            type="button"
+            className={`${styles.btnSm} ${closed && !draft ? styles.btnPrimary : ""}`}
+            onClick={() => setExportOpen(true)}
+            disabled={!closed || Boolean(draft)}
+            title={draft ? "조정을 저장한 뒤에 보낼 수 있습니다" : undefined}
+          >
             디코로 결과 보내기
           </button>
         </div>
       </div>
+
+      {exportOpen && (
+        <div className={styles.modal} role="presentation" onClick={() => setExportOpen(false)}>
+          <div className={styles.modalPanel} role="presentation" onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHead}>
+              <span className={styles.label}>디코 발송 미리보기</span>
+              <button type="button" className={styles.xclose} onClick={() => setExportOpen(false)}>
+                ×
+              </button>
+            </div>
+            <div className={styles.modalBody}>
+              <pre className={styles.preview}>{buildExportText(members, cap, heading, false)}</pre>
+            </div>
+            <div className={styles.modalFoot}>
+              <span className={styles.hint}>
+                정원 {cap}인 기준 · 참여 {Math.min(roster.length, cap)} / 예비 {reserve}
+              </span>
+              <span className={styles.spacer} />
+              <button type="button" className={styles.btnSm} onClick={() => setExportOpen(false)}>
+                취소
+              </button>
+              <button
+                type="button"
+                className={`${styles.btnSm} ${styles.btnPrimary}`}
+                onClick={sendToDiscord}
+                disabled={isSaving}
+              >
+                {isSaving ? "보내는 중..." : "보내기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
