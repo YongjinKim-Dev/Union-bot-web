@@ -170,7 +170,7 @@ export function RosterTable({
                   <td className={styles.lineCell}>{m.vote === "부속" ? "부속" : ""}</td>
                   <td className={styles.time}>{m.time}</td>
                   <td className={styles.act}>
-                    {editable && (
+                    {editable && onRemove && (
                       <button
                         type="button"
                         className={styles.rm}

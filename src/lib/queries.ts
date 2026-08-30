@@ -248,6 +248,7 @@ export async function setUserCharacterClass(userId: string, characterClassId: st
 // ── 관리자용 ─────────────────────────────────────────────────
 
 export interface VoterRow {
+  historyId: string;
   nickname: string;
   guildName: string;
   votingType: VotingType;
@@ -262,7 +263,7 @@ export interface VoterRow {
  */
 export async function getVoters(surveyId: string): Promise<VoterRow[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT u.user_nickname, g.name AS guild_name, sh.voting_type, sh.updated_at, " +
+    "SELECT sh.id AS history_id, u.user_nickname, g.name AS guild_name, sh.voting_type, sh.updated_at, " +
       "       cc.name AS class_name, cc.type AS class_type " +
       "FROM survey_history sh " +
       "JOIN user u ON sh.user_id = u.id " +
@@ -274,6 +275,7 @@ export async function getVoters(surveyId: string): Promise<VoterRow[]> {
     [surveyId],
   );
   return rows.map((r) => ({
+    historyId: String(r.history_id),
     nickname: r.user_nickname as string,
     guildName: r.guild_name as string,
     votingType: r.voting_type as VotingType,
@@ -293,6 +295,7 @@ export async function getNonVoters(surveyId: string): Promise<{ nickname: string
     [surveyId],
   );
   return rows.map((r) => ({
+    historyId: String(r.history_id),
     nickname: r.user_nickname as string,
     guildName: r.guild_name as string,
   }));

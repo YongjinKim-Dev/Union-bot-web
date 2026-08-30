@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { formatKstTimeWithSeconds, formatSurveyDate } from "@/lib/format";
 import type { VoterRow } from "@/lib/queries";
 import { CLASS_TYPE_LABEL, type DbSurvey, VOTING_TYPE_LABEL } from "@/lib/types";
 import { formatDayDate } from "@/lib/week";
 import { fetchVoters } from "./actions";
+import { saveRosterOrderAction } from "./rosterActions";
 import styles from "./admin.module.css";
 import { RosterTable } from "./RosterTable";
 import { type Member, type PresetControls, VOTES, type Vote, countsOf, ofVote, rosterOf } from "./adminData";
@@ -39,7 +40,7 @@ function toMembers(voters: VoterRow[]): Member[] {
     else restSeq += 1;
     const votedAt = new Date(v.votedAt);
     return {
-      id: v.nickname,
+      id: v.historyId,
       nick: v.nickname,
       guild: v.guildName,
       job: v.className ?? "-",
@@ -60,9 +61,16 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
   const [capEdit, setCapEdit] = useState(false);
   const [newPreset, setNewPreset] = useState("");
   const [filter, setFilter] = useState<Vote | "미투표" | null>(null);
+  /* 마감 뒤 드래그 조정은 저장을 누르기 전까지 화면에만 쌓인다 */
+  const [draft, setDraft] = useState<Member[] | null>(null);
+  const [history, setHistory] = useState<Member[][]>([]);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const [isSaving, startSave] = useTransition();
 
   /* 라이브 중에는 몇 초마다 표를 다시 읽어온다. 마감이나 대기 상태면 한 번만. */
   useEffect(() => {
+    setDraft(null);
+    setHistory([]);
     if (!current) {
       setVoters([]);
       setNonVoters([]);
@@ -93,8 +101,53 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
     };
   }, [current, closed, waiting]);
 
-  const members = useMemo(() => toMembers(voters), [voters]);
+  const loaded = useMemo(() => toMembers(voters), [voters]);
+  const members = draft ?? loaded;
   const counts = countsOf(members);
+
+  // 드래그한 행과 놓은 자리 행의 순번을 서로 맞바꾼다
+  function reorder(id: string, targetId: string) {
+    if (id === targetId) return;
+    const base = draft ?? loaded;
+    const next = base.map((m) => ({ ...m }));
+    const a = next.find((m) => m.id === id);
+    const b = next.find((m) => m.id === targetId);
+    if (!a || !b) return;
+    setHistory((h) => [...h.slice(-19), base.map((m) => ({ ...m }))]);
+    const t = a.ord;
+    a.ord = b.ord;
+    b.ord = t;
+    setDraft(next);
+    setFlashId(a.id);
+  }
+
+  function undo() {
+    setHistory((h) => {
+      if (h.length === 0) return h;
+      setDraft(h[h.length - 1]);
+      return h.slice(0, -1);
+    });
+  }
+
+  function save() {
+    if (!current || !draft) return;
+    startSave(async () => {
+      try {
+        await saveRosterOrderAction(
+          current.id,
+          rosterOf(draft).map((m) => m.id),
+        );
+        const r = await fetchVoters(current.id);
+        setVoters(r.voters);
+        setNonVoters(r.nonVoters);
+        setDraft(null);
+        setHistory([]);
+        showToast("명단 조정이 저장되었습니다");
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : "저장에 실패했습니다");
+      }
+    });
+  }
 
   return (
     <section className={styles.opStack}>
@@ -200,7 +253,14 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
         </div>
 
         {filter === null || filter === "참여" ? (
-          <RosterTable key={filter ?? "base"} members={members} cap={cap} />
+          <RosterTable
+            key={filter ?? "base"}
+            members={members}
+            cap={cap}
+            editable={closed}
+            flashId={flashId}
+            onReorder={reorder}
+          />
         ) : filter === "미투표" ? (
           <RosterTable
             key="unvoted"
@@ -223,11 +283,16 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
         )}
 
         <div className={styles.rosterAct}>
-          <button type="button" className={styles.btnSm} disabled title="순번 조정은 다음 커밋에서 연결됩니다">
+          <button type="button" className={styles.btnSm} onClick={undo} disabled={history.length === 0}>
             되돌리기
           </button>
-          <button type="button" className={styles.btnSm} disabled title="순번 조정은 다음 커밋에서 연결됩니다">
-            저장
+          <button
+            type="button"
+            className={styles.btnSm}
+            onClick={save}
+            disabled={!draft || isSaving}
+          >
+            {isSaving ? "저장 중..." : "저장"}
           </button>
           <span className={styles.spacer} />
           <button type="button" className={styles.btnSm} disabled title="발표는 다음 커밋에서 연결됩니다">
