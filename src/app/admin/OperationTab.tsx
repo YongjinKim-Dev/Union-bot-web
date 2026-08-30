@@ -1,21 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { formatKstTimeWithSeconds, formatSurveyDate } from "@/lib/format";
+import type { VoterRow } from "@/lib/queries";
+import { CLASS_TYPE_LABEL, type DbSurvey, VOTING_TYPE_LABEL } from "@/lib/types";
+import { formatDayDate } from "@/lib/week";
+import { fetchVoters } from "./actions";
 import styles from "./admin.module.css";
 import { RosterTable } from "./RosterTable";
-import {
-  type Member,
-  type PresetControls,
-  VOTES,
-  type Vote,
-  buildExportText,
-  countsOf,
-  ofVote,
-  rosterOf,
-} from "./adminData";
-import { NEXT_SURVEY, SURVEYS, UNVOTED, buildMembers, mockLiveVote, nowStamp } from "./adminMock";
+import { type Member, type PresetControls, VOTES, type Vote, countsOf, ofVote, rosterOf } from "./adminData";
 
-const TODAY = SURVEYS[0];
+const POLL_MS = 5000;
+
+interface NonVoterRow {
+  nickname: string;
+  guildName: string;
+}
 
 interface OperationTabProps {
   presets: PresetControls;
@@ -24,127 +24,82 @@ interface OperationTabProps {
   closed: boolean;
   /* 거점전이 끝나고 다음 투표가 열리기 전까지의 대기 상태 */
   waiting: boolean;
+  current: DbSurvey | null;
 }
 
-export function OperationTab({ presets, showToast, closed, waiting }: OperationTabProps) {
+/* 표 목록을 화면 명단으로 바꾼다. 순번은 참여와 부속끼리만 매긴다. */
+function toMembers(voters: VoterRow[]): Member[] {
+  let rosterSeq = 0;
+  let restSeq = 0;
+  return voters.map((v) => {
+    const vote = VOTING_TYPE_LABEL[v.votingType] as Vote;
+    const inRoster = vote === "참여" || vote === "부속";
+    const ord = inRoster ? rosterSeq : restSeq;
+    if (inRoster) rosterSeq += 1;
+    else restSeq += 1;
+    const votedAt = new Date(v.votedAt);
+    return {
+      id: v.nickname,
+      nick: v.nickname,
+      guild: v.guildName,
+      job: v.className ?? "-",
+      line: v.classType ? CLASS_TYPE_LABEL[v.classType] : "-",
+      vote,
+      ord,
+      origSeq: ord + 1,
+      time: `${formatDayDate(votedAt)} ${formatKstTimeWithSeconds(votedAt)}`,
+    };
+  });
+}
+
+export function OperationTab({ presets, showToast, closed, waiting, current }: OperationTabProps) {
   const { cap, setCap } = presets;
 
-  const survey = waiting ? NEXT_SURVEY : TODAY;
-  const [members, setMembers] = useState<Member[]>(() => (waiting ? [] : buildMembers(TODAY, 0)));
-  const [addName, setAddName] = useState("");
-  const [exportOpen, setExportOpen] = useState(false);
-  const [flashId, setFlashId] = useState<string | null>(null);
+  const [voters, setVoters] = useState<VoterRow[]>([]);
+  const [nonVoters, setNonVoters] = useState<NonVoterRow[]>([]);
   const [capEdit, setCapEdit] = useState(false);
   const [newPreset, setNewPreset] = useState("");
-  const [history, setHistory] = useState<Member[][]>([]);
   const [filter, setFilter] = useState<Vote | "미투표" | null>(null);
-  const seqRef = useRef(0);
 
+  /* 라이브 중에는 몇 초마다 표를 다시 읽어온다. 마감이나 대기 상태면 한 번만. */
   useEffect(() => {
-    if (closed || waiting) return undefined;
-    const timer = setInterval(() => {
-      seqRef.current += 1;
-      const id = `live-${seqRef.current}`;
-      const time = nowStamp(survey.key);
-      setMembers((prev) => {
-        const vote = mockLiveVote(prev, id, time);
-        return vote ? [...prev, vote] : prev;
-      });
-      setFlashId(id);
-    }, 4200);
-    return () => clearInterval(timer);
-  }, [closed, waiting]);
-
-  const counts = countsOf(members);
-  const roster = rosterOf(members);
-  const reserve = Math.max(0, roster.length - cap);
-
-  function snapshot() {
-    setHistory((h) => [...h.slice(-19), members.map((m) => ({ ...m }))]);
-  }
-
-  function undo() {
-    setHistory((h) => {
-      if (h.length === 0) return h;
-      setMembers(h[h.length - 1]);
-      return h.slice(0, -1);
-    });
-  }
-
-  function save() {
-    setHistory([]);
-    showToast("명단 조정이 저장되었습니다");
-  }
-
-  // 드래그한 행과 놓은 자리 행의 순번을 서로 맞바꾼다
-  function reorder(id: string, targetId: string) {
-    if (id === targetId) return;
-    snapshot();
-    const next = members.map((m) => ({ ...m }));
-    const a = next.find((m) => m.id === id);
-    const b = next.find((m) => m.id === targetId);
-    if (!a || !b) return;
-    const t = a.ord;
-    a.ord = b.ord;
-    b.ord = t;
-    setMembers(next);
-    setFlashId(a.id);
-  }
-
-  function removeVote(id: string) {
-    snapshot();
-    const next = members.filter((m) => m.id !== id).map((m) => ({ ...m }));
-    rosterOf(next).forEach((m, i) => {
-      m.ord = i;
-    });
-    setMembers(next);
-  }
-
-  function addVote() {
-    const name = addName.trim();
-    if (!name) return;
-    snapshot();
-    seqRef.current += 1;
-    const next = roster.length;
-    const time = nowStamp(survey.key);
-    setMembers((prev) => [
-      ...prev,
-      {
-        id: `add-${seqRef.current}`,
-        nick: name,
-        guild: "미상",
-        job: "미상",
-        line: "기타",
-        vote: "참여",
-        ord: next,
-        origSeq: next + 1,
-        time,
-      },
-    ]);
-    setAddName("");
-  }
-
-  async function copyList() {
-    const text = buildExportText(members, cap, survey);
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
+    if (!current) {
+      setVoters([]);
+      setNonVoters([]);
+      return;
     }
-    showToast("명단이 복사되었습니다");
-  }
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetchVoters(current.id);
+        if (alive) {
+          setVoters(r.voters);
+          setNonVoters(r.nonVoters);
+        }
+      } catch {
+        // 폴링 한 번이 흔들린 것은 다음 번에 만회된다
+      }
+    };
+    load();
+    if (closed || waiting) {
+      return () => {
+        alive = false;
+      };
+    }
+    const timer = setInterval(load, POLL_MS);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [current, closed, waiting]);
+
+  const members = useMemo(() => toMembers(voters), [voters]);
+  const counts = countsOf(members);
 
   return (
     <section className={styles.opStack}>
       <h2 className={styles.rosterTitle}>
-        {survey.key} ({survey.dow}) 거점전 순번 명단
+        {current ? `${formatSurveyDate(current.executed_at)} 거점전 순번 명단` : "거점전 순번 명단"}
       </h2>
 
       <div>
@@ -168,7 +123,7 @@ export function OperationTab({ presets, showToast, closed, waiting }: OperationT
             onClick={() => setFilter(filter === "미투표" ? null : "미투표")}
           >
             <span className={styles.statKey}>미투표</span>
-            <div className={`${styles.statNum} ${styles.statNumMute}`}>{UNVOTED.length}</div>
+            <div className={`${styles.statNum} ${styles.statNumMute}`}>{nonVoters.length}</div>
           </button>
         </div>
       </div>
@@ -235,43 +190,31 @@ export function OperationTab({ presets, showToast, closed, waiting }: OperationT
           </button>
           <input
             className={`${styles.input} ${styles.addInput} ${styles.pushRight}`}
-            placeholder={closed ? "닉네임 입력" : "마감 후 조정 가능"}
-            disabled={!closed}
-            value={addName}
-            onChange={(e) => setAddName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") addVote();
-            }}
+            placeholder="닉네임 입력"
+            disabled
+            title="명단 조작은 다음 커밋에서 연결됩니다"
           />
-          <button type="button" className={styles.btnSm} onClick={addVote} disabled={!closed}>
+          <button type="button" className={styles.btnSm} disabled title="명단 조작은 다음 커밋에서 연결됩니다">
             추가
           </button>
         </div>
 
         {filter === null || filter === "참여" ? (
-          <RosterTable
-            key={filter ?? "base"}
-            members={members}
-            cap={cap}
-            editable={closed}
-            flashId={flashId}
-            onReorder={reorder}
-            onRemove={removeVote}
-          />
+          <RosterTable key={filter ?? "base"} members={members} cap={cap} />
         ) : filter === "미투표" ? (
           <RosterTable
             key="unvoted"
             members={members}
-            list={UNVOTED.map((nick, i) => ({
-              id: `unvoted-${i}`,
-              nick,
-              guild: "—",
-              job: "—",
-              line: "—",
+            list={nonVoters.map((n, i) => ({
+              id: n.nickname,
+              nick: n.nickname,
+              guild: n.guildName,
+              job: "-",
+              line: "-",
               vote: "미참" as const,
               ord: i,
               origSeq: i + 1,
-              time: "—",
+              time: "-",
             }))}
             cap={cap}
           />
@@ -280,71 +223,21 @@ export function OperationTab({ presets, showToast, closed, waiting }: OperationT
         )}
 
         <div className={styles.rosterAct}>
-          <button
-            type="button"
-            className={styles.btnSm}
-            onClick={undo}
-            disabled={!closed || history.length === 0}
-          >
+          <button type="button" className={styles.btnSm} disabled title="순번 조정은 다음 커밋에서 연결됩니다">
             되돌리기
           </button>
-          <button
-            type="button"
-            className={styles.btnSm}
-            onClick={save}
-            disabled={!closed || history.length === 0}
-          >
+          <button type="button" className={styles.btnSm} disabled title="순번 조정은 다음 커밋에서 연결됩니다">
             저장
           </button>
           <span className={styles.spacer} />
-          <button type="button" className={styles.btnSm} onClick={copyList} disabled={!closed}>
+          <button type="button" className={styles.btnSm} disabled title="발표는 다음 커밋에서 연결됩니다">
             명단 복사
           </button>
-          <button
-            type="button"
-            className={`${styles.btnSm} ${closed ? styles.btnPrimary : ""}`}
-            onClick={() => setExportOpen(true)}
-            disabled={!closed}
-          >
+          <button type="button" className={styles.btnSm} disabled title="발표는 다음 커밋에서 연결됩니다">
             디코로 결과 보내기
           </button>
         </div>
       </div>
-
-      {exportOpen && (
-        <div className={styles.modal} role="presentation" onClick={() => setExportOpen(false)}>
-          <div className={styles.modalPanel} role="presentation" onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHead}>
-              <span className={styles.label}>디코 발송 미리보기</span>
-              <button type="button" className={styles.xclose} onClick={() => setExportOpen(false)}>
-                ×
-              </button>
-            </div>
-            <div className={styles.modalBody}>
-              <pre className={styles.preview}>{buildExportText(members, cap, survey, false)}</pre>
-            </div>
-            <div className={styles.modalFoot}>
-              <span className={styles.hint}>
-                정원 {cap}인 기준 · 본대 {Math.min(roster.length, cap)} / 예비 {reserve}
-              </span>
-              <span className={styles.spacer} />
-              <button type="button" className={styles.btnSm} onClick={() => setExportOpen(false)}>
-                취소
-              </button>
-              <button
-                type="button"
-                className={`${styles.btnSm} ${styles.btnPrimary}`}
-                onClick={() => {
-                  setExportOpen(false);
-                  showToast("디코로 결과를 보냈습니다");
-                }}
-              >
-                보내기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

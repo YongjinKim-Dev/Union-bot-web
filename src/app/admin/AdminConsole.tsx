@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getVotingClosesAt } from "@/lib/format";
 import type { AdminSettings } from "@/lib/settings";
@@ -39,12 +40,17 @@ export function AdminConsole({ current, queue, settings }: AdminConsoleProps) {
     settings.capPresets.length > 0 ? [...settings.capPresets] : [...DEFAULT_PRESETS],
   );
 
-  // 기기 시계로 1분마다 다시 판정한다. 관리자 화면은 몇 초 밀려도 상관없다
+  // 기기 시계로 1분마다 다시 판정하고, 회차 전환이 시각으로 일어나므로
+  // 일정 데이터도 같이 다시 읽어온다. 관리자 화면은 몇 초 밀려도 상관없다
+  const router = useRouter();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60 * 1000);
+    const timer = setInterval(() => {
+      setNow(new Date());
+      router.refresh();
+    }, 60 * 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [router]);
   const phase: Phase = phaseOf(current, now);
 
   const [toast, setToast] = useState("");
@@ -110,6 +116,7 @@ export function AdminConsole({ current, queue, settings }: AdminConsoleProps) {
             showToast={showToast}
             closed={phase === "closed"}
             waiting={phase === "waiting"}
+            current={current}
           />
         </>
       )}
