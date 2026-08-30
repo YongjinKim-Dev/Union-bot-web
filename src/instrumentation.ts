@@ -3,5 +3,17 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   const { ensureSettings } = await import("@/lib/settings");
+  const { syncSurveyQueue } = await import("@/lib/surveyQueue");
+  const { msUntilNextKstMidnight } = await import("@/lib/week");
   await ensureSettings();
+  await syncSurveyQueue();
+
+  // 한국시간 자정마다 돌면서 투표 큐를 관리한다
+  const scheduleDaily = () => {
+    setTimeout(() => {
+      syncSurveyQueue().catch((e) => console.error("[surveyQueue]", e));
+      scheduleDaily();
+    }, msUntilNextKstMidnight(new Date()));
+  };
+  scheduleDaily();
 }
