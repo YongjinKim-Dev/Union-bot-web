@@ -43,7 +43,8 @@ export async function getCurrentSurvey(now: Date = new Date()): Promise<DbSurvey
   const closesAfter = new Date(now.getTime() + 60 * 60 * 1000);
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id, announce_at, announce_content FROM survey " +
-      "WHERE status <> 'cancel' AND executed_at > ? ORDER BY exposed_at ASC LIMIT 1",
+      // 관리자가 즉시 마감(complete)한 설문은 건너뛰고 다음 설문을 연다
+      "WHERE status NOT IN ('cancel', 'complete') AND executed_at > ? ORDER BY exposed_at ASC LIMIT 1",
     [closesAfter],
   );
   return (rows[0] as DbSurvey) ?? null;
@@ -51,6 +52,8 @@ export async function getCurrentSurvey(now: Date = new Date()): Promise<DbSurvey
 
 /** 지금 이 순간 투표를 받을 수 있는 설문인가. 서버가 최종 판단한다. */
 export function isVotingOpen(survey: DbSurvey, now: Date = new Date()): boolean {
+  // 관리자가 즉시 마감을 누르면 complete 가 찍힌다. 시각과 무관하게 닫는다.
+  if (survey.status === "complete") return false;
   const opensAt = survey.exposed_at.getTime();
   const closesAt = survey.executed_at.getTime() - 60 * 60 * 1000;
   return now.getTime() >= opensAt && now.getTime() < closesAt;
@@ -245,12 +248,15 @@ export async function setUserCharacterClass(userId: string, characterClassId: st
 // ── 관리자용 ─────────────────────────────────────────────────
 
 export interface VoterRow {
+  historyId: string;
   nickname: string;
   guildName: string;
   votingType: VotingType;
   className: string | null;
   classType: ClassType | null;
   votedAt: Date;
+  /* 처음 투표한 시각. 순번 조정은 updated_at 만 바꾸므로 이 값이 원래 순서를 지킨다. */
+  firstVotedAt: Date;
 }
 
 /**
@@ -259,7 +265,7 @@ export interface VoterRow {
  */
 export async function getVoters(surveyId: string): Promise<VoterRow[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT u.user_nickname, g.name AS guild_name, sh.voting_type, sh.updated_at, " +
+    "SELECT sh.id AS history_id, u.user_nickname, g.name AS guild_name, sh.voting_type, sh.updated_at, sh.created_at, " +
       "       cc.name AS class_name, cc.type AS class_type " +
       "FROM survey_history sh " +
       "JOIN user u ON sh.user_id = u.id " +
@@ -271,12 +277,14 @@ export async function getVoters(surveyId: string): Promise<VoterRow[]> {
     [surveyId],
   );
   return rows.map((r) => ({
+    historyId: String(r.history_id),
     nickname: r.user_nickname as string,
     guildName: r.guild_name as string,
     votingType: r.voting_type as VotingType,
     className: (r.class_name as string) ?? null,
     classType: (r.class_type as ClassType) ?? null,
     votedAt: r.updated_at as Date,
+    firstVotedAt: r.created_at as Date,
   }));
 }
 
@@ -290,6 +298,7 @@ export async function getNonVoters(surveyId: string): Promise<{ nickname: string
     [surveyId],
   );
   return rows.map((r) => ({
+    historyId: String(r.history_id),
     nickname: r.user_nickname as string,
     guildName: r.guild_name as string,
   }));

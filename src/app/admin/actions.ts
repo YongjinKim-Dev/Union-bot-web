@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { createSurvey, getVoters, getNonVoters } from "@/lib/queries";
+import { buildDefaultAnnounceContent } from "@/lib/announce";
 import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
 
 /**
@@ -60,7 +61,6 @@ export async function registerSurvey(input: CreateSurveyInput) {
   }
 
   const executedLabel = `${formatSurveyDate(executedAt)} ${formatSurveyTime(executedAt)}`;
-  const opensLabel = `${formatSurveyDate(exposedAt)} ${formatSurveyTime(exposedAt)}`;
   const content = `${executedLabel} 거점전 설문조사`;
 
   // "N분 전"을 절대 시각으로 환산해 저장한다. 조회가 단순해지고, 나중에 분을
@@ -71,12 +71,8 @@ export async function registerSurvey(input: CreateSurveyInput) {
     ? new Date(exposedAt.getTime() - minutes * 60 * 1000)
     : null;
 
-  const voteUrl = `${(process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "")}/vote`;
   const announceContent = wantsAnnounce
-    ? input.announceContent.trim() ||
-      `📋 **${executedLabel}** 거점전 설문조사\n\n` +
-        `투표는 **${opensLabel}** 에 열립니다. 모두에게 같은 시각에 열리며, ` +
-        `링크를 미리 열어두면 남은 시간이 표시됩니다.\n${voteUrl}`
+    ? input.announceContent.trim() || buildDefaultAnnounceContent(executedAt, exposedAt)
     : null;
 
   const surveyId = await createSurvey({ content, executedAt, exposedAt, announceAt, announceContent });

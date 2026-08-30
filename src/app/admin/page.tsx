@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { getScheduleOverview } from "@/lib/adminQueries";
 import { SiteHeader } from "@/components/SiteHeader";
-import { getRecentSurveys } from "@/lib/queries";
-import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
-import { AdminPanel } from "./AdminPanel";
+import { AdminConsole } from "./AdminConsole";
 import styles from "./admin.module.css";
 
 export const dynamic = "force-dynamic";
@@ -19,20 +18,13 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const surveys = await getRecentSurveys();
+  const schedule = await getScheduleOverview();
 
   return (
     <main className={styles.main}>
       <SiteHeader active="admin" kicker="ADMIN" />
       <div className={styles.body}>
-        <AdminPanel
-          surveys={surveys.map((s) => ({
-            id: s.id,
-            status: s.status,
-            executedLabel: `${formatSurveyDate(s.executed_at)} ${formatSurveyTime(s.executed_at)}`,
-            exposedLabel: `${formatSurveyDate(s.exposed_at)} ${formatSurveyTime(s.exposed_at)}`,
-          }))}
-        />
+        <AdminConsole current={schedule.current} queue={schedule.queue} />
       </div>
     </main>
   );
