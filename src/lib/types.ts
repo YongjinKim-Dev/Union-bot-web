@@ -43,7 +43,12 @@ export interface DbSurvey {
   // `new Date()` without any manual KST math.
   executed_at: Date;
   exposed_at: Date;
+  /** 공지가 나가면 웹훅이 돌려준 메시지 id 가 들어간다. NULL 이면 아직 안 보냄. */
   discord_message_id: string | null;
+  /** 공지를 보낼 시각. 등록 시 "N분 전"을 절대 시각으로 환산해 저장한다. */
+  announce_at: Date | null;
+  /** 공지 문구. 관리자가 설문마다 다르게 쓸 수 있다. */
+  announce_content: string | null;
 }
 
 export interface DbSurveyHistory {

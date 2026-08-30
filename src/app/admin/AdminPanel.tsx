@@ -33,7 +33,8 @@ export function AdminPanel({ surveys }: { surveys: SurveyRow[] }) {
 
   const [executedAt, setExecutedAt] = useState("");
   const [exposedAt, setExposedAt] = useState("");
-  const [announce, setAnnounce] = useState(true);
+  const [announceMinutes, setAnnounceMinutes] = useState("15");
+  const [announceContent, setAnnounceContent] = useState("");
   const [isSaving, startSave] = useTransition();
   const [result, setResult] = useState<string | null>(null);
 
@@ -60,14 +61,20 @@ export function AdminPanel({ surveys }: { surveys: SurveyRow[] }) {
     setError(null);
     startSave(async () => {
       try {
-        const r = await registerSurvey({ executedAt, exposedAt, announce });
+        const r = await registerSurvey({
+          executedAt,
+          exposedAt,
+          announceMinutesBefore: Number(announceMinutes),
+          announceContent,
+        });
         setResult(
-          r.announced
-            ? `등록 완료 (id ${r.surveyId}). 디스코드에 공지했습니다.`
-            : `등록 완료 (id ${r.surveyId}). 디스코드 공지는 보내지 않았습니다.`,
+          r.announceAt
+            ? `등록 완료 (id ${r.surveyId}). ${r.announceAt} 에 디스코드로 공지됩니다.`
+            : `등록 완료 (id ${r.surveyId}). 공지는 보내지 않습니다.`,
         );
         setExecutedAt("");
         setExposedAt("");
+        setAnnounceContent("");
       } catch (e) {
         setError(e instanceof Error ? e.message : "등록에 실패했습니다.");
       }
@@ -102,13 +109,15 @@ export function AdminPanel({ surveys }: { surveys: SurveyRow[] }) {
               onChange={(e) => setExposedAt(e.target.value)}
             />
           </label>
-          <label className={styles.checkbox}>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>공지 시점 (투표 열리기 N분 전)</span>
             <input
-              type="checkbox"
-              checked={announce}
-              onChange={(e) => setAnnounce(e.target.checked)}
+              type="number"
+              min={0}
+              className={`${styles.input} ${styles.inputNarrow}`}
+              value={announceMinutes}
+              onChange={(e) => setAnnounceMinutes(e.target.value)}
             />
-            <span>등록과 동시에 디스코드에 공지</span>
           </label>
           <button
             type="button"
@@ -119,9 +128,19 @@ export function AdminPanel({ surveys }: { surveys: SurveyRow[] }) {
             {isSaving ? "등록 중..." : "설문 등록"}
           </button>
         </div>
+        <label className={styles.field}>
+          <span className={styles.fieldLabel}>공지 문구 (비우면 기본 문구가 들어갑니다)</span>
+          <textarea
+            className={styles.textarea}
+            rows={3}
+            placeholder="비워두면 날짜·투표 시각·링크가 들어간 기본 문구로 나갑니다."
+            value={announceContent}
+            onChange={(e) => setAnnounceContent(e.target.value)}
+          />
+        </label>
         <p className={styles.hint}>
           시각은 한국 시간 기준입니다. 투표는 여는 시각에 모두에게 동시에 열리고, 거점전 1시간
-          전에 마감됩니다.
+          전에 마감됩니다. 공지 시점을 0 으로 두면 공지하지 않습니다.
         </p>
         {result && <p className={styles.success}>{result}</p>}
       </section>

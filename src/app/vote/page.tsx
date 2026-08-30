@@ -70,6 +70,11 @@ export default async function VotePage() {
                 initialVote={vote?.votingType ?? null}
                 initialVotedAt={vote?.votedAt ?? null}
                 initialClassInfo={classInfo}
+                announceAt={
+                  currentSurvey.announce_at && currentSurvey.discord_message_id === null
+                    ? currentSurvey.announce_at.getTime()
+                    : null
+                }
               />
             ) : (
               <p className={styles.notice}>예정되었거나 진행중인 설문이 없습니다.</p>

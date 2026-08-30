@@ -42,7 +42,7 @@ export function getVotingOpensAt(survey: DbSurvey): Date {
 export async function getCurrentSurvey(now: Date = new Date()): Promise<DbSurvey | null> {
   const closesAfter = new Date(now.getTime() + 60 * 60 * 1000);
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
+    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id, announce_at, announce_content FROM survey " +
       "WHERE status <> 'cancel' AND executed_at > ? ORDER BY exposed_at ASC LIMIT 1",
     [closesAfter],
   );
@@ -66,7 +66,7 @@ export function isVotingOpen(survey: DbSurvey, now: Date = new Date()): boolean 
 export async function getLatestClosedSurvey(now: Date = new Date()): Promise<DbSurvey | null> {
   const closedBy = new Date(now.getTime() + 60 * 60 * 1000);
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
+    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id, announce_at, announce_content FROM survey " +
       "WHERE status <> 'cancel' AND executed_at <= ? ORDER BY executed_at DESC LIMIT 1",
     [closedBy],
   );
@@ -75,7 +75,7 @@ export async function getLatestClosedSurvey(now: Date = new Date()): Promise<DbS
 
 export async function getSurveysInRange(from: Date, to: Date): Promise<DbSurvey[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
+    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id, announce_at, announce_content FROM survey " +
       "WHERE executed_at >= ? AND executed_at < ? AND status <> 'cancel' " +
       "ORDER BY executed_at ASC",
     [from, to],
@@ -298,7 +298,7 @@ export async function getNonVoters(surveyId: string): Promise<{ nickname: string
 /** 관리자 화면의 설문 목록. 최근 것부터. */
 export async function getRecentSurveys(limit = 20): Promise<DbSurvey[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id FROM survey " +
+    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id, announce_at, announce_content FROM survey " +
       "WHERE status <> 'cancel' ORDER BY executed_at DESC LIMIT ?",
     [limit],
   );
@@ -316,11 +316,60 @@ export async function createSurvey(params: {
   content: string;
   executedAt: Date;
   exposedAt: Date;
+  announceAt: Date | null;
+  announceContent: string | null;
 }): Promise<string> {
   const [result] = await pool.execute(
-    "INSERT INTO survey (type, content, status, executed_at, exposed_at, created_at, updated_at) " +
-      "VALUES ('node_war', ?, 'wait', ?, ?, NOW(), NOW())",
-    [params.content, params.executedAt, params.exposedAt],
+    "INSERT INTO survey (type, content, status, executed_at, exposed_at, announce_at, announce_content, created_at, updated_at) " +
+      "VALUES ('node_war', ?, 'process', ?, ?, ?, ?, NOW(), NOW())",
+    [params.content, params.executedAt, params.exposedAt, params.announceAt, params.announceContent],
   );
   return String((result as { insertId: number }).insertId);
+}
+
+/**
+ * 공지를 보낼 차례가 된 설문. 보이지 않는 카운트다운이 이 시각을 목표로 돈다.
+ * discord_message_id 가 비어 있는 것만 고른다 — 값이 있으면 이미 보낸 것이다.
+ */
+export async function getPendingAnnouncement(now: Date = new Date()): Promise<DbSurvey | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id, announce_at, announce_content FROM survey " +
+      "WHERE status <> 'cancel' AND announce_at IS NOT NULL AND discord_message_id IS NULL " +
+      "AND executed_at > ? ORDER BY announce_at ASC LIMIT 1",
+    [now],
+  );
+  return (rows[0] as DbSurvey) ?? null;
+}
+
+/**
+ * 공지 발송권을 선점한다. 150명의 브라우저가 같은 순간에 이 함수를 부르지만,
+ * MySQL 이 같은 행의 UPDATE 를 한 줄로 세우므로 조건을 만족시키는 것은 하나뿐이다.
+ * 확인과 기록이 한 문장 안에 있어야 한다 — SELECT 로 먼저 확인하면 둘 다 통과해
+ * 공지가 두 번 나간다.
+ *
+ * 자리 표시로 0 을 넣고, 실제 메시지 id 는 발송 후 markAnnounced 로 채운다.
+ * 발송이 실패하면 releaseAnnouncement 로 되돌려 다음 사람이 다시 시도하게 한다.
+ */
+export async function claimAnnouncement(surveyId: string, now: Date = new Date()): Promise<boolean> {
+  const [result] = await pool.execute(
+    "UPDATE survey SET discord_message_id = 0 " +
+      "WHERE id = ? AND discord_message_id IS NULL AND announce_at IS NOT NULL AND announce_at <= ?",
+    [surveyId, now],
+  );
+  return (result as { affectedRows: number }).affectedRows === 1;
+}
+
+/** 발송 성공. 웹훅이 돌려준 메시지 id 를 넣어 봇 명령어(!결과 등)가 찾을 수 있게 한다. */
+export async function markAnnounced(surveyId: string, messageId: string | null): Promise<void> {
+  await pool.execute("UPDATE survey SET discord_message_id = ?, updated_at = NOW() WHERE id = ?", [
+    messageId ?? "0",
+    surveyId,
+  ]);
+}
+
+/** 발송 실패. 선점을 풀어 다음 요청이 재시도하게 한다. */
+export async function releaseAnnouncement(surveyId: string): Promise<void> {
+  await pool.execute("UPDATE survey SET discord_message_id = NULL WHERE id = ? AND discord_message_id = 0", [
+    surveyId,
+  ]);
 }

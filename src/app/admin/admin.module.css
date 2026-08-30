@@ -56,6 +56,24 @@
   font-size: 13px;
 }
 
+.inputNarrow {
+  width: 120px;
+}
+
+.textarea {
+  width: 100%;
+  margin-top: 13.8px;
+  padding: 9.2px 11px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 4px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
 .checkbox {
   display: inline-flex;
   align-items: center;

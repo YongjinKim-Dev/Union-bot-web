@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { VoteButtons } from "./VoteButtons";
+import { maybeAnnounce } from "./announceAction";
 import { useServerClockOffset } from "@/lib/serverClock";
 import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
 import type { ClassType, VotingType } from "@/lib/types";
@@ -35,6 +36,7 @@ export function CurrentSurveyPanel({
   initialVote,
   initialVotedAt,
   initialClassInfo,
+  announceAt,
 }: {
   surveyId: string;
   opensAt: number;
@@ -43,6 +45,8 @@ export function CurrentSurveyPanel({
   initialVote: VotingType | null;
   initialVotedAt: Date | null;
   initialClassInfo: { name: string; type: ClassType } | null;
+  /** 공지를 쏠 시각(ms). 이미 보냈거나 공지가 없으면 null. */
+  announceAt: number | null;
 }) {
   const offset = useServerClockOffset();
   const [serverNow, setServerNow] = useState(() => Date.now());
@@ -54,6 +58,17 @@ export function CurrentSurveyPanel({
     const timer = setInterval(tick, 200);
     return () => clearInterval(timer);
   }, [offset]);
+
+  // 보이지 않는 두 번째 카운트다운. 공지 시각에 닿으면 서버에 한 번만 알린다.
+  // 이 탭이 두 번 부르지 않게만 막으면 되고 화면과는 무관하므로 ref 를 쓴다.
+  // 여러 사람의 탭이 동시에 불러도 실제 발송은 DB 선점으로 하나만 나간다.
+  const announceFired = useRef(false);
+  useEffect(() => {
+    if (announceAt === null || announceFired.current) return;
+    if (serverNow < announceAt) return;
+    announceFired.current = true;
+    void maybeAnnounce();
+  }, [serverNow, announceAt]);
 
   const remaining = Math.max(0, opensAt - serverNow);
   const isOpen = serverNow >= opensAt;
