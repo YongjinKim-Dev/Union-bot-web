@@ -176,6 +176,21 @@ export function buildExportText(members: Member[], cap: number, heading: string,
 
 /* 표 목록을 화면 명단으로 바꾼다. 순번은 참여와 부속끼리만 매긴다. */
 export function votersToMembers(voters: VoterRow[]): Member[] {
+  // 원래 순번은 처음 투표한 순서로 매긴다. 조정 저장이 자리를 바꿔도 이 값은
+  // 변하지 않아야 컷 밖에서 끌어올린 표시가 저장 뒤에도 살아 있다.
+  const firstSeq = new Map<string, number>();
+  voters
+    .filter((v) => {
+      const vote = VOTING_TYPE_LABEL[v.votingType] as Vote;
+      return vote === "참여" || vote === "부속";
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.firstVotedAt).getTime() - new Date(b.firstVotedAt).getTime() ||
+        Number(a.historyId) - Number(b.historyId),
+    )
+    .forEach((v, i) => firstSeq.set(v.historyId, i + 1));
+
   let rosterSeq = 0;
   let restSeq = 0;
   return voters.map((v) => {
@@ -193,7 +208,7 @@ export function votersToMembers(voters: VoterRow[]): Member[] {
       line: v.classType ? CLASS_TYPE_LABEL[v.classType] : "-",
       vote,
       ord,
-      origSeq: ord + 1,
+      origSeq: inRoster ? firstSeq.get(v.historyId)! : ord + 1,
       time: `${formatDayDate(votedAt)} ${formatKstTimeWithSeconds(votedAt)}`,
     };
   });

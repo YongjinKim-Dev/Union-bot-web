@@ -255,6 +255,8 @@ export interface VoterRow {
   className: string | null;
   classType: ClassType | null;
   votedAt: Date;
+  /* 처음 투표한 시각. 순번 조정은 updated_at 만 바꾸므로 이 값이 원래 순서를 지킨다. */
+  firstVotedAt: Date;
 }
 
 /**
@@ -263,7 +265,7 @@ export interface VoterRow {
  */
 export async function getVoters(surveyId: string): Promise<VoterRow[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT sh.id AS history_id, u.user_nickname, g.name AS guild_name, sh.voting_type, sh.updated_at, " +
+    "SELECT sh.id AS history_id, u.user_nickname, g.name AS guild_name, sh.voting_type, sh.updated_at, sh.created_at, " +
       "       cc.name AS class_name, cc.type AS class_type " +
       "FROM survey_history sh " +
       "JOIN user u ON sh.user_id = u.id " +
@@ -282,6 +284,7 @@ export async function getVoters(surveyId: string): Promise<VoterRow[]> {
     className: (r.class_name as string) ?? null,
     classType: (r.class_type as ClassType) ?? null,
     votedAt: r.updated_at as Date,
+    firstVotedAt: r.created_at as Date,
   }));
 }
 
