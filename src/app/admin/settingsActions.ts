@@ -3,23 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/adminAuth";
 import { pool } from "@/lib/db";
-import { type AutoRule, saveAutoRule } from "@/lib/settings";
-import { rebuildAutoQueue } from "@/lib/surveyQueue";
 import { type CreateSurveyInput, registerSurvey } from "./actions";
-
-/* 규칙을 저장하고 그 자리에서 예정 큐를 새 규칙대로 다시 채운다. */
-export async function saveAutoRuleAction(rule: AutoRule) {
-  await requireAdmin();
-
-  if (rule.announceMinutes < 0 || !/^\d{2}:\d{2}$/.test(rule.battleTime) || !/^\d{2}:\d{2}$/.test(rule.openTime)) {
-    throw new Error("규칙 값이 올바르지 않습니다.");
-  }
-
-  const now = new Date();
-  await saveAutoRule(rule, now);
-  await rebuildAutoQueue(now);
-  revalidatePath("/admin");
-}
 
 /* 수동 회차 등록. 검증과 공지 조립은 등록 액션이 다 하므로 큐 화면만 새로 고친다. */
 export async function addManualSurveyAction(input: CreateSurveyInput) {

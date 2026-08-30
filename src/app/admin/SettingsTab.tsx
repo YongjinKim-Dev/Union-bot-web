@@ -2,25 +2,19 @@
 
 import { useState, useTransition } from "react";
 import { formatSurveyDate, formatSurveyTime, getVotingClosesAt } from "@/lib/format";
-import type { AutoRule } from "@/lib/settings";
 import type { DbSurvey } from "@/lib/types";
 import type { Phase } from "./AdminConsole";
 import styles from "./admin.module.css";
-import { DAYS, type Dow } from "./adminData";
-import { addManualSurveyAction, cancelSurveyAction, closeSurveyAction, saveAutoRuleAction } from "./settingsActions";
+import { addManualSurveyAction, cancelSurveyAction, closeSurveyAction } from "./settingsActions";
 
-/* 요일 이름과 getDay() 숫자(0=일 … 6=토) 사이 변환 */
-const DOW_NUM: Record<Dow, number> = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6 };
-
-function daysFromRule(rule: AutoRule): Record<Dow, boolean> {
-  const on = new Set(rule.weekdays);
-  return Object.fromEntries(DAYS.map((d) => [d, on.has(DOW_NUM[d])])) as Record<Dow, boolean>;
-}
+/* 등록 폼 초기값. 연맹의 평소 일정이다. */
+const DEFAULT_BATTLE_TIME = "21:00";
+const DEFAULT_OPEN_TIME = "22:30";
+const DEFAULT_ANNOUNCE_MIN = "15";
 
 interface SettingsTabProps {
   current: DbSurvey | null;
   queue: DbSurvey[];
-  autoRule: AutoRule;
   phase: Phase;
   showToast: (text: string) => void;
 }
@@ -40,20 +34,12 @@ function announceLabel(s: DbSurvey) {
   return `공지 ${minutes}분 전`;
 }
 
-export function SettingsTab({ current, queue, autoRule, phase, showToast }: SettingsTabProps) {
-  const [recurDays, setRecurDays] = useState<Record<Dow, boolean>>(() => daysFromRule(autoRule));
-  const [battleTime, setBattleTime] = useState(autoRule.battleTime);
-  const [openTime, setOpenTime] = useState(autoRule.openTime);
-  const [announceMin, setAnnounceMin] = useState(String(autoRule.announceMinutes));
-  const [announceText, setAnnounceText] = useState(autoRule.announceText);
-  const [isSaving, startSave] = useTransition();
-
-  const [formOpen, setFormOpen] = useState(false);
+export function SettingsTab({ current, queue, phase, showToast }: SettingsTabProps) {
   const [qDate, setQDate] = useState("");
-  const [qBattle, setQBattle] = useState(autoRule.battleTime);
+  const [qBattle, setQBattle] = useState(DEFAULT_BATTLE_TIME);
   const [qOpenDate, setQOpenDate] = useState("");
-  const [qOpen, setQOpen] = useState(autoRule.openTime);
-  const [qAnnounceMin, setQAnnounceMin] = useState(String(autoRule.announceMinutes));
+  const [qOpen, setQOpen] = useState(DEFAULT_OPEN_TIME);
+  const [qAnnounceMin, setQAnnounceMin] = useState(DEFAULT_ANNOUNCE_MIN);
   const [qAnnounceText, setQAnnounceText] = useState("");
   const [isQueueBusy, startQueueWork] = useTransition();
 
@@ -68,6 +54,29 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast }: Sett
     const prev = new Date(y, m - 1, d - 1);
     const pad = (n: number) => String(n).padStart(2, "0");
     setQOpenDate(`${prev.getFullYear()}-${pad(prev.getMonth() + 1)}-${pad(prev.getDate())}`);
+  }
+
+  function register() {
+    if (!qDate || !qOpenDate) {
+      showToast("날짜를 먼저 입력해 주세요");
+      return;
+    }
+    startQueueWork(async () => {
+      try {
+        await addManualSurveyAction({
+          executedAt: `${qDate}T${qBattle}`,
+          exposedAt: `${qOpenDate}T${qOpen}`,
+          announceMinutesBefore: Number(qAnnounceMin) || 0,
+          announceContent: qAnnounceText,
+        });
+        setQDate("");
+        setQOpenDate("");
+        setQAnnounceText("");
+        showToast("회차를 큐에 등록했습니다");
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : "등록에 실패했습니다");
+      }
+    });
   }
 
   return (
@@ -127,37 +136,44 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast }: Sett
           </div>
 
           <div className={styles.card}>
-            <h3 className={styles.cardTitle}>자동 등록</h3>
-            <span className={styles.label}>진행 요일</span>
-            <div className={styles.recur}>
-              {DAYS.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  className={`${styles.rDay} ${recurDays[d] ? styles.rDayOn : ""}`}
-                  onClick={() => setRecurDays((prev) => ({ ...prev, [d]: !prev[d] }))}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
+            <h3 className={styles.cardTitle}>투표 등록</h3>
             <div className={styles.fieldRow}>
+              <label className={styles.field}>
+                <span className={styles.label}>거점전 날짜</span>
+                <input
+                  className={`${styles.input} ${styles.mono}`}
+                  type="date"
+                  value={qDate}
+                  onChange={(e) => pickBattleDate(e.target.value)}
+                />
+              </label>
               <label className={styles.field}>
                 <span className={styles.label}>거점전 시각</span>
                 <input
                   className={`${styles.input} ${styles.mono}`}
                   type="time"
-                  value={battleTime}
-                  onChange={(e) => setBattleTime(e.target.value || autoRule.battleTime)}
+                  value={qBattle}
+                  onChange={(e) => setQBattle(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className={styles.fieldRow}>
+              <label className={styles.field}>
+                <span className={styles.label}>투표 오픈 날짜</span>
+                <input
+                  className={`${styles.input} ${styles.mono}`}
+                  type="date"
+                  value={qOpenDate}
+                  onChange={(e) => setQOpenDate(e.target.value)}
                 />
               </label>
               <label className={styles.field}>
-                <span className={styles.label}>투표 오픈 (전날)</span>
+                <span className={styles.label}>투표 오픈 시각</span>
                 <input
                   className={`${styles.input} ${styles.mono}`}
                   type="time"
-                  value={openTime}
-                  onChange={(e) => setOpenTime(e.target.value || autoRule.openTime)}
+                  value={qOpen}
+                  onChange={(e) => setQOpen(e.target.value)}
                 />
               </label>
             </div>
@@ -168,8 +184,8 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast }: Sett
                   className={`${styles.input} ${styles.mono}`}
                   type="number"
                   min={0}
-                  value={announceMin}
-                  onChange={(e) => setAnnounceMin(e.target.value)}
+                  value={qAnnounceMin}
+                  onChange={(e) => setQAnnounceMin(e.target.value)}
                 />
               </label>
             </div>
@@ -180,48 +196,19 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast }: Sett
                   className={`${styles.input} ${styles.announceText}`}
                   rows={2}
                   placeholder="비워두면 날짜, 투표 시각, 링크가 들어간 기본 문구로 나갑니다"
-                  value={announceText}
-                  onChange={(e) => setAnnounceText(e.target.value)}
+                  value={qAnnounceText}
+                  onChange={(e) => setQAnnounceText(e.target.value)}
                 />
               </label>
             </div>
             <div className={styles.cardAct}>
               <button
                 type="button"
-                className={styles.btnSm}
-                onClick={() => {
-                  setRecurDays(daysFromRule(autoRule));
-                  setBattleTime(autoRule.battleTime);
-                  setOpenTime(autoRule.openTime);
-                  setAnnounceMin(String(autoRule.announceMinutes));
-                  setAnnounceText(autoRule.announceText);
-                  showToast("저장 전 상태로 되돌렸습니다");
-                }}
-              >
-                취소
-              </button>
-              <button
-                type="button"
                 className={`${styles.btnSm} ${styles.btnPrimary}`}
-                disabled={isSaving}
-                onClick={() => {
-                  startSave(async () => {
-                    try {
-                      await saveAutoRuleAction({
-                        weekdays: DAYS.filter((d) => recurDays[d]).map((d) => DOW_NUM[d]),
-                        battleTime,
-                        openTime,
-                        announceMinutes: Number(announceMin) || 0,
-                        announceText,
-                      });
-                      showToast("자동 등록 규칙이 저장되었습니다 · 큐에 반영됨");
-                    } catch (e) {
-                      showToast(e instanceof Error ? e.message : "저장에 실패했습니다");
-                    }
-                  });
-                }}
+                onClick={register}
+                disabled={isQueueBusy}
               >
-                {isSaving ? "저장 중..." : "저장"}
+                {isQueueBusy ? "등록 중..." : "등록"}
               </button>
             </div>
           </div>
@@ -231,118 +218,11 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast }: Sett
           <div className={styles.card}>
             <div className={styles.titleRow}>
               <h3 className={styles.cardTitle}>예정된 투표 큐</h3>
-              <button type="button" className={styles.btnSm} onClick={() => setFormOpen((v) => !v)}>
-                수동 추가
-              </button>
             </div>
-
-            {formOpen && (
-              <div className={styles.qForm}>
-                <div className={styles.fieldRow}>
-                  <label className={styles.field}>
-                    <span className={styles.label}>거점전 날짜</span>
-                    <input
-                      className={`${styles.input} ${styles.mono}`}
-                      type="date"
-                      value={qDate}
-                      onChange={(e) => pickBattleDate(e.target.value)}
-                    />
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>거점전 시각</span>
-                    <input
-                      className={`${styles.input} ${styles.mono}`}
-                      type="time"
-                      value={qBattle}
-                      onChange={(e) => setQBattle(e.target.value)}
-                    />
-                  </label>
-                </div>
-                <div className={styles.fieldRow}>
-                  <label className={styles.field}>
-                    <span className={styles.label}>투표 오픈 날짜</span>
-                    <input
-                      className={`${styles.input} ${styles.mono}`}
-                      type="date"
-                      value={qOpenDate}
-                      onChange={(e) => setQOpenDate(e.target.value)}
-                    />
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>투표 오픈 시각</span>
-                    <input
-                      className={`${styles.input} ${styles.mono}`}
-                      type="time"
-                      value={qOpen}
-                      onChange={(e) => setQOpen(e.target.value)}
-                    />
-                  </label>
-                </div>
-                <div className={styles.fieldRow}>
-                  <label className={styles.field}>
-                    <span className={styles.label}>디코 공지 (오픈 몇 분 전, 0이면 안 함)</span>
-                    <input
-                      className={`${styles.input} ${styles.mono}`}
-                      type="number"
-                      min={0}
-                      value={qAnnounceMin}
-                      onChange={(e) => setQAnnounceMin(e.target.value)}
-                    />
-                  </label>
-                </div>
-                <div className={styles.fieldRow}>
-                  <label className={styles.field}>
-                    <span className={styles.label}>공지 문구 (비우면 기본 문구)</span>
-                    <textarea
-                      className={`${styles.input} ${styles.announceText}`}
-                      rows={3}
-                      placeholder="비워두면 날짜, 투표 시각, 링크가 들어간 기본 문구로 나갑니다"
-                      value={qAnnounceText}
-                      onChange={(e) => setQAnnounceText(e.target.value)}
-                    />
-                  </label>
-                </div>
-                <div className={styles.cardAct}>
-                  <button type="button" className={styles.btnSm} onClick={() => setFormOpen(false)}>
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.btnSm} ${styles.btnPrimary}`}
-                    disabled={isQueueBusy}
-                    onClick={() => {
-                      if (!qDate || !qOpenDate) {
-                        showToast("날짜를 먼저 입력해 주세요");
-                        return;
-                      }
-                      startQueueWork(async () => {
-                        try {
-                          await addManualSurveyAction({
-                            executedAt: `${qDate}T${qBattle}`,
-                            exposedAt: `${qOpenDate}T${qOpen}`,
-                            announceMinutesBefore: Number(qAnnounceMin) || 0,
-                            announceContent: qAnnounceText,
-                          });
-                          setQDate("");
-                          setQOpenDate("");
-                          setQAnnounceText("");
-                          setFormOpen(false);
-                          showToast("수동 회차를 큐에 추가했습니다");
-                        } catch (e) {
-                          showToast(e instanceof Error ? e.message : "등록에 실패했습니다");
-                        }
-                      });
-                    }}
-                  >
-                    {isQueueBusy ? "추가 중..." : "추가"}
-                  </button>
-                </div>
-              </div>
-            )}
 
             <div className={styles.qList}>
               {queue.length === 0 && (
-                <div className={styles.qEmpty}>예정된 회차가 없습니다. 진행 요일을 켜거나 회차를 추가하세요</div>
+                <div className={styles.qEmpty}>예정된 회차가 없습니다. 왼쪽에서 회차를 등록하세요</div>
               )}
               {queue.map((s) => (
                 <div key={s.id} className={styles.qRow}>
@@ -361,7 +241,7 @@ export function SettingsTab({ current, queue, autoRule, phase, showToast }: Sett
                       startQueueWork(async () => {
                         try {
                           await cancelSurveyAction(s.id);
-                          showToast("이 회차를 뺐습니다 · 반복 규칙은 유지");
+                          showToast("이 회차를 뺐습니다");
                         } catch (e) {
                           showToast(e instanceof Error ? e.message : "빼기에 실패했습니다");
                         }

@@ -69,42 +69,6 @@ export function getKstWeekday(date: Date): number {
   return kstParts(date).weekday;
 }
 
-/**
- * KST 달력에서 `now`로부터 `days`만큼 뒤의 날짜. UTC 컨테이너로 벽시계
- * 연산만 하므로 서버 타임존과 무관하게 정확하다.
- */
-export function kstDatePlus(
-  now: Date,
-  days: number,
-): { year: number; month: number; day: number; weekday: number } {
-  const p = kstParts(now);
-  const d = new Date(Date.UTC(p.year, p.month - 1, p.day + days));
-  return {
-    year: d.getUTCFullYear(),
-    month: d.getUTCMonth() + 1,
-    day: d.getUTCDate(),
-    weekday: d.getUTCDay(),
-  };
-}
-
-/** KST 벽시계 날짜와 "HH:MM"이 가리키는 실제 시각. KST는 서머타임이 없어 고정 -9h가 정확하다. */
-export function kstInstant(year: number, month: number, day: number, hhmm: string): Date {
-  const [h, m] = hhmm.split(":").map(Number);
-  return new Date(Date.UTC(year, month - 1, day, h - 9, m));
-}
-
-/** 다음 KST 자정까지 남은 시간(ms). 자정마다 도는 작업의 대기 시간으로 쓴다. */
-export function msUntilNextKstMidnight(now: Date): number {
-  const next = kstDatePlus(now, 1);
-  return kstInstant(next.year, next.month, next.day, "00:00").getTime() - now.getTime();
-}
-
-/** "2026-08-31" — KST 달력 날짜 키. 같은 날 회차가 이미 있는지 비교할 때 쓴다. */
-export function kstDateKey(date: Date): string {
-  const p = kstParts(date);
-  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
-}
-
 /** "08.27" — the compact form used on the day cards. */
 export function formatDayDate(date: Date): string {
   const { month, day } = kstParts(date);
