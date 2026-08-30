@@ -50,13 +50,13 @@ export async function syncSurveyQueue(now: Date = new Date()): Promise<number> {
 }
 
 /*
- * 자동 등록 규칙을 저장한 직후 부른다.
- * 아직 투표가 안 열린 자동 생성 회차를 전부 지우고 새 규칙대로 다시 채운다.
- * 수동 등록 회차와 이미 열린 투표는 건드리지 않는다.
+ * 자동 등록 규칙을 저장한 직후 부른다. 규칙 저장은 큐를 처음부터 다시 까는 일이다.
+ * 아직 투표가 안 열린 자동 생성 회차와, 큐에서 뺀(cancel) 회차를 전부 지우고
+ * 새 규칙대로 다시 채운다. 살아 있는 수동 회차와 이미 열린 투표는 건드리지 않는다.
  */
 export async function rebuildAutoQueue(now: Date = new Date()): Promise<void> {
   await pool.execute(
-    "DELETE FROM survey WHERE type = 'node_war_auto' AND status <> 'cancel' AND exposed_at > ?",
+    "DELETE FROM survey WHERE exposed_at > ? AND (type = 'node_war_auto' OR status = 'cancel')",
     [now],
   );
   await syncSurveyQueue(now);
