@@ -9,6 +9,8 @@ import { type Member, VOTES, type Vote, countsOf, ofVote, votersToMembers } from
 import { fetchVoters } from "./actions";
 import { fetchPastSurveys } from "./pastActions";
 
+const POLL_MS = 5000;
+
 interface PastVotesTabProps {
   cap: number;
 }
@@ -40,18 +42,23 @@ export function PastVotesTab({ cap }: PastVotesTabProps) {
 
   useEffect(() => {
     let alive = true;
-    fetchPastSurveys(page)
-      .then((r) => {
-        if (!alive) return;
-        setRows(r.rows);
-        setTotal(r.total);
-        setPageSize(r.pageSize);
-      })
-      .catch(() => {
-        // 목록 한 번 실패는 페이지를 다시 넘기면 만회된다
-      });
+    const load = () => {
+      fetchPastSurveys(page)
+        .then((r) => {
+          if (!alive) return;
+          setRows(r.rows);
+          setTotal(r.total);
+          setPageSize(r.pageSize);
+        })
+        .catch(() => {
+          // 일시적인 실패는 다음 폴링에서 다시 시도한다
+        });
+    };
+    load();
+    const timer = setInterval(load, POLL_MS);
     return () => {
       alive = false;
+      clearInterval(timer);
     };
   }, [page]);
 

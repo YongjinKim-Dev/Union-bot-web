@@ -35,11 +35,17 @@ export async function getScheduleOverview(
     [now],
   );
   const list = rows as DbSurvey[];
-  // 결과를 보낸 회차는 그 즉시 지난 투표로 물러난다. 발송을 안 한 회차는 순번
-  // 조정과 발표를 위해 거점전 시각이 지날 때까지 자리를 지킨다 (조회 조건에서 빠지며 넘어간다).
-  const idx = list.findIndex((s) => !s.result_sent_at);
-  if (idx < 0) return { current: null, queue: [] };
-  return { current: list[idx], queue: list.slice(idx + 1) };
+  // 결과를 보낸 회차는 즉시 물러난다. 결과를 안 보낸 회차도 더 뒤의 투표가
+  // 열리면 지난 투표로 넘어가고, 가장 최근에 열린 회차가 오늘 투표가 된다.
+  const pending = list.filter((s) => !s.result_sent_at);
+  let currentIndex = -1;
+  for (let i = 0; i < pending.length; i += 1) {
+    if (pending[i].exposed_at <= now) currentIndex = i;
+  }
+  // 열린 회차가 하나도 없으면 가장 가까운 예정 회차를 대기 상태로 보여준다.
+  if (currentIndex < 0 && pending.length > 0) currentIndex = 0;
+  if (currentIndex < 0) return { current: null, queue: [] };
+  return { current: pending[currentIndex], queue: pending.slice(currentIndex + 1) };
 }
 
 export interface PastSurveyRow {
@@ -75,7 +81,7 @@ export async function getPastSurveys(
       "FROM survey s LEFT JOIN survey_history h ON h.survey_id = s.id " +
       `WHERE s.status <> 'cancel' ${exclude} ` +
       "GROUP BY s.id, s.executed_at, s.exposed_at " +
-      `ORDER BY s.executed_at DESC LIMIT ${Number(size)} OFFSET ${Number(offset)}`,
+      `ORDER BY s.executed_at DESC, s.id DESC LIMIT ${Number(size)} OFFSET ${Number(offset)}`,
     activeIds,
   );
   return {
