@@ -24,6 +24,7 @@ function phaseOf(current: DbSurvey | null, now: Date): Phase {
 }
 
 const DEFAULT_PRESETS = [55, 75, 100];
+const SCHEDULE_POLL_MS = 5000;
 
 interface AdminConsoleProps {
   current: DbSurvey | null;
@@ -37,15 +38,15 @@ export function AdminConsole({ current, queue }: AdminConsoleProps) {
   const [cap, setCap] = useState(DEFAULT_PRESETS[0]);
   const [presetList, setPresetList] = useState<number[]>([...DEFAULT_PRESETS]);
 
-  // 기기 시계로 1분마다 다시 판정하고, 회차 전환이 시각으로 일어나므로
-  // 일정 데이터도 같이 다시 읽어온다. 관리자 화면은 몇 초 밀려도 상관없다
+  // 회차 전환과 지난 투표 갱신 주기를 맞춰 두 탭이 같은 회차를 보게 한다.
+  // 현재 회차가 바뀌면 current.id key 로 OperationTab 도 새로 마운트된다.
   const router = useRouter();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(new Date());
       router.refresh();
-    }, 60 * 1000);
+    }, SCHEDULE_POLL_MS);
     return () => clearInterval(timer);
   }, [router]);
   const phase: Phase = phaseOf(current, now);

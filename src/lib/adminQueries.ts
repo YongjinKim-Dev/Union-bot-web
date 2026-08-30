@@ -44,7 +44,12 @@ export async function getScheduleOverview(
       (a, b) =>
         b.exposed_at.getTime() - a.exposed_at.getTime() || Number(b.id) - Number(a.id),
     )[0];
-  const future = list.filter((s) => s.exposed_at > now && !s.result_sent_at && s.status !== "complete");
+  const future = list
+    .filter((s) => s.exposed_at > now && !s.result_sent_at && s.status !== "complete")
+    .sort(
+      (a, b) =>
+        a.exposed_at.getTime() - b.exposed_at.getTime() || Number(b.id) - Number(a.id),
+    );
 
   if (latestOpened && !latestOpened.result_sent_at) {
     return { current: latestOpened, queue: future };
