@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { auth, signOut } from "@/auth";
+import { auth } from "@/auth";
+import { SiteHeader } from "@/components/SiteHeader";
 import {
   getCurrentSurvey,
   getLatestClosedSurvey,
@@ -39,55 +39,40 @@ export default async function VotePage() {
 
   return (
     <main className={styles.main}>
-      <div className={styles.header}>
-        <Link href="/" className={styles.homeLink}>
-          ← 홈
-        </Link>
-        <div className={styles.headerRight}>
-          <span className={styles.nickname}>{session.user.nickname}</span>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            <button type="submit" className={styles.logoutButton}>
-              로그아웃
-            </button>
-          </form>
-        </div>
-      </div>
+      <SiteHeader active="vote" kicker="VOTE" />
 
-      <div className={styles.card}>
-        <VoteTabs
-          currentContent={
-            currentSurvey ? (
-              <CurrentSurveyPanel
-                surveyId={currentSurvey.id}
-                opensAt={currentSurvey.exposed_at.getTime()}
-                executedAt={currentSurvey.executed_at.getTime()}
-                closesAt={getVotingClosesAt(currentSurvey.executed_at).getTime()}
-                initialVote={vote?.votingType ?? null}
-                initialVotedAt={vote?.votedAt ?? null}
-                initialClassInfo={classInfo}
-                announceAt={
-                  currentSurvey.announce_at && currentSurvey.discord_message_id === null
-                    ? currentSurvey.announce_at.getTime()
-                    : null
-                }
-              />
-            ) : (
-              <p className={styles.notice}>예정되었거나 진행중인 설문이 없습니다.</p>
-            )
-          }
-          pastContent={
-            pastSurvey && pastCounts ? (
-              <PastSurveySummary survey={pastSurvey} counts={pastCounts} />
-            ) : (
-              <p className={styles.notice}>지난 설문이 없습니다.</p>
-            )
-          }
-        />
+      <div className={styles.content}>
+        <div className={styles.card}>
+          <VoteTabs
+            currentContent={
+              currentSurvey ? (
+                <CurrentSurveyPanel
+                  surveyId={currentSurvey.id}
+                  opensAt={currentSurvey.exposed_at.getTime()}
+                  executedAt={currentSurvey.executed_at.getTime()}
+                  closesAt={getVotingClosesAt(currentSurvey.executed_at).getTime()}
+                  initialVote={vote?.votingType ?? null}
+                  initialVotedAt={vote?.votedAt ?? null}
+                  initialClassInfo={classInfo}
+                  announceAt={
+                    currentSurvey.announce_at && currentSurvey.discord_message_id === null
+                      ? currentSurvey.announce_at.getTime()
+                      : null
+                  }
+                />
+              ) : (
+                <p className={styles.notice}>예정되었거나 진행중인 설문이 없습니다.</p>
+              )
+            }
+            pastContent={
+              pastSurvey && pastCounts ? (
+                <PastSurveySummary survey={pastSurvey} counts={pastCounts} />
+              ) : (
+                <p className={styles.notice}>지난 설문이 없습니다.</p>
+              )
+            }
+          />
+        </div>
       </div>
     </main>
   );

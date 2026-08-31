@@ -1,11 +1,24 @@
 /* Desktop lays out as [brand] … [nav] [logout] in one row. On mobile the nav
    wraps to its own full-width row so nothing squeezes. */
 .header {
+  /* 페이지마다 본문 폭이 달라도 헤더 밴드는 같은 모양이어야 해서, 부모 폭을
+     그대로 채우고 패딩을 자기가 갖는다. box-sizing 이 없으면 flex 자식으로
+     들어갔을 때 패딩만큼 넘친다. */
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 18.4px;
   padding: 27.6px 46px 18.4px;
+}
+
+.nickname {
+  order: 1;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
 }
 
 .brandIcon {

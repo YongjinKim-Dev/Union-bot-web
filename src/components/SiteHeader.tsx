@@ -40,6 +40,9 @@ export async function SiteHeader({ active, kicker = "" }: { active: NavKey; kick
         <span className={styles.brand}>아시바당</span>
         {kicker && <span className={styles.kicker}>{kicker}</span>}
       </div>
+      {session?.user?.nickname && (
+        <span className={styles.nickname}>{session.user.nickname}</span>
+      )}
       <form
         className={styles.logoutForm}
         action={async () => {

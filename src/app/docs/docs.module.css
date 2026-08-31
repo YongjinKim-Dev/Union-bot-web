@@ -1,7 +1,7 @@
 .main {
   min-height: 100dvh;
   width: 100%;
-  max-width: 900px;
+  max-width: 1120px;
   margin: 0 auto;
   background: var(--color-paper);
   color: var(--color-ink);
@@ -11,6 +11,8 @@
   display: grid;
   grid-template-columns: 200px 1px 1fr;
   align-items: start;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 /* ── Sidebar ────────────────────────────────────────────────── */

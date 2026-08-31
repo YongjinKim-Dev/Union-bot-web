@@ -1,53 +1,27 @@
+/* 껍데기는 다른 페이지와 같은 1120px 지면을 쓰고, 좁은 투표 칼럼은 .content 가
+   맡는다. 헤더가 페이지마다 다른 폭으로 보이지 않게 하려는 분리다. */
 .main {
   min-height: 100dvh;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 16px 48px;
-  gap: 16px;
+  background: var(--color-paper);
+  color: var(--color-ink);
 }
 
-.header {
+/* 480 + 좌우 16 패딩. 투표 버튼은 한 손으로 누르는 화면이라 좁게 유지한다. */
+.content {
   width: 100%;
-  max-width: 480px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.homeLink {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.homeLink:hover {
-  color: var(--accent);
-}
-
-.headerRight {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.nickname {
-  font-weight: 600;
-}
-
-.logoutButton {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 0.85rem;
+  max-width: 512px;
+  box-sizing: border-box;
+  padding: 8px 16px 48px;
 }
 
 .card {
   width: 100%;
-  max-width: 480px;
   padding: 28px 24px;
   border-radius: 16px;
   border: 1px solid var(--border-color);
@@ -235,8 +209,7 @@
 /* Widen the content column on desktop instead of staying pinned at mobile
    width — mobile/tablet (≤1023px) keeps the original 480px column. */
 @media (min-width: 1024px) {
-  .header,
-  .card {
-    max-width: 880px;
+  .content {
+    max-width: 912px;
   }
 }

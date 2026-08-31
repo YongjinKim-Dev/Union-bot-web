@@ -1,7 +1,7 @@
 .main {
   min-height: 100dvh;
   width: 100%;
-  max-width: 860px;
+  max-width: 1120px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -9,46 +9,16 @@
   color: var(--color-ink);
 }
 
+/* 직업 그리드는 넓히면 카드가 흩어져서, 지면은 1120 이어도 본문은 860 으로 둔다. */
+.content {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── Header ─────────────────────────────────────────────────── */
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 13.8px;
-  padding: 18.4px 36.8px;
-  border-bottom: 1px solid var(--color-hairline);
-}
-
-.brandBlock {
-  display: flex;
-  align-items: baseline;
-  gap: 13.8px;
-}
-
-.brand {
-  font-family: var(--font-heading);
-  font-size: 19px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.headerKicker {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--color-ink-dim);
-}
-
-.homeLink {
-  font-size: 12.5px;
-  color: var(--color-ink-dim);
-  white-space: nowrap;
-}
-
-.homeLink:hover {
-  color: var(--color-accent-deep);
-}
 
 /* ── Body ───────────────────────────────────────────────────── */
 
