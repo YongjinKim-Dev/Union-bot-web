@@ -1,3 +1,4 @@
+import { getVotingClosesAt } from "@/lib/format";
 import type { DbSurvey } from "@/lib/types";
 
 /** Node wars run Mon–Fri and Sun. Saturday is deliberately absent. */
@@ -117,10 +118,19 @@ export function getKstWeekRange(now: Date): { from: Date; to: Date } {
   return { from, to };
 }
 
-function resolveState(survey: DbSurvey | null): DayState {
+/*
+ * 요일 칸 상태는 시각으로 정한다. status 로 판단하면 안 된다 — 예전에는 봇이
+ * 1분 루프로 process/complete 를 찍어줬지만 그 루프를 껐고, 웹 등록은 처음부터
+ * process 로 들어간다. 그대로 두면 다음 주 회차까지 "진행"으로 보인다.
+ *
+ * 투표 창은 /vote 와 같은 기준을 쓴다: exposed_at <= now < executed_at - 1시간.
+ */
+function resolveState(survey: DbSurvey | null, now: Date): DayState {
   if (!survey) return "미등록";
+  // 관리자가 즉시 마감을 누른 회차만 시각과 무관하게 닫힌다.
   if (survey.status === "complete") return "마감";
-  if (survey.status === "process") return "진행";
+  if (now.getTime() >= getVotingClosesAt(survey.executed_at).getTime()) return "마감";
+  if (now.getTime() >= survey.exposed_at.getTime()) return "진행";
   return "예정";
 }
 
@@ -148,7 +158,7 @@ export function buildWeekSlots(now: Date, surveys: DbSurvey[]): DaySlot[] {
       date: formatDayDate(survey?.executed_at ?? dayDate),
       isToday: getKstWeekday(now) === weekday,
       survey,
-      state: resolveState(survey),
+      state: resolveState(survey, now),
     };
   });
 }
