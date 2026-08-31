@@ -49,25 +49,39 @@ export async function addVoteAction(surveyId: string, nickname: string) {
   const userId = String(users[0].id);
 
   const [existing] = await pool.query<RowDataPacket[]>(
-    "SELECT id FROM survey_history_draft WHERE survey_id = ? AND user_id = ?",
+    "SELECT id, position FROM survey_history_draft WHERE survey_id = ? AND user_id = ?",
     [surveyId, userId],
   );
-  if (existing.length > 0) throw new Error(`${name} 님은 이미 이 회차 명단에 있습니다.`);
+  if (existing.length > 0 && Number(existing[0].position) > 0) {
+    throw new Error(`${name} 님은 이미 이 회차 명단에 있습니다.`);
+  }
 
-  // updated_at은 폴링의 기준 시각이므로 지금 시각 대신 기준 시각을 그대로 복사한다
-  await pool.execute(
-    "INSERT INTO survey_history_draft (voting_type, survey_id, user_id, position, created_at, updated_at) " +
-      "SELECT 'attend', ?, ?, COALESCE(MAX(position), 0) + 1, NOW(), COALESCE(MAX(updated_at), NOW()) " +
-      "FROM survey_history_draft WHERE survey_id = ?",
-    [surveyId, userId, surveyId],
-  );
+  if (existing.length > 0) {
+    // 뺐던 사람이면 순번만 맨 뒤 번호로 되살린다. 미참 상태로 뺐던 경우는 참여로 넣는다
+    await pool.execute(
+      "UPDATE survey_history_draft SET voting_type = 'attend', position = " +
+        "(SELECT COALESCE(MAX(position), 0) + 1 FROM (SELECT position FROM survey_history_draft WHERE survey_id = ?) base) " +
+        "WHERE id = ?",
+      [surveyId, existing[0].id],
+    );
+  } else {
+    await pool.execute(
+      "INSERT INTO survey_history_draft (voting_type, survey_id, user_id, position, created_at, updated_at) " +
+        "SELECT 'attend', ?, ?, COALESCE(MAX(position), 0) + 1, NOW(), NOW() " +
+        "FROM survey_history_draft WHERE survey_id = ?",
+      [surveyId, userId, surveyId],
+    );
+  }
   revalidatePath("/admin");
 }
 
-/* 이 회차 명단에서 한 사람을 뺀다. 원본 표는 그대로 남는다. */
+/*
+ * 이 회차 명단에서 한 사람을 뺀다. 행을 지우는 대신 순번을 0으로 바꿔서
+ * 명단 밖으로 보낸다. 행이 남아 있어야 폴링이 새 표와 구분할 수 있다.
+ */
 export async function removeVoteAction(surveyId: string, draftId: string) {
   await requireAdmin();
-  await pool.execute("DELETE FROM survey_history_draft WHERE id = ? AND survey_id = ?", [
+  await pool.execute("UPDATE survey_history_draft SET position = 0 WHERE id = ? AND survey_id = ?", [
     draftId,
     surveyId,
   ]);

@@ -26,7 +26,8 @@ export async function ensureDraftTable(): Promise<void> {
 
 /*
  * survey_history의 변화를 draft에 반영한다. 원본은 읽기만 한다.
- * 마지막으로 반영한 표 시각을 기준으로, 그보다 새로운 표만 읽어와 맨 뒤에 붙인다.
+ * draft에 없는 유저의 표는 새 표이므로 투표순으로 맨 뒤에 붙인다.
+ * 관리자가 뺀 사람은 행이 남아 있어서(순번 0) 새 표와 섞이지 않는다.
  */
 async function syncDraft(surveyId: string): Promise<void> {
   const connection = await pool.getConnection();
@@ -43,38 +44,32 @@ async function syncDraft(surveyId: string): Promise<void> {
 }
 
 async function runSyncQueries(connection: PoolConnection, surveyId: string): Promise<void> {
-  {
-    const [marks] = await connection.query<RowDataPacket[]>(
-      "SELECT MAX(updated_at) AS mark, COALESCE(MAX(position), 0) AS last " +
-        "FROM survey_history_draft WHERE survey_id = ?",
-      [surveyId],
-    );
-    const mark = marks[0].mark as Date | null;
-    const last = Number(marks[0].last);
-
-    const since = mark ? "AND updated_at > ?" : "";
-    const sinceParams = mark ? [surveyId, mark] : [surveyId];
-    await connection.execute(
-      "DELETE FROM survey_history_draft WHERE survey_id = ? AND user_id IN " +
-        `(SELECT user_id FROM survey_history WHERE survey_id = ? ${since})`,
-      [surveyId, ...sinceParams],
-    );
-    await connection.execute(
-      "INSERT INTO survey_history_draft (voting_type, survey_id, user_id, position, created_at, updated_at) " +
-        "SELECT voting_type, survey_id, user_id, " +
-        "       ? + ROW_NUMBER() OVER (ORDER BY updated_at ASC, id ASC), created_at, updated_at " +
-        `FROM survey_history WHERE survey_id = ? ${since}`,
-      [last, ...sinceParams],
-    );
-    // 참여-부속 전환은 원본이 시각을 바꾸지 않아서 종류만 따로 맞춘다
-    await connection.execute(
-      "UPDATE survey_history_draft d " +
-        "JOIN survey_history h ON h.survey_id = d.survey_id AND h.user_id = d.user_id " +
-        "SET d.voting_type = h.voting_type " +
-        "WHERE d.survey_id = ? AND d.voting_type <> h.voting_type",
-      [surveyId],
-    );
-  }
+  // 명단 밖(미참·늦참)에 있다가 참여·부속으로 돌아온 사람은 지웠다가 새 표처럼 맨 뒤에 다시 붙인다
+  await connection.execute(
+    "DELETE d FROM survey_history_draft d " +
+      "JOIN survey_history h ON h.survey_id = d.survey_id AND h.user_id = d.user_id " +
+      "WHERE d.survey_id = ? AND d.position > 0 " +
+      "AND d.voting_type NOT IN ('attend', 'boarding') AND h.voting_type IN ('attend', 'boarding')",
+    [surveyId],
+  );
+  await connection.execute(
+    "INSERT INTO survey_history_draft (voting_type, survey_id, user_id, position, created_at, updated_at) " +
+      "SELECT h.voting_type, h.survey_id, h.user_id, " +
+      "       (SELECT COALESCE(MAX(position), 0) FROM (SELECT position FROM survey_history_draft WHERE survey_id = ?) base) " +
+      "         + ROW_NUMBER() OVER (ORDER BY h.updated_at ASC, h.id ASC), h.created_at, h.updated_at " +
+      "FROM survey_history h " +
+      "WHERE h.survey_id = ? AND h.user_id NOT IN " +
+      "  (SELECT user_id FROM (SELECT user_id FROM survey_history_draft WHERE survey_id = ?) existing)",
+    [surveyId, surveyId, surveyId],
+  );
+  // 그 밖의 표 종류 변화(참여-부속 전환, 미참 전환 등)는 자리를 그대로 두고 종류와 시각만 맞춘다
+  await connection.execute(
+    "UPDATE survey_history_draft d " +
+      "JOIN survey_history h ON h.survey_id = d.survey_id AND h.user_id = d.user_id " +
+      "SET d.voting_type = h.voting_type, d.updated_at = h.updated_at " +
+      "WHERE d.survey_id = ? AND (d.voting_type <> h.voting_type OR d.updated_at <> h.updated_at)",
+    [surveyId],
+  );
 }
 
 /*
@@ -102,7 +97,7 @@ export async function flushExpiredDrafts(now: Date = new Date()): Promise<void> 
         await connection.execute(
           "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) " +
             "SELECT voting_type, survey_id, user_id, created_at, updated_at " +
-            "FROM survey_history_draft WHERE survey_id = ? ORDER BY position ASC, id ASC",
+            "FROM survey_history_draft WHERE survey_id = ? AND position > 0 ORDER BY position ASC, id ASC",
           [surveyId],
         );
         await connection.execute("DELETE FROM survey_history_draft WHERE survey_id = ?", [surveyId]);
@@ -128,7 +123,7 @@ export async function getDraftVoters(surveyId: string): Promise<VoterRow[]> {
       "JOIN guild g ON u.guild_id = g.id " +
       "LEFT JOIN user_character_class_map m ON u.id = m.user_id " +
       "LEFT JOIN character_class cc ON m.character_class_id = cc.id " +
-      "WHERE d.survey_id = ? AND u.status = 1 " +
+      "WHERE d.survey_id = ? AND d.position > 0 AND u.status = 1 " +
       "ORDER BY d.position ASC, d.id ASC",
     [surveyId],
   );
