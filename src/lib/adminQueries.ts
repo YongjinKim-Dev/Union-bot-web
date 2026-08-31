@@ -1,4 +1,4 @@
-import type { RowDataPacket } from "mysql2";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
 import type { ClassType, DbSurvey, VotingType } from "@/lib/types";
 import type { VoterRow } from "@/lib/queries";
@@ -32,6 +32,18 @@ async function syncDraft(surveyId: string): Promise<void> {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    await runSyncQueries(connection, surveyId);
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function runSyncQueries(connection: PoolConnection, surveyId: string): Promise<void> {
+  {
     const [marks] = await connection.query<RowDataPacket[]>(
       "SELECT MAX(updated_at) AS mark, COALESCE(MAX(position), 0) AS last " +
         "FROM survey_history_draft WHERE survey_id = ?",
@@ -62,12 +74,46 @@ async function syncDraft(surveyId: string): Promise<void> {
         "WHERE d.survey_id = ? AND d.voting_type <> h.voting_type",
       [surveyId],
     );
-    await connection.commit();
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+  }
+}
+
+/*
+ * 거점전 시각이 지난 회차의 draft를 survey_history에 반영한다.
+ * 그 회차 원본을 비우고 draft를 position 순서대로 통째로 다시 넣는다.
+ * 시각은 그대로 옮기고, 넣은 순서가 곧 최종 순번이 된다. 반영한 draft는 지운다.
+ */
+export async function flushExpiredDrafts(now: Date = new Date()): Promise<void> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT DISTINCT d.survey_id, s.status FROM survey_history_draft d " +
+      "JOIN survey s ON s.id = d.survey_id WHERE s.executed_at <= ?",
+    [now],
+  );
+  for (const row of rows) {
+    const surveyId = String(row.survey_id);
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      if (row.status === "cancel") {
+        // 취소된 회차의 조정본은 반영하지 않고 지운다
+        await connection.execute("DELETE FROM survey_history_draft WHERE survey_id = ?", [surveyId]);
+      } else {
+        await runSyncQueries(connection, surveyId);
+        await connection.execute("DELETE FROM survey_history WHERE survey_id = ?", [surveyId]);
+        await connection.execute(
+          "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) " +
+            "SELECT voting_type, survey_id, user_id, created_at, updated_at " +
+            "FROM survey_history_draft WHERE survey_id = ? ORDER BY position ASC, id ASC",
+          [surveyId],
+        );
+        await connection.execute("DELETE FROM survey_history_draft WHERE survey_id = ?", [surveyId]);
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 }
 
@@ -106,6 +152,7 @@ export async function getDraftVoters(surveyId: string): Promise<VoterRow[]> {
 export async function getScheduleOverview(
   now: Date = new Date(),
 ): Promise<{ current: DbSurvey | null; queue: DbSurvey[] }> {
+  await flushExpiredDrafts(now);
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, announce_at, announce_content, discord_message_id " +
       "FROM survey WHERE status <> 'cancel' AND executed_at > ? " +
