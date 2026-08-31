@@ -155,7 +155,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
     if (!current) return;
     startSave(async () => {
       try {
-        const ok = await sendRosterAction(buildExportText(members, cap, heading, false));
+        const ok = await sendRosterAction(buildExportText(members, cap, heading));
         setExportOpen(false);
         showToast(ok ? "디코로 결과를 보냈습니다" : "발송에 실패했습니다 · 웹훅 설정을 확인해 주세요");
       } catch (e) {
@@ -370,7 +370,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
               </button>
             </div>
             <div className={styles.modalBody}>
-              <pre className={styles.preview}>{buildExportText(members, cap, heading, false)}</pre>
+              <pre className={styles.preview}>{buildExportText(members, cap, heading)}</pre>
             </div>
             <div className={styles.modalFoot}>
               <span className={styles.hint}>
