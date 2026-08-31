@@ -2,7 +2,6 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const { ensureResultSentColumn, ensureDraftTable } = await import("@/lib/adminQueries");
-  await ensureResultSentColumn();
+  const { ensureDraftTable } = await import("@/lib/adminQueries");
   await ensureDraftTable();
 }
