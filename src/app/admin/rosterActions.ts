@@ -10,15 +10,6 @@ import { sendSurveyAnnouncement } from "@/lib/discord";
 export async function saveRosterOrderAction(surveyId: string, orderedDraftIds: string[]) {
   await requireAdmin();
 
-  const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT id FROM survey_history_draft WHERE survey_id = ? AND voting_type IN ('attend', 'boarding')",
-    [surveyId],
-  );
-  const known = new Set(rows.map((r) => String(r.id)));
-  if (rows.length !== orderedDraftIds.length || !orderedDraftIds.every((id) => known.has(id))) {
-    throw new Error("명단이 바뀌었습니다. 새로 고침 후 다시 조정해 주세요.");
-  }
-
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
