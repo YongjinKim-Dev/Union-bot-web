@@ -31,21 +31,33 @@ export async function getScheduleOverview(
 ): Promise<{ current: DbSurvey | null; queue: DbSurvey[] }> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, announce_at, announce_content, discord_message_id, result_sent_at " +
-      "FROM survey WHERE status <> 'cancel' AND executed_at > ? ORDER BY executed_at ASC",
+      "FROM survey WHERE status <> 'cancel' AND executed_at > ? " +
+      "ORDER BY executed_at ASC, exposed_at ASC, id ASC",
     [now],
   );
   const list = rows as DbSurvey[];
-  // 결과를 보낸 회차는 즉시 물러난다. 결과를 안 보낸 회차도 더 뒤의 투표가
-  // 열리면 지난 투표로 넘어가고, 가장 최근에 열린 회차가 오늘 투표가 된다.
-  const pending = list.filter((s) => !s.result_sent_at);
-  let currentIndex = -1;
-  for (let i = 0; i < pending.length; i += 1) {
-    if (pending[i].exposed_at <= now) currentIndex = i;
+  // 먼저 발송 여부와 관계없이 가장 최근에 열린 회차를 확정한다. 미발송 목록을
+  // 먼저 만들면 최신 회차 발송 뒤 그보다 오래된 회차가 현재 투표로 부활한다.
+  const latestOpened = list
+    .filter((s) => s.exposed_at <= now)
+    .sort(
+      (a, b) =>
+        b.exposed_at.getTime() - a.exposed_at.getTime() || Number(b.id) - Number(a.id),
+    )[0];
+  const future = list
+    .filter((s) => s.exposed_at > now && !s.result_sent_at && s.status !== "complete")
+    .sort(
+      (a, b) =>
+        a.exposed_at.getTime() - b.exposed_at.getTime() || Number(b.id) - Number(a.id),
+    );
+
+  if (latestOpened && !latestOpened.result_sent_at) {
+    return { current: latestOpened, queue: future };
   }
-  // 열린 회차가 하나도 없으면 가장 가까운 예정 회차를 대기 상태로 보여준다.
-  if (currentIndex < 0 && pending.length > 0) currentIndex = 0;
-  if (currentIndex < 0) return { current: null, queue: [] };
-  return { current: pending[currentIndex], queue: pending.slice(currentIndex + 1) };
+  // 아직 열린 회차가 없거나 최신 회차 결과를 보냈다면 가장 가까운 미래 회차를
+  // 대기 상태로 보여준다. 이미 지난 미발송 회차로는 절대 역행하지 않는다.
+  if (future.length === 0) return { current: null, queue: [] };
+  return { current: future[0], queue: future.slice(1) };
 }
 
 export interface PastSurveyRow {

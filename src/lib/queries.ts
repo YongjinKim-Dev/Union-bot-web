@@ -41,13 +41,24 @@ export function getVotingOpensAt(survey: DbSurvey): Date {
  */
 export async function getCurrentSurvey(now: Date = new Date()): Promise<DbSurvey | null> {
   const closesAfter = new Date(now.getTime() + 60 * 60 * 1000);
-  const [rows] = await pool.query<RowDataPacket[]>(
+  // 상태와 무관하게 가장 최근에 열린 회차를 먼저 본다. 최신 회차를 즉시 마감한
+  // 뒤 예전 process 회차가 다시 현재 설문으로 살아나는 것을 막기 위해서다.
+  const [openedRows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id, announce_at, announce_content FROM survey " +
-      // 관리자가 즉시 마감(complete)한 설문은 건너뛰고 다음 설문을 연다
-      "WHERE status NOT IN ('cancel', 'complete') AND executed_at > ? ORDER BY exposed_at ASC LIMIT 1",
-    [closesAfter],
+      "WHERE status <> 'cancel' AND executed_at > ? AND exposed_at <= ? " +
+      "ORDER BY exposed_at DESC, id DESC LIMIT 1",
+    [closesAfter, now],
   );
-  return (rows[0] as DbSurvey) ?? null;
+  const latestOpened = openedRows[0] as DbSurvey | undefined;
+  if (latestOpened && latestOpened.status !== "complete") return latestOpened;
+
+  const [futureRows] = await pool.query<RowDataPacket[]>(
+    "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id, announce_at, announce_content FROM survey " +
+      "WHERE status NOT IN ('cancel', 'complete') AND executed_at > ? AND exposed_at > ? " +
+      "ORDER BY exposed_at ASC, id DESC LIMIT 1",
+    [closesAfter, now],
+  );
+  return (futureRows[0] as DbSurvey) ?? null;
 }
 
 /** 지금 이 순간 투표를 받을 수 있는 설문인가. 서버가 최종 판단한다. */
@@ -70,7 +81,8 @@ export async function getLatestClosedSurvey(now: Date = new Date()): Promise<DbS
   const closedBy = new Date(now.getTime() + 60 * 60 * 1000);
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, discord_message_id, announce_at, announce_content FROM survey " +
-      "WHERE status <> 'cancel' AND executed_at <= ? ORDER BY executed_at DESC LIMIT 1",
+      "WHERE status <> 'cancel' AND executed_at <= ? " +
+      "ORDER BY executed_at DESC, exposed_at DESC, id DESC LIMIT 1",
     [closedBy],
   );
   return (rows[0] as DbSurvey) ?? null;
