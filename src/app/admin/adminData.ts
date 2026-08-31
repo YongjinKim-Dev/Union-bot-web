@@ -159,7 +159,7 @@ export function buildExportText(members: Member[], cap: number, heading: string,
   const rest = roster.slice(cap);
   // 조정 표시는 컷 밖에서 안으로 끌어올린 사람에게만 붙인다
   const mark = (m: Member, pulledIn: boolean) =>
-    `${m.nick} (${m.job})${m.vote === "부속" ? " 부속" : ""}${pulledIn ? " <<<<<<<<<" : ""}`;
+    `${m.nick} / ${m.job} (${m.line})${pulledIn ? " <<<<<<<<<" : ""}`;
 
   const lines: string[] = [];
   lines.push(`== ${heading} 거점전 투표 결과 ==`);
