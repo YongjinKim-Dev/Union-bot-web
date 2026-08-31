@@ -71,16 +71,15 @@ async function syncDraft(surveyId: string): Promise<void> {
   }
 }
 
-/* 관리자 명단. draft를 최신으로 맞춘 뒤 position 순서로 돌려준다. */
+/* 관리자 명단. draft를 최신으로 맞춘 뒤 position 순서로 돌려준다. 식별자도 draft의 id다. */
 export async function getDraftVoters(surveyId: string): Promise<VoterRow[]> {
   await syncDraft(surveyId);
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT h.id AS history_id, u.user_nickname, g.name AS guild_name, d.voting_type, h.updated_at, h.created_at, " +
+    "SELECT d.id AS draft_id, u.user_nickname, g.name AS guild_name, d.voting_type, d.updated_at, d.created_at, " +
       "       cc.name AS class_name, cc.type AS class_type " +
       "FROM survey_history_draft d " +
       "JOIN user u ON d.user_id = u.id " +
       "JOIN guild g ON u.guild_id = g.id " +
-      "JOIN survey_history h ON h.survey_id = d.survey_id AND h.user_id = d.user_id " +
       "LEFT JOIN user_character_class_map m ON u.id = m.user_id " +
       "LEFT JOIN character_class cc ON m.character_class_id = cc.id " +
       "WHERE d.survey_id = ? AND u.status = 1 " +
@@ -88,7 +87,7 @@ export async function getDraftVoters(surveyId: string): Promise<VoterRow[]> {
     [surveyId],
   );
   return rows.map((r) => ({
-    historyId: String(r.history_id),
+    historyId: String(r.draft_id),
     nickname: r.user_nickname as string,
     guildName: r.guild_name as string,
     votingType: r.voting_type as VotingType,
