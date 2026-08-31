@@ -21,6 +21,25 @@ export async function ensureResultSentColumn(): Promise<void> {
 }
 
 /*
+ * 관리자가 조정 중인 명단을 담는 임시 테이블.
+ * survey_history와 형식이 같고, 조정한 순서를 기억하기 위한 position 컬럼만 추가했다.
+ */
+export async function ensureDraftTable(): Promise<void> {
+  await pool.execute(
+    "CREATE TABLE IF NOT EXISTS survey_history_draft (" +
+      "id bigint NOT NULL AUTO_INCREMENT, " +
+      "voting_type varchar(16) NOT NULL, " +
+      "survey_id bigint NOT NULL, " +
+      "user_id bigint NOT NULL, " +
+      "position int NOT NULL, " +
+      "created_at datetime NOT NULL, " +
+      "updated_at datetime NOT NULL, " +
+      "PRIMARY KEY (id), " +
+      "UNIQUE KEY uq_survey_user (survey_id, user_id))",
+  );
+}
+
+/*
  * 오늘 투표 회차와 그 뒤 예정 큐.
  * 투표 페이지와 달리 거점전 시각이 지날 때까지 회차를 물고 있는다.
  * 마감 뒤 순번 조정과 발표를 여기서 해야 하기 때문이다.
