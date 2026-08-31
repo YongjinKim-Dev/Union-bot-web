@@ -169,8 +169,8 @@ export function buildExportText(members: Member[], cap: number, heading: string)
 
 /* 표 목록을 화면 명단으로 바꾼다. 순번은 참여와 부속끼리만 매긴다. */
 export function votersToMembers(voters: VoterRow[]): Member[] {
-  // 원래 순번은 처음 투표한 순서로 매긴다. 조정 저장이 자리를 바꿔도 이 값은
-  // 변하지 않아야 컷 밖에서 끌어올린 표시가 저장 뒤에도 살아 있다.
+  // 원래 순번은 표 시각 순서로 매긴다. 유저의 표 변경은 시각과 자리가 같이
+  // 움직이므로, 이 순서와 자리가 어긋난 사람은 관리자가 조정한 사람뿐이다.
   const firstSeq = new Map<string, number>();
   voters
     .filter((v) => {
@@ -179,7 +179,7 @@ export function votersToMembers(voters: VoterRow[]): Member[] {
     })
     .sort(
       (a, b) =>
-        new Date(a.firstVotedAt).getTime() - new Date(b.firstVotedAt).getTime() ||
+        new Date(a.votedAt).getTime() - new Date(b.votedAt).getTime() ||
         Number(a.historyId) - Number(b.historyId),
     )
     .forEach((v, i) => firstSeq.set(v.historyId, i + 1));
