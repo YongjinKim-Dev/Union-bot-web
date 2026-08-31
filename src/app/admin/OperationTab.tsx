@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { formatSurveyDate } from "@/lib/format";
 import type { VoterRow } from "@/lib/queries";
 import type { DbSurvey } from "@/lib/types";
-import { fetchVoters } from "./actions";
+import { fetchRoster } from "./actions";
 import { addVoteAction, removeVoteAction, saveRosterOrderAction, sendRosterAction } from "./rosterActions";
 import styles from "./admin.module.css";
 import { RosterTable } from "./RosterTable";
@@ -50,7 +50,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
     let alive = true;
     const load = async () => {
       try {
-        const r = await fetchVoters(currentId);
+        const r = await fetchRoster(currentId);
         if (alive) {
           setVoters(r.voters);
           setNonVoters(r.nonVoters);
@@ -105,7 +105,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
 
   async function reload() {
     if (!current) return;
-    const r = await fetchVoters(current.id);
+    const r = await fetchRoster(current.id);
     setVoters(r.voters);
     setNonVoters(r.nonVoters);
     setDraft(null);

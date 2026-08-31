@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { createSurvey, getVoters, getNonVoters } from "@/lib/queries";
+import { getDraftVoters } from "@/lib/adminQueries";
 import { buildDefaultAnnounceContent } from "@/lib/announce";
 import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
 
@@ -21,6 +22,16 @@ export async function fetchVoters(surveyId: string) {
   await requireAdmin();
   const [voters, nonVoters] = await Promise.all([
     getVoters(surveyId),
+    getNonVoters(surveyId),
+  ]);
+  return { voters, nonVoters };
+}
+
+/* 운영 화면 명단. 원본이 아니라 조정본(draft)을 읽는다. */
+export async function fetchRoster(surveyId: string) {
+  await requireAdmin();
+  const [voters, nonVoters] = await Promise.all([
+    getDraftVoters(surveyId),
     getNonVoters(surveyId),
   ]);
   return { voters, nonVoters };

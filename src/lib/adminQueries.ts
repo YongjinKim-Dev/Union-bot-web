@@ -1,6 +1,7 @@
 import type { RowDataPacket } from "mysql2";
 import { pool } from "@/lib/db";
-import type { DbSurvey } from "@/lib/types";
+import type { ClassType, DbSurvey, VotingType } from "@/lib/types";
+import type { VoterRow } from "@/lib/queries";
 
 /* 관리자 화면 전용 조회 */
 
@@ -21,6 +22,81 @@ export async function ensureDraftTable(): Promise<void> {
       "PRIMARY KEY (id), " +
       "UNIQUE KEY uq_survey_user (survey_id, user_id))",
   );
+}
+
+/*
+ * survey_history의 변화를 draft에 반영한다. 원본은 읽기만 한다.
+ * 마지막으로 반영한 표 시각을 기준으로, 그보다 새로운 표만 읽어와 맨 뒤에 붙인다.
+ */
+async function syncDraft(surveyId: string): Promise<void> {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [marks] = await connection.query<RowDataPacket[]>(
+      "SELECT MAX(updated_at) AS mark, COALESCE(MAX(position), 0) AS last " +
+        "FROM survey_history_draft WHERE survey_id = ?",
+      [surveyId],
+    );
+    const mark = marks[0].mark as Date | null;
+    const last = Number(marks[0].last);
+
+    const since = mark ? "AND updated_at > ?" : "";
+    const sinceParams = mark ? [surveyId, mark] : [surveyId];
+    await connection.execute(
+      "DELETE FROM survey_history_draft WHERE survey_id = ? AND user_id IN " +
+        `(SELECT user_id FROM survey_history WHERE survey_id = ? ${since})`,
+      [surveyId, ...sinceParams],
+    );
+    await connection.execute(
+      "INSERT INTO survey_history_draft (voting_type, survey_id, user_id, position, created_at, updated_at) " +
+        "SELECT voting_type, survey_id, user_id, " +
+        "       ? + ROW_NUMBER() OVER (ORDER BY updated_at ASC, id ASC), created_at, updated_at " +
+        `FROM survey_history WHERE survey_id = ? ${since}`,
+      [last, ...sinceParams],
+    );
+    // 참여-부속 전환은 원본이 시각을 바꾸지 않아서 종류만 따로 맞춘다
+    await connection.execute(
+      "UPDATE survey_history_draft d " +
+        "JOIN survey_history h ON h.survey_id = d.survey_id AND h.user_id = d.user_id " +
+        "SET d.voting_type = h.voting_type " +
+        "WHERE d.survey_id = ? AND d.voting_type <> h.voting_type",
+      [surveyId],
+    );
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+/* 관리자 명단. draft를 최신으로 맞춘 뒤 position 순서로 돌려준다. */
+export async function getDraftVoters(surveyId: string): Promise<VoterRow[]> {
+  await syncDraft(surveyId);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT h.id AS history_id, u.user_nickname, g.name AS guild_name, d.voting_type, h.updated_at, h.created_at, " +
+      "       cc.name AS class_name, cc.type AS class_type " +
+      "FROM survey_history_draft d " +
+      "JOIN user u ON d.user_id = u.id " +
+      "JOIN guild g ON u.guild_id = g.id " +
+      "JOIN survey_history h ON h.survey_id = d.survey_id AND h.user_id = d.user_id " +
+      "LEFT JOIN user_character_class_map m ON u.id = m.user_id " +
+      "LEFT JOIN character_class cc ON m.character_class_id = cc.id " +
+      "WHERE d.survey_id = ? AND u.status = 1 " +
+      "ORDER BY d.position ASC, d.id ASC",
+    [surveyId],
+  );
+  return rows.map((r) => ({
+    historyId: String(r.history_id),
+    nickname: r.user_nickname as string,
+    guildName: r.guild_name as string,
+    votingType: r.voting_type as VotingType,
+    className: (r.class_name as string) ?? null,
+    classType: (r.class_type as ClassType) ?? null,
+    votedAt: r.updated_at as Date,
+    firstVotedAt: r.created_at as Date,
+  }));
 }
 
 /*
