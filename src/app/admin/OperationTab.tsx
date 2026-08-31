@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { formatSurveyDate } from "@/lib/format";
 import type { VoterRow } from "@/lib/queries";
 import type { DbSurvey } from "@/lib/types";
-import { fetchVoters } from "./actions";
+import { fetchRoster } from "./actions";
 import { addVoteAction, removeVoteAction, saveRosterOrderAction, sendRosterAction } from "./rosterActions";
 import styles from "./admin.module.css";
 import { RosterTable } from "./RosterTable";
@@ -20,7 +20,7 @@ interface NonVoterRow {
 interface OperationTabProps {
   presets: PresetControls;
   showToast: (text: string) => void;
-  /* 순번 조정과 발표는 마감 뒤에만 연다. 라이브 중에는 집계만 지켜본다. */
+  /* 마감 여부. 라이브 배지와 폴링 주기에만 쓴다. */
   closed: boolean;
   /* 거점전이 끝나고 다음 투표가 열리기 전까지의 대기 상태 */
   waiting: boolean;
@@ -50,7 +50,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
     let alive = true;
     const load = async () => {
       try {
-        const r = await fetchVoters(currentId);
+        const r = await fetchRoster(currentId);
         if (alive) {
           setVoters(r.voters);
           setNonVoters(r.nonVoters);
@@ -73,7 +73,13 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
   }, [currentId, closed, waiting]);
 
   const loaded = useMemo(() => votersToMembers(voters), [voters]);
-  const members = draft ?? loaded;
+  // 조정 중에는 최신 명단에 조정해 둔 순서만 입힌다. 새 표는 자연히 맨 뒤로 간다.
+  const members = useMemo(() => {
+    if (!draft) return loaded;
+    const ordOf = new Map(draft.map((m) => [m.id, m.ord]));
+    let next = Math.max(0, ...ordOf.values()) + 1;
+    return loaded.map((m) => ({ ...m, ord: ordOf.get(m.id) ?? next++ }));
+  }, [draft, loaded]);
   const counts = countsOf(members);
   const roster = rosterOf(members);
   const reserve = Math.max(0, roster.length - cap);
@@ -105,7 +111,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
 
   async function reload() {
     if (!current) return;
-    const r = await fetchVoters(current.id);
+    const r = await fetchRoster(current.id);
     setVoters(r.voters);
     setNonVoters(r.nonVoters);
     setDraft(null);
@@ -149,7 +155,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
     if (!current) return;
     startSave(async () => {
       try {
-        const ok = await sendRosterAction(current.id, buildExportText(members, cap, heading, false));
+        const ok = await sendRosterAction(buildExportText(members, cap, heading, false));
         setExportOpen(false);
         showToast(ok ? "디코로 결과를 보냈습니다" : "발송에 실패했습니다 · 웹훅 설정을 확인해 주세요");
       } catch (e) {
@@ -282,15 +288,15 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
           </button>
           <input
             className={`${styles.input} ${styles.addInput} ${styles.pushRight}`}
-            placeholder={closed ? "닉네임 입력" : "마감 후 조정 가능"}
-            disabled={!closed || isSaving}
+            placeholder="닉네임 입력"
+            disabled={isSaving}
             value={addName}
             onChange={(e) => setAddName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") addVote();
             }}
           />
-          <button type="button" className={styles.btnSm} onClick={addVote} disabled={!closed || isSaving}>
+          <button type="button" className={styles.btnSm} onClick={addVote} disabled={isSaving}>
             추가
           </button>
         </div>
@@ -300,7 +306,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
             key={filter ?? "base"}
             members={members}
             cap={cap}
-            editable={closed}
+            editable
             flashId={flashId}
             onReorder={reorder}
             onRemove={removeVote}
@@ -339,14 +345,14 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
             {isSaving ? "저장 중..." : "저장"}
           </button>
           <span className={styles.spacer} />
-          <button type="button" className={styles.btnSm} onClick={copyList} disabled={!closed}>
+          <button type="button" className={styles.btnSm} onClick={copyList}>
             명단 복사
           </button>
           <button
             type="button"
-            className={`${styles.btnSm} ${closed && !draft ? styles.btnPrimary : ""}`}
+            className={`${styles.btnSm} ${!draft ? styles.btnPrimary : ""}`}
             onClick={() => setExportOpen(true)}
-            disabled={!closed || Boolean(draft)}
+            disabled={Boolean(draft)}
             title={draft ? "조정을 저장한 뒤에 보낼 수 있습니다" : undefined}
           >
             디코로 결과 보내기

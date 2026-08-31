@@ -285,7 +285,8 @@ export async function getVoters(surveyId: string): Promise<VoterRow[]> {
       "LEFT JOIN user_character_class_map m ON u.id = m.user_id " +
       "LEFT JOIN character_class cc ON m.character_class_id = cc.id " +
       "WHERE sh.survey_id = ? AND u.status = 1 " +
-      "ORDER BY sh.updated_at ASC, sh.id ASC",
+      // 마감 반영이 조정된 순서대로 다시 넣으므로 넣은 순서가 곧 최종 순번이다
+      "ORDER BY sh.id ASC",
     [surveyId],
   );
   return rows.map((r) => ({

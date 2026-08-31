@@ -1,61 +1,176 @@
-import type { RowDataPacket } from "mysql2";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
-import type { DbSurvey } from "@/lib/types";
+import type { ClassType, DbSurvey, VotingType } from "@/lib/types";
+import type { VoterRow } from "@/lib/queries";
 
 /* 관리자 화면 전용 조회 */
 
-/* 결과 발송 시각을 담는 컬럼. 서버 시작 때 없으면 만든다. */
-export async function ensureResultSentColumn(): Promise<void> {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.COLUMNS " +
-      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'survey' AND COLUMN_NAME = 'result_sent_at'",
+/*
+ * 관리자가 조정 중인 명단을 담는 임시 테이블.
+ * survey_history와 형식이 같고, 조정한 순서를 기억하기 위한 position 컬럼만 추가했다.
+ */
+export async function ensureDraftTable(): Promise<void> {
+  await pool.execute(
+    "CREATE TABLE IF NOT EXISTS survey_history_draft (" +
+      "id bigint NOT NULL AUTO_INCREMENT, " +
+      "voting_type varchar(16) NOT NULL, " +
+      "survey_id bigint NOT NULL, " +
+      "user_id bigint NOT NULL, " +
+      "position int NOT NULL, " +
+      "created_at datetime NOT NULL, " +
+      "updated_at datetime NOT NULL, " +
+      "PRIMARY KEY (id), " +
+      "UNIQUE KEY uq_survey_user (survey_id, user_id))",
   );
-  if (Number(rows[0].c) === 0) {
+}
+
+/*
+ * survey_history의 변화를 draft에 반영한다. 원본은 읽기만 한다.
+ * draft에 없는 유저의 표는 새 표이므로 투표순으로 맨 뒤에 붙인다.
+ * 관리자가 뺀 사람은 행이 남아 있어서(순번 0) 새 표와 섞이지 않는다.
+ */
+async function syncDraft(surveyId: string): Promise<void> {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await runSyncQueries(connection, surveyId);
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function runSyncQueries(connection: PoolConnection, surveyId: string): Promise<void> {
+  // 명단 밖(미참·늦참)에 있다가 참여·부속으로 돌아온 사람은 지웠다가 새 표처럼 맨 뒤에 다시 붙인다
+  await connection.execute(
+    "DELETE d FROM survey_history_draft d " +
+      "JOIN survey_history h ON h.survey_id = d.survey_id AND h.user_id = d.user_id " +
+      "WHERE d.survey_id = ? AND d.position > 0 " +
+      "AND d.voting_type NOT IN ('attend', 'boarding') AND h.voting_type IN ('attend', 'boarding')",
+    [surveyId],
+  );
+  await connection.execute(
+    "INSERT INTO survey_history_draft (voting_type, survey_id, user_id, position, created_at, updated_at) " +
+      "SELECT h.voting_type, h.survey_id, h.user_id, " +
+      "       (SELECT COALESCE(MAX(position), 0) FROM (SELECT position FROM survey_history_draft WHERE survey_id = ?) base) " +
+      "         + ROW_NUMBER() OVER (ORDER BY h.updated_at ASC, h.id ASC), h.created_at, h.updated_at " +
+      "FROM survey_history h " +
+      "WHERE h.survey_id = ? AND h.user_id NOT IN " +
+      "  (SELECT user_id FROM (SELECT user_id FROM survey_history_draft WHERE survey_id = ?) existing)",
+    [surveyId, surveyId, surveyId],
+  );
+  // 그 밖의 표 종류 변화(참여-부속 전환, 미참 전환 등)는 자리를 그대로 두고 종류와 시각만 맞춘다
+  await connection.execute(
+    "UPDATE survey_history_draft d " +
+      "JOIN survey_history h ON h.survey_id = d.survey_id AND h.user_id = d.user_id " +
+      "SET d.voting_type = h.voting_type, d.updated_at = h.updated_at " +
+      "WHERE d.survey_id = ? AND (d.voting_type <> h.voting_type OR d.updated_at <> h.updated_at)",
+    [surveyId],
+  );
+}
+
+/*
+ * 거점전 시각이 지난 회차의 draft를 survey_history에 반영한다.
+ * 그 회차 원본을 비우고 draft를 position 순서대로 통째로 다시 넣는다.
+ * 시각은 그대로 옮기고, 넣은 순서가 곧 최종 순번이 된다. 반영한 draft는 지운다.
+ */
+export async function flushExpiredDrafts(now: Date = new Date()): Promise<void> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT DISTINCT d.survey_id, s.status FROM survey_history_draft d " +
+      "JOIN survey s ON s.id = d.survey_id WHERE s.executed_at <= ?",
+    [now],
+  );
+  for (const row of rows) {
+    const surveyId = String(row.survey_id);
+    const connection = await pool.getConnection();
     try {
-      await pool.execute("ALTER TABLE survey ADD COLUMN result_sent_at DATETIME NULL");
+      await connection.beginTransaction();
+      if (row.status === "cancel") {
+        // 취소된 회차의 조정본은 반영하지 않고 지운다
+        await connection.execute("DELETE FROM survey_history_draft WHERE survey_id = ?", [surveyId]);
+      } else {
+        await runSyncQueries(connection, surveyId);
+        await connection.execute("DELETE FROM survey_history WHERE survey_id = ?", [surveyId]);
+        await connection.execute(
+          "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) " +
+            "SELECT voting_type, survey_id, user_id, created_at, updated_at " +
+            "FROM survey_history_draft WHERE survey_id = ? AND position > 0 ORDER BY position ASC, id ASC",
+          [surveyId],
+        );
+        await connection.execute("DELETE FROM survey_history_draft WHERE survey_id = ?", [surveyId]);
+      }
+      await connection.commit();
     } catch (error) {
-      // 여러 서버가 동시에 시작하면 둘 다 위 조회를 통과할 수 있다.
-      if ((error as { code?: string }).code !== "ER_DUP_FIELDNAME") throw error;
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
   }
+}
+
+/* 관리자 명단. draft를 최신으로 맞춘 뒤 position 순서로 돌려준다. 식별자도 draft의 id다. */
+export async function getDraftVoters(surveyId: string): Promise<VoterRow[]> {
+  await syncDraft(surveyId);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT d.id AS draft_id, u.user_nickname, g.name AS guild_name, d.voting_type, d.updated_at, d.created_at, " +
+      "       cc.name AS class_name, cc.type AS class_type " +
+      "FROM survey_history_draft d " +
+      "JOIN user u ON d.user_id = u.id " +
+      "JOIN guild g ON u.guild_id = g.id " +
+      "LEFT JOIN user_character_class_map m ON u.id = m.user_id " +
+      "LEFT JOIN character_class cc ON m.character_class_id = cc.id " +
+      "WHERE d.survey_id = ? AND d.position > 0 AND u.status = 1 " +
+      "ORDER BY d.position ASC, d.id ASC",
+    [surveyId],
+  );
+  return rows.map((r) => ({
+    historyId: String(r.draft_id),
+    nickname: r.user_nickname as string,
+    guildName: r.guild_name as string,
+    votingType: r.voting_type as VotingType,
+    className: (r.class_name as string) ?? null,
+    classType: (r.class_type as ClassType) ?? null,
+    votedAt: r.updated_at as Date,
+    firstVotedAt: r.created_at as Date,
+  }));
 }
 
 /*
  * 오늘 투표 회차와 그 뒤 예정 큐.
  * 투표 페이지와 달리 거점전 시각이 지날 때까지 회차를 물고 있는다.
  * 마감 뒤 순번 조정과 발표를 여기서 해야 하기 때문이다.
- * 단, 결과를 보낸 뒤 다음 회차 투표가 열리면 그쪽으로 넘어간다.
  */
 export async function getScheduleOverview(
   now: Date = new Date(),
 ): Promise<{ current: DbSurvey | null; queue: DbSurvey[] }> {
+  await flushExpiredDrafts(now);
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, type, content, status, executed_at, exposed_at, announce_at, announce_content, discord_message_id, result_sent_at " +
+    "SELECT id, type, content, status, executed_at, exposed_at, announce_at, announce_content, discord_message_id " +
       "FROM survey WHERE status <> 'cancel' AND executed_at > ? " +
       "ORDER BY executed_at ASC, exposed_at ASC, id ASC",
     [now],
   );
   const list = rows as DbSurvey[];
-  // 먼저 발송 여부와 관계없이 가장 최근에 열린 회차를 확정한다. 미발송 목록을
-  // 먼저 만들면 최신 회차 발송 뒤 그보다 오래된 회차가 현재 투표로 부활한다.
-  const latestOpened = list
+  const opened = list
     .filter((s) => s.exposed_at <= now)
     .sort(
       (a, b) =>
         b.exposed_at.getTime() - a.exposed_at.getTime() || Number(b.id) - Number(a.id),
-    )[0];
+    );
   const future = list
-    .filter((s) => s.exposed_at > now && !s.result_sent_at && s.status !== "complete")
+    .filter((s) => s.exposed_at > now)
     .sort(
       (a, b) =>
         a.exposed_at.getTime() - b.exposed_at.getTime() || Number(b.id) - Number(a.id),
     );
 
-  if (latestOpened && !latestOpened.result_sent_at) {
-    return { current: latestOpened, queue: future };
-  }
-  // 아직 열린 회차가 없거나 최신 회차 결과를 보냈다면 가장 가까운 미래 회차를
-  // 대기 상태로 보여준다. 이미 지난 미발송 회차로는 절대 역행하지 않는다.
+  // 열린 회차가 있으면 가장 최근에 열린 것이 오늘 투표,
+  // 없으면 가장 가까운 미래 회차를 대기 상태로 보여준다.
+  if (opened.length > 0) return { current: opened[0], queue: future };
   if (future.length === 0) return { current: null, queue: [] };
   return { current: future[0], queue: future.slice(1) };
 }
