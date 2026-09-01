@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { formatSurveyDate } from "@/lib/format";
 import type { VoterRow } from "@/lib/queries";
 import type { DbSurvey } from "@/lib/types";
-import { fetchRoster } from "./actions";
-import { addVoteAction, removeVoteAction, saveRosterOrderAction, sendRosterAction } from "./rosterActions";
+import { fetchOriginalRoster, fetchRoster } from "./actions";
+import { addVoteAction, removeVoteAction, saveRosterOrderAction } from "./rosterActions";
 import styles from "./admin.module.css";
 import { RosterTable } from "./RosterTable";
 import { type Member, type PresetControls, VOTES, type Vote, buildExportText, countsOf, ofVote, rosterOf, votersToMembers } from "./adminData";
@@ -42,6 +42,8 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
   const [history, setHistory] = useState<Member[][]>([]);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [isSaving, startSave] = useTransition();
+  /* 마감 전에는 확정 명단이 아직 없다. 그동안은 원본 집계만 보여주고 편집을 막는다. */
+  const [confirmed, setConfirmed] = useState(false);
   const currentId = current?.id;
 
   /* 라이브 중에는 몇 초마다 표를 다시 읽어온다. 마감이나 대기 상태면 한 번만. */
@@ -54,6 +56,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
         if (alive) {
           setVoters(r.voters);
           setNonVoters(r.nonVoters);
+          setConfirmed(r.confirmed);
         }
       } catch {
         // 폴링 한 번이 흔들린 것은 다음 번에 만회된다
@@ -114,6 +117,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
     const r = await fetchRoster(current.id);
     setVoters(r.voters);
     setNonVoters(r.nonVoters);
+    setConfirmed(r.confirmed);
     setDraft(null);
     setHistory([]);
   }
@@ -151,15 +155,20 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
     showToast("명단이 복사되었습니다");
   }
 
-  function sendToDiscord() {
+  /*
+   * 원본으로 되돌리기. 사람들이 실제로 누른 표를 투표순 그대로 화면에 올린다.
+   * 화면만 바뀌고 확정 명단은 저장을 눌러야 바뀐다.
+   */
+  function restoreOriginal() {
     if (!current) return;
     startSave(async () => {
       try {
-        const ok = await sendRosterAction(buildExportText(members, cap, heading));
-        setExportOpen(false);
-        showToast(ok ? "디코로 결과를 보냈습니다" : "발송에 실패했습니다 · 웹훅 설정을 확인해 주세요");
+        const rows = await fetchOriginalRoster(current.id);
+        setHistory((h) => [...h.slice(-19), (draft ?? loaded).map((m) => ({ ...m }))]);
+        setDraft(votersToMembers(rows));
+        showToast("원본 투표 순서로 되돌렸습니다. 저장해야 확정됩니다");
       } catch (e) {
-        showToast(e instanceof Error ? e.message : "발송에 실패했습니다");
+        showToast(e instanceof Error ? e.message : "되돌리기에 실패했습니다");
       }
     });
   }
@@ -226,6 +235,13 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
         </div>
       </div>
 
+      {!confirmed && (
+        <p className={styles.hint}>
+          투표가 마감되면 확정 명단이 만들어지고 순번 조정을 할 수 있습니다. 그때까지는 집계만
+          보여줍니다.
+        </p>
+      )}
+
       <div className={styles.card}>
         <div className={styles.rosterBar}>
           <span className={styles.label}>정원컷</span>
@@ -289,14 +305,19 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
           <input
             className={`${styles.input} ${styles.addInput} ${styles.pushRight}`}
             placeholder="닉네임 입력"
-            disabled={isSaving}
+            disabled={isSaving || !confirmed}
             value={addName}
             onChange={(e) => setAddName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") addVote();
             }}
           />
-          <button type="button" className={styles.btnSm} onClick={addVote} disabled={isSaving}>
+          <button
+            type="button"
+            className={styles.btnSm}
+            onClick={addVote}
+            disabled={isSaving || !confirmed}
+          >
             추가
           </button>
         </div>
@@ -306,7 +327,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
             key={filter ?? "base"}
             members={members}
             cap={cap}
-            editable
+            editable={confirmed}
             flashId={flashId}
             onReorder={reorder}
             onRemove={removeVote}
@@ -333,29 +354,38 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
         )}
 
         <div className={styles.rosterAct}>
-          <button type="button" className={styles.btnSm} onClick={undo} disabled={history.length === 0}>
-            되돌리기
+          <button
+            type="button"
+            className={styles.btnSm}
+            onClick={undo}
+            disabled={history.length === 0}
+            title="직전 조정 한 단계를 취소합니다"
+          >
+            실행 취소
           </button>
           <button
             type="button"
             className={styles.btnSm}
-            onClick={save}
-            disabled={!draft || isSaving}
+            onClick={restoreOriginal}
+            disabled={!confirmed || isSaving}
+            title="사람들이 실제로 누른 표 순서로 화면을 되돌립니다. 저장해야 확정됩니다"
           >
-            {isSaving ? "저장 중..." : "저장"}
-          </button>
-          <span className={styles.spacer} />
-          <button type="button" className={styles.btnSm} onClick={copyList}>
-            명단 복사
+            원본으로 되돌리기
           </button>
           <button
             type="button"
-            className={`${styles.btnSm} ${!draft ? styles.btnPrimary : ""}`}
-            onClick={() => setExportOpen(true)}
-            disabled={Boolean(draft)}
-            title={draft ? "조정을 저장한 뒤에 보낼 수 있습니다" : undefined}
+            className={`${styles.btnSm} ${draft ? styles.btnPrimary : ""}`}
+            onClick={save}
+            disabled={!draft || isSaving}
           >
-            디코로 결과 보내기
+            {isSaving ? "저장 중..." : "확정 명단 저장"}
+          </button>
+          <span className={styles.spacer} />
+          <button type="button" className={styles.btnSm} onClick={() => setExportOpen(true)}>
+            미리보기
+          </button>
+          <button type="button" className={`${styles.btnSm} ${styles.btnPrimary}`} onClick={copyList}>
+            명단 복사
           </button>
         </div>
       </div>
@@ -364,7 +394,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
         <div className={styles.modal} role="presentation" onClick={() => setExportOpen(false)}>
           <div className={styles.modalPanel} role="presentation" onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHead}>
-              <span className={styles.label}>디코 발송 미리보기</span>
+              <span className={styles.label}>명단 미리보기</span>
               <button type="button" className={styles.xclose} onClick={() => setExportOpen(false)}>
                 ×
               </button>
@@ -378,15 +408,17 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
               </span>
               <span className={styles.spacer} />
               <button type="button" className={styles.btnSm} onClick={() => setExportOpen(false)}>
-                취소
+                닫기
               </button>
               <button
                 type="button"
                 className={`${styles.btnSm} ${styles.btnPrimary}`}
-                onClick={sendToDiscord}
-                disabled={isSaving}
+                onClick={() => {
+                  copyList();
+                  setExportOpen(false);
+                }}
               >
-                {isSaving ? "보내는 중..." : "보내기"}
+                복사
               </button>
             </div>
           </div>

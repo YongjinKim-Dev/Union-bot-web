@@ -1059,3 +1059,60 @@ section.opStack + section {
 .side .fieldRow {
   margin-top: 14px;
 }
+
+/* ── 원본 · 확정 명단 비교 ─────────────────────────────── */
+
+.diffTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.diffTable th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-hairline);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-dim);
+  white-space: nowrap;
+}
+
+.diffTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-rule);
+  white-space: nowrap;
+}
+
+/* 달라진 줄만 옅은 금색 바탕으로 눈에 띄게 한다 */
+.diffRowChanged {
+  background: var(--color-accent-tint);
+}
+
+.diffBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--color-hairline);
+}
+
+.diffKept {
+  color: var(--color-ink-faint);
+}
+
+.diffMoved {
+  color: var(--color-accent-deep);
+  border-color: var(--color-accent);
+}
+
+.diffAdded {
+  color: var(--color-mark-succession);
+  border-color: var(--color-mark-succession);
+}
+
+.diffRemoved {
+  color: var(--color-mark-awakening);
+  border-color: var(--color-mark-awakening);
+}

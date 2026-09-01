@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { createSurvey, getVoters, getNonVoters } from "@/lib/queries";
-import { getDraftVoters } from "@/lib/adminQueries";
+import { getFinalRoster } from "@/lib/adminQueries";
 import { buildDefaultAnnounceContent } from "@/lib/announce";
 import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
 
@@ -27,14 +27,24 @@ export async function fetchVoters(surveyId: string) {
   return { voters, nonVoters };
 }
 
-/* 운영 화면 명단. 원본이 아니라 조정본(draft)을 읽는다. */
+/*
+ * 운영 화면 명단. 원본이 아니라 확정 명단을 읽는다.
+ * confirmed 가 false 면 아직 마감 전이라 원본을 그대로 보여주는 중이고, 편집할 수 없다.
+ */
 export async function fetchRoster(surveyId: string) {
   await requireAdmin();
-  const [voters, nonVoters] = await Promise.all([
-    getDraftVoters(surveyId),
+  const [final, nonVoters] = await Promise.all([
+    getFinalRoster(surveyId),
     getNonVoters(surveyId),
   ]);
-  return { voters, nonVoters };
+  return { voters: final.rows, nonVoters, confirmed: final.confirmed };
+}
+
+/* 되돌리기용. 사람들이 실제로 누른 표를 투표순 그대로 준다. */
+export async function fetchOriginalRoster(surveyId: string) {
+  await requireAdmin();
+  const { getOriginalRoster } = await import("@/lib/adminQueries");
+  return getOriginalRoster(surveyId);
 }
 
 export interface CreateSurveyInput {

@@ -4,21 +4,26 @@ import type { RowDataPacket } from "mysql2";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/adminAuth";
 import { pool } from "@/lib/db";
-import { sendSurveyAnnouncement } from "@/lib/discord";
 
-/* 조정한 순번을 저장한다. 화면의 최종 순서대로 draft의 position을 다시 부여한다. */
-export async function saveRosterOrderAction(surveyId: string, orderedDraftIds: string[]) {
+/*
+ * 명단 편집은 전부 survey_history_final 에만 쓴다. survey_history 는 사람들이
+ * 실제로 누른 표이므로 관리자 화면에서는 절대 건드리지 않는다. 그래서 뺀 사람도
+ * 원본에는 남아 있고, 비교 탭에서 무엇이 달라졌는지 볼 수 있다.
+ */
+
+/* 확정 순번 저장. 화면의 최종 순서대로 position 을 1부터 다시 매긴다. */
+export async function saveRosterOrderAction(surveyId: string, orderedIds: string[]) {
   await requireAdmin();
 
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    for (let i = 0; i < orderedDraftIds.length; i += 1) {
-      // updated_at은 폴링의 기준 시각이므로 건드리지 않는다
-      await connection.execute("UPDATE survey_history_draft SET position = ? WHERE id = ?", [
-        i + 1,
-        orderedDraftIds[i],
-      ]);
+    for (let i = 0; i < orderedIds.length; i += 1) {
+      // 투표 시각(updated_at)은 원본에서 온 값이라 순번을 바꿔도 손대지 않는다
+      await connection.execute(
+        "UPDATE survey_history_final SET position = ? WHERE id = ? AND survey_id = ?",
+        [i + 1, orderedIds[i], surveyId],
+      );
     }
     await connection.commit();
   } catch (error) {
@@ -31,10 +36,7 @@ export async function saveRosterOrderAction(surveyId: string, orderedDraftIds: s
   revalidatePath("/admin");
 }
 
-/*
- * 명단에 사람을 수동으로 추가한다. 닉네임으로 활성 연맹원을 찾아 draft 맨 뒤에
- * 참여로 넣는다. 원본에는 쓰지 않는다.
- */
+/* 명단에 사람을 수동으로 추가한다. 맨 뒤에 참여로 붙는다. */
 export async function addVoteAction(surveyId: string, nickname: string) {
   await requireAdmin();
 
@@ -49,48 +51,30 @@ export async function addVoteAction(surveyId: string, nickname: string) {
   const userId = String(users[0].id);
 
   const [existing] = await pool.query<RowDataPacket[]>(
-    "SELECT id, position FROM survey_history_draft WHERE survey_id = ? AND user_id = ?",
+    "SELECT id FROM survey_history_final WHERE survey_id = ? AND user_id = ?",
     [surveyId, userId],
   );
-  if (existing.length > 0 && Number(existing[0].position) > 0) {
-    throw new Error(`${name} 님은 이미 이 회차 명단에 있습니다.`);
-  }
+  if (existing.length > 0) throw new Error(`${name} 님은 이미 이 회차 명단에 있습니다.`);
 
-  if (existing.length > 0) {
-    // 뺐던 사람이면 순번만 맨 뒤 번호로 되살린다. 미참 상태로 뺐던 경우는 참여로 넣는다
-    await pool.execute(
-      "UPDATE survey_history_draft SET voting_type = 'attend', position = " +
-        "(SELECT COALESCE(MAX(position), 0) + 1 FROM (SELECT position FROM survey_history_draft WHERE survey_id = ?) base) " +
-        "WHERE id = ?",
-      [surveyId, existing[0].id],
-    );
-  } else {
-    await pool.execute(
-      "INSERT INTO survey_history_draft (voting_type, survey_id, user_id, position, created_at, updated_at) " +
-        "SELECT 'attend', ?, ?, COALESCE(MAX(position), 0) + 1, NOW(), NOW() " +
-        "FROM survey_history_draft WHERE survey_id = ?",
-      [surveyId, userId, surveyId],
-    );
-  }
+  const now = new Date();
+  await pool.execute(
+    "INSERT INTO survey_history_final (survey_id, user_id, voting_type, position, created_at, updated_at) " +
+      "SELECT ?, ?, 'attend', COALESCE(MAX(f.position), 0) + 1, ?, ? " +
+      "FROM survey_history_final f WHERE f.survey_id = ?",
+    [surveyId, userId, now, now, surveyId],
+  );
   revalidatePath("/admin");
 }
 
 /*
- * 이 회차 명단에서 한 사람을 뺀다. 행을 지우는 대신 순번을 0으로 바꿔서
- * 명단 밖으로 보낸다. 행이 남아 있어야 폴링이 새 표와 구분할 수 있다.
+ * 확정 명단에서 한 사람을 뺀다. 원본(survey_history)의 표는 그대로 남으므로
+ * 비교 탭에서 "뺀 사람"으로 보이고, 다시 추가할 수도 있다.
  */
-export async function removeVoteAction(surveyId: string, draftId: string) {
+export async function removeVoteAction(surveyId: string, rowId: string) {
   await requireAdmin();
-  await pool.execute("UPDATE survey_history_draft SET position = 0 WHERE id = ? AND survey_id = ?", [
-    draftId,
+  await pool.execute("DELETE FROM survey_history_final WHERE id = ? AND survey_id = ?", [
+    rowId,
     surveyId,
   ]);
   revalidatePath("/admin");
-}
-
-/* 결과 명단을 설문 공지 채널로 보낸다. 공지와 같은 웹훅을 그대로 쓴다. */
-export async function sendRosterAction(text: string): Promise<boolean> {
-  await requireAdmin();
-  const messageId = await sendSurveyAnnouncement(text);
-  return messageId !== null;
 }

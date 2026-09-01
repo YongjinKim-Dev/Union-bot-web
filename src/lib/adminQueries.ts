@@ -1,4 +1,4 @@
-import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import type { RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
 import type { ClassType, DbSurvey, VotingType } from "@/lib/types";
 import type { VoterRow } from "@/lib/queries";
@@ -6,124 +6,62 @@ import type { VoterRow } from "@/lib/queries";
 /* 관리자 화면 전용 조회 */
 
 /*
- * 관리자가 조정 중인 명단을 담는 임시 테이블.
- * survey_history와 형식이 같고, 조정한 순서를 기억하기 위한 position 컬럼만 추가했다.
+ * 확정 명단 테이블.
+ *
+ * survey_history 는 사람들이 실제로 누른 표이고, 이 테이블은 관리자가 확정한
+ * 명단이다. 둘은 목적이 다르므로 서로 덮어쓰지 않는다 — 원본은 투표로만 쓰이고
+ * 관리자 화면은 이 테이블에만 쓴다. 그래서 "누가 무엇을 눌렀나" 는 영구히 남고,
+ * 뺀 사람도 원본에는 그대로 있어 나중에 대조할 수 있다.
+ *
+ * position 은 확정 순번이다. survey_history 에는 순번 칸이 없어서 시각으로
+ * 순서를 표현했는데, 그러면 순번을 바꿀 때마다 투표 시각을 조작해야 했다.
  */
-export async function ensureDraftTable(): Promise<void> {
+export async function ensureFinalTable(): Promise<void> {
   await pool.execute(
-    "CREATE TABLE IF NOT EXISTS survey_history_draft (" +
+    "CREATE TABLE IF NOT EXISTS survey_history_final (" +
       "id bigint NOT NULL AUTO_INCREMENT, " +
-      "voting_type varchar(16) NOT NULL, " +
       "survey_id bigint NOT NULL, " +
       "user_id bigint NOT NULL, " +
+      "voting_type varchar(20) NOT NULL, " +
       "position int NOT NULL, " +
-      "created_at datetime NOT NULL, " +
-      "updated_at datetime NOT NULL, " +
+      "created_at datetime(6) NOT NULL, " +
+      "updated_at datetime(6) NOT NULL, " +
       "PRIMARY KEY (id), " +
-      "UNIQUE KEY uq_survey_user (survey_id, user_id))",
+      "UNIQUE KEY uq_final_survey_user (survey_id, user_id), " +
+      "KEY idx_final_survey (survey_id))",
   );
-}
 
-/*
- * survey_history의 변화를 draft에 반영한다. 원본은 읽기만 한다.
- * draft에 없는 유저의 표는 새 표이므로 투표순으로 맨 뒤에 붙인다.
- * 관리자가 뺀 사람은 행이 남아 있어서(순번 0) 새 표와 섞이지 않는다.
- */
-async function syncDraft(surveyId: string): Promise<void> {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-    await runSyncQueries(connection, surveyId);
-    await connection.commit();
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
-}
-
-async function runSyncQueries(connection: PoolConnection, surveyId: string): Promise<void> {
-  // 명단 밖(미참·늦참)에 있다가 참여·부속으로 돌아온 사람은 지웠다가 새 표처럼 맨 뒤에 다시 붙인다
-  await connection.execute(
-    "DELETE d FROM survey_history_draft d " +
-      "JOIN survey_history h ON h.survey_id = d.survey_id AND h.user_id = d.user_id " +
-      "WHERE d.survey_id = ? AND d.position > 0 " +
-      "AND d.voting_type NOT IN ('attend', 'boarding') AND h.voting_type IN ('attend', 'boarding')",
-    [surveyId],
-  );
-  await connection.execute(
-    "INSERT INTO survey_history_draft (voting_type, survey_id, user_id, position, created_at, updated_at) " +
-      "SELECT h.voting_type, h.survey_id, h.user_id, " +
-      "       (SELECT COALESCE(MAX(position), 0) FROM (SELECT position FROM survey_history_draft WHERE survey_id = ?) base) " +
-      "         + ROW_NUMBER() OVER (ORDER BY h.updated_at ASC, h.id ASC), h.created_at, h.updated_at " +
-      "FROM survey_history h " +
-      "WHERE h.survey_id = ? AND h.user_id NOT IN " +
-      "  (SELECT user_id FROM (SELECT user_id FROM survey_history_draft WHERE survey_id = ?) existing)",
-    [surveyId, surveyId, surveyId],
-  );
-  // 그 밖의 표 종류 변화(참여-부속 전환, 미참 전환 등)는 자리를 그대로 두고 종류와 시각만 맞춘다
-  await connection.execute(
-    "UPDATE survey_history_draft d " +
-      "JOIN survey_history h ON h.survey_id = d.survey_id AND h.user_id = d.user_id " +
-      "SET d.voting_type = h.voting_type, d.updated_at = h.updated_at " +
-      "WHERE d.survey_id = ? AND (d.voting_type <> h.voting_type OR d.updated_at <> h.updated_at)",
-    [surveyId],
-  );
-}
-
-/*
- * 거점전 시각이 지난 회차의 draft를 survey_history에 반영한다.
- * 그 회차 원본을 비우고 draft를 position 순서대로 통째로 다시 넣는다.
- * 시각은 그대로 옮기고, 넣은 순서가 곧 최종 순번이 된다. 반영한 draft는 지운다.
- */
-export async function flushExpiredDrafts(now: Date = new Date()): Promise<void> {
+  // 기존 회차는 조정 없이 끝났으므로 원본이 곧 확정 명단이다. 한 번만 채운다.
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT DISTINCT d.survey_id FROM survey_history_draft d " +
-      "JOIN survey s ON s.id = d.survey_id WHERE s.executed_at <= ?",
-    [now],
+    "SELECT EXISTS(SELECT 1 FROM survey_history_final) AS filled",
   );
-  for (const row of rows) {
-    const surveyId = String(row.survey_id);
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
-      await runSyncQueries(connection, surveyId);
-      await connection.execute("DELETE FROM survey_history WHERE survey_id = ?", [surveyId]);
-      await connection.execute(
-        "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) " +
-          "SELECT voting_type, survey_id, user_id, created_at, updated_at " +
-          "FROM survey_history_draft WHERE survey_id = ? AND position > 0 ORDER BY position ASC, id ASC",
-        [surveyId],
-      );
-      await connection.execute("DELETE FROM survey_history_draft WHERE survey_id = ?", [surveyId]);
-      await connection.commit();
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
-    }
-  }
+  if (Number(rows[0].filled) === 1) return;
+  await pool.execute(
+    "INSERT INTO survey_history_final (survey_id, user_id, voting_type, position, created_at, updated_at) " +
+      "SELECT h.survey_id, h.user_id, h.voting_type, " +
+      "       ROW_NUMBER() OVER (PARTITION BY h.survey_id ORDER BY h.updated_at ASC, h.id ASC), " +
+      "       h.created_at, h.updated_at " +
+      "FROM survey_history h JOIN survey s ON s.id = h.survey_id " +
+      "WHERE s.executed_at <= NOW()",
+  );
 }
 
-/* 관리자 명단. draft를 최신으로 맞춘 뒤 position 순서로 돌려준다. 식별자도 draft의 id다. */
-export async function getDraftVoters(surveyId: string): Promise<VoterRow[]> {
-  await syncDraft(surveyId);
-  const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT d.id AS draft_id, u.user_nickname, g.name AS guild_name, d.voting_type, d.updated_at, d.created_at, " +
-      "       cc.name AS class_name, cc.type AS class_type " +
-      "FROM survey_history_draft d " +
-      "JOIN user u ON d.user_id = u.id " +
-      "JOIN guild g ON u.guild_id = g.id " +
-      "LEFT JOIN user_character_class_map m ON u.id = m.user_id " +
-      "LEFT JOIN character_class cc ON m.character_class_id = cc.id " +
-      "WHERE d.survey_id = ? AND d.position > 0 AND u.status = 1 " +
-      "ORDER BY d.position ASC, d.id ASC",
-    [surveyId],
-  );
-  return rows.map((r) => ({
-    historyId: String(r.draft_id),
+/* 투표 마감 시각. 거점전 1시간 전이다. */
+function closesAt(executedAt: Date): Date {
+  return new Date(executedAt.getTime() - 60 * 60 * 1000);
+}
+
+const ROSTER_COLUMNS =
+  "u.user_nickname, g.name AS guild_name, cc.name AS class_name, cc.type AS class_type ";
+const ROSTER_JOINS =
+  "JOIN user u ON src.user_id = u.id " +
+  "JOIN guild g ON u.guild_id = g.id " +
+  "LEFT JOIN user_character_class_map m ON u.id = m.user_id " +
+  "LEFT JOIN character_class cc ON m.character_class_id = cc.id ";
+
+function toVoterRow(r: RowDataPacket): VoterRow {
+  return {
+    historyId: String(r.row_id),
     nickname: r.user_nickname as string,
     guildName: r.guild_name as string,
     votingType: r.voting_type as VotingType,
@@ -131,7 +69,67 @@ export async function getDraftVoters(surveyId: string): Promise<VoterRow[]> {
     classType: (r.class_type as ClassType) ?? null,
     votedAt: r.updated_at as Date,
     firstVotedAt: r.created_at as Date,
-  }));
+  };
+}
+
+/* 사람들이 실제로 누른 표. 투표한 순서대로. 어떤 경우에도 쓰지 않는다. */
+export async function getOriginalRoster(surveyId: string): Promise<VoterRow[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT src.id AS row_id, src.voting_type, src.updated_at, src.created_at, " +
+      ROSTER_COLUMNS +
+      "FROM survey_history src " +
+      ROSTER_JOINS +
+      "WHERE src.survey_id = ? AND u.status = 1 " +
+      "ORDER BY src.updated_at ASC, src.id ASC",
+    [surveyId],
+  );
+  return rows.map(toVoterRow);
+}
+
+/*
+ * 확정 명단. 아직 없고 투표가 마감됐으면 원본을 그대로 복사해 만든다.
+ *
+ * 마감 뒤에는 새 표가 들어올 수 없으므로 복사 한 번이면 끝이고, 원본과 확정본을
+ * 계속 맞춰 주는 동기화 로직이 필요 없다. 마감 전이라면 아직 만들지 않고 원본을
+ * 그대로 보여준다 — 그동안 화면은 집계만 보는 용도다.
+ */
+export async function getFinalRoster(
+  surveyId: string,
+  now: Date = new Date(),
+): Promise<{ rows: VoterRow[]; confirmed: boolean }> {
+  const [surveyRows] = await pool.query<RowDataPacket[]>(
+    "SELECT executed_at FROM survey WHERE id = ?",
+    [surveyId],
+  );
+  if (surveyRows.length === 0) return { rows: [], confirmed: false };
+  const votingClosed = now >= closesAt(surveyRows[0].executed_at as Date);
+
+  const [existing] = await pool.query<RowDataPacket[]>(
+    "SELECT EXISTS(SELECT 1 FROM survey_history_final WHERE survey_id = ?) AS filled",
+    [surveyId],
+  );
+  if (Number(existing[0].filled) === 0) {
+    if (!votingClosed) return { rows: await getOriginalRoster(surveyId), confirmed: false };
+    await pool.execute(
+      "INSERT IGNORE INTO survey_history_final (survey_id, user_id, voting_type, position, created_at, updated_at) " +
+        "SELECT h.survey_id, h.user_id, h.voting_type, " +
+        "       ROW_NUMBER() OVER (ORDER BY h.updated_at ASC, h.id ASC), " +
+        "       h.created_at, h.updated_at " +
+        "FROM survey_history h WHERE h.survey_id = ?",
+      [surveyId],
+    );
+  }
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT src.id AS row_id, src.voting_type, src.updated_at, src.created_at, " +
+      ROSTER_COLUMNS +
+      "FROM survey_history_final src " +
+      ROSTER_JOINS +
+      "WHERE src.survey_id = ? AND u.status = 1 " +
+      "ORDER BY src.position ASC, src.id ASC",
+    [surveyId],
+  );
+  return { rows: rows.map(toVoterRow), confirmed: true };
 }
 
 /*
@@ -142,7 +140,6 @@ export async function getDraftVoters(surveyId: string): Promise<VoterRow[]> {
 export async function getScheduleOverview(
   now: Date = new Date(),
 ): Promise<{ current: DbSurvey | null; queue: DbSurvey[] }> {
-  await flushExpiredDrafts(now);
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, type, content, status, executed_at, exposed_at, announce_at, announce_content, discord_message_id " +
       "FROM survey WHERE status <> 'cancel' AND executed_at > ? " +
@@ -220,4 +217,58 @@ export async function getPastSurveys(
       },
     })),
   };
+}
+
+export type DiffStatus = "유지" | "순번 변경" | "뺌" | "추가";
+
+export interface RosterDiffRow {
+  nickname: string;
+  guildName: string;
+  className: string | null;
+  votingType: VotingType | null;
+  votedAt: Date | null;
+  originalRank: number | null;
+  finalRank: number | null;
+  status: DiffStatus;
+}
+
+/*
+ * 원본과 확정 명단을 나란히 놓고 무엇이 달라졌는지 만든다.
+ * 원본에만 있으면 관리자가 뺀 사람, 확정본에만 있으면 관리자가 넣은 사람이다.
+ */
+export async function getRosterComparison(surveyId: string): Promise<RosterDiffRow[]> {
+  const [original, final] = await Promise.all([
+    getOriginalRoster(surveyId),
+    getFinalRoster(surveyId),
+  ]);
+
+  const originalRank = new Map(original.map((v, i) => [v.nickname, i + 1]));
+  const finalRank = new Map(final.rows.map((v, i) => [v.nickname, i + 1]));
+  const byNick = new Map([...original, ...final.rows].map((v) => [v.nickname, v]));
+
+  const rows: RosterDiffRow[] = [];
+  for (const [nickname, v] of byNick) {
+    const o = originalRank.get(nickname) ?? null;
+    const f = finalRank.get(nickname) ?? null;
+    const status: DiffStatus =
+      o === null ? "추가" : f === null ? "뺌" : o === f ? "유지" : "순번 변경";
+    rows.push({
+      nickname,
+      guildName: v.guildName,
+      className: v.className,
+      votingType: v.votingType,
+      votedAt: v.votedAt,
+      originalRank: o,
+      finalRank: f,
+      status,
+    });
+  }
+  // 달라진 것부터 위로, 그다음 확정 순번대로
+  const weight: Record<DiffStatus, number> = { 뺌: 0, 추가: 1, "순번 변경": 2, 유지: 3 };
+  rows.sort(
+    (a, b) =>
+      weight[a.status] - weight[b.status] ||
+      (a.finalRank ?? a.originalRank ?? 0) - (b.finalRank ?? b.originalRank ?? 0),
+  );
+  return rows;
 }
