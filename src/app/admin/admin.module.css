@@ -189,6 +189,30 @@
   margin-top: 20px;
 }
 
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.checkRow input {
+  accent-color: var(--color-accent-deep);
+}
+
+.checkText {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--color-ink-dim);
+}
+
 .field {
   display: flex;
   flex-direction: column;
