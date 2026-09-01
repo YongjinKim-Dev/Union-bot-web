@@ -79,7 +79,7 @@ async function runSyncQueries(connection: PoolConnection, surveyId: string): Pro
  */
 export async function flushExpiredDrafts(now: Date = new Date()): Promise<void> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT DISTINCT d.survey_id, s.status FROM survey_history_draft d " +
+    "SELECT DISTINCT d.survey_id FROM survey_history_draft d " +
       "JOIN survey s ON s.id = d.survey_id WHERE s.executed_at <= ?",
     [now],
   );
@@ -88,20 +88,15 @@ export async function flushExpiredDrafts(now: Date = new Date()): Promise<void> 
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      if (row.status === "cancel") {
-        // 취소된 회차의 조정본은 반영하지 않고 지운다
-        await connection.execute("DELETE FROM survey_history_draft WHERE survey_id = ?", [surveyId]);
-      } else {
-        await runSyncQueries(connection, surveyId);
-        await connection.execute("DELETE FROM survey_history WHERE survey_id = ?", [surveyId]);
-        await connection.execute(
-          "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) " +
-            "SELECT voting_type, survey_id, user_id, created_at, updated_at " +
-            "FROM survey_history_draft WHERE survey_id = ? AND position > 0 ORDER BY position ASC, id ASC",
-          [surveyId],
-        );
-        await connection.execute("DELETE FROM survey_history_draft WHERE survey_id = ?", [surveyId]);
-      }
+      await runSyncQueries(connection, surveyId);
+      await connection.execute("DELETE FROM survey_history WHERE survey_id = ?", [surveyId]);
+      await connection.execute(
+        "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) " +
+          "SELECT voting_type, survey_id, user_id, created_at, updated_at " +
+          "FROM survey_history_draft WHERE survey_id = ? AND position > 0 ORDER BY position ASC, id ASC",
+        [surveyId],
+      );
+      await connection.execute("DELETE FROM survey_history_draft WHERE survey_id = ?", [surveyId]);
       await connection.commit();
     } catch (error) {
       await connection.rollback();
