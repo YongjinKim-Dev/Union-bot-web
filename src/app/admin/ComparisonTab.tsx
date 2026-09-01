@@ -74,7 +74,49 @@ export function ComparisonTab() {
   }
 
   const changed = diff.filter((d) => d.status !== "유지");
-  const shown = onlyChanged ? changed : diff;
+  const original = diff
+    .filter((d) => d.originalRank !== null)
+    .sort((a, b) => (a.originalRank ?? 0) - (b.originalRank ?? 0));
+  const final = diff
+    .filter((d) => d.finalRank !== null)
+    .sort((a, b) => (a.finalRank ?? 0) - (b.finalRank ?? 0));
+
+  /* 위로 올라갔으면 ↑, 내려갔으면 ↓. 원본에 없던 사람은 표시하지 않는다. */
+  function delta(d: RosterDiffRow) {
+    if (d.originalRank === null || d.finalRank === null) return null;
+    const moved = d.originalRank - d.finalRank;
+    if (moved === 0) return null;
+    return moved > 0 ? `↑${moved}` : `↓${-moved}`;
+  }
+
+  function row(d: RosterDiffRow, side: "original" | "final") {
+    const removed = side === "original" && d.status === "뺌";
+    const added = side === "final" && d.status === "추가";
+    const moved = side === "final" ? delta(d) : null;
+    if (onlyChanged && d.status === "유지") return null;
+    return (
+      <div key={d.nickname} className={`${styles.cmpRow} ${removed ? styles.cmpRemoved : ""}`}>
+        <span className={`${styles.cmpRank} ${styles.mono}`}>
+          {side === "original" ? d.originalRank : d.finalRank}
+        </span>
+        <span className={styles.cmpNick}>{d.nickname}</span>
+        <span className={styles.cmpJob}>{d.className ?? "-"}</span>
+        <span className={styles.cmpVote}>
+          {d.votingType ? VOTING_TYPE_LABEL[d.votingType] : "-"}
+          {side === "original" && d.votedAt && (
+            <span className={styles.cmpTime}>
+              {formatKstTimeWithSeconds(new Date(d.votedAt))}
+            </span>
+          )}
+        </span>
+        <span className={styles.cmpMark}>
+          {removed && <span className={`${styles.diffBadge} ${styles.diffRemoved}`}>뺌</span>}
+          {added && <span className={`${styles.diffBadge} ${styles.diffAdded}`}>추가</span>}
+          {moved && <span className={`${styles.diffBadge} ${styles.diffMoved}`}>{moved}</span>}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <section className={styles.opStack}>
@@ -83,63 +125,45 @@ export function ComparisonTab() {
           ← 목록
         </button>
         <h2 className={styles.rosterTitle}>
-          {formatSurveyDate(openSurvey.executed_at)} 거점전 · 원본 대비 확정 명단
+          {formatSurveyDate(openSurvey.executed_at)} 거점전
         </h2>
+        <span className={styles.spacer} />
+        <button
+          type="button"
+          className={`${styles.btnSm} ${onlyChanged ? styles.btnPrimary : ""}`}
+          onClick={() => setOnlyChanged((v) => !v)}
+        >
+          {onlyChanged ? "전체 보기" : "변경된 것만"}
+        </button>
       </div>
 
-      <div className={styles.card}>
-        <div className={styles.rosterBar}>
-          <span className={styles.label}>
-            원본 {diff.filter((d) => d.originalRank !== null).length}명 · 확정{" "}
-            {diff.filter((d) => d.finalRank !== null).length}명 · 변경 {changed.length}건
-          </span>
-          <span className={styles.spacer} />
-          <button
-            type="button"
-            className={`${styles.btnSm} ${onlyChanged ? styles.btnPrimary : ""}`}
-            onClick={() => setOnlyChanged((v) => !v)}
-          >
-            {onlyChanged ? "전체 보기" : "변경된 것만"}
-          </button>
+      {changed.length === 0 ? (
+        <p className={styles.hint}>이 회차는 조정 없이 원본 그대로 확정되었습니다.</p>
+      ) : (
+        <p className={styles.hint}>
+          변경 {changed.length}건 · 뺌 {changed.filter((d) => d.status === "뺌").length} · 추가{" "}
+          {changed.filter((d) => d.status === "추가").length} · 순번 변경{" "}
+          {changed.filter((d) => d.status === "순번 변경").length}
+        </p>
+      )}
+
+      <div className={styles.cmpGrid}>
+        <div className={styles.card}>
+          <div className={styles.cmpHead}>
+            <h3 className={styles.cardTitle}>원본 · 투표순</h3>
+            <span className={styles.label}>{original.length}명</span>
+          </div>
+          <p className={styles.cmpNote}>사람들이 실제로 누른 표입니다. 바뀌지 않습니다.</p>
+          <div className={styles.cmpList}>{original.map((d) => row(d, "original"))}</div>
         </div>
 
-        {changed.length === 0 && (
-          <p className={styles.hint}>이 회차는 조정 없이 원본 그대로 확정되었습니다.</p>
-        )}
-
-        <div className={styles.tableWrap}>
-          <table className={styles.diffTable}>
-            <thead>
-              <tr>
-                <th>원본 순번</th>
-                <th>확정 순번</th>
-                <th>닉네임</th>
-                <th>직업</th>
-                <th>표</th>
-                <th>투표 시각</th>
-                <th>상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((d) => (
-                <tr key={d.nickname} className={d.status === "유지" ? "" : styles.diffRowChanged}>
-                  <td className={styles.mono}>{d.originalRank ?? "—"}</td>
-                  <td className={styles.mono}>{d.finalRank ?? "—"}</td>
-                  <td>{d.nickname}</td>
-                  <td>{d.className ?? "-"}</td>
-                  <td>{d.votingType ? VOTING_TYPE_LABEL[d.votingType] : "-"}</td>
-                  <td className={styles.mono}>
-                    {d.votedAt ? formatKstTimeWithSeconds(new Date(d.votedAt)) : "-"}
-                  </td>
-                  <td>
-                    <span className={`${styles.diffBadge} ${styles[`diff${d.status === "뺌" ? "Removed" : d.status === "추가" ? "Added" : d.status === "순번 변경" ? "Moved" : "Kept"}`]}`}>
-                      {d.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className={styles.card}>
+          <div className={styles.cmpHead}>
+            <h3 className={styles.cardTitle}>확정 명단</h3>
+            <span className={styles.label}>{final.length}명</span>
+          </div>
+          <p className={styles.cmpNote}>관리자가 확정한 순번입니다.</p>
+          <div className={styles.cmpList}>{final.map((d) => row(d, "final"))}</div>
         </div>
       </div>
     </section>
