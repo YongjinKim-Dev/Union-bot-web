@@ -266,6 +266,14 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
               )}
             </span>
           ))}
+          {/* 정원 제한 없이 전체를 본다. 프리셋이 아니므로 삭제 대상이 아니다. */}
+          <button
+            type="button"
+            className={`${styles.presetChip} ${cap === Infinity ? styles.presetOn : ""}`}
+            onClick={() => setCap(Infinity)}
+          >
+            전체
+          </button>
           {capEdit && (
             <>
               <input
@@ -404,7 +412,8 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
             </div>
             <div className={styles.modalFoot}>
               <span className={styles.hint}>
-                정원 {cap}인 기준 · 참여 {Math.min(roster.length, cap)} / 예비 {reserve}
+                {cap === Infinity ? "전체" : `정원 ${cap}인 기준`} · 참여{" "}
+                {Math.min(roster.length, cap)} / 예비 {reserve}
               </span>
               <span className={styles.spacer} />
               <button type="button" className={styles.btnSm} onClick={() => setExportOpen(false)}>
