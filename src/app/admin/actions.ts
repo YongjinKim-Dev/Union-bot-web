@@ -56,6 +56,8 @@ export interface CreateSurveyInput {
   announceMinutesBefore: number;
   /** 공지 문구. 비우면 기본 문구를 만들어 쓴다. */
   announceContent: string;
+  /** 체크하면 공지 문구 맨 앞에 @everyone 멘션을 붙인다. */
+  announceEveryone: boolean;
 }
 
 /** KST 로 입력된 datetime-local 문자열을 실제 시각으로 바꾼다. */
@@ -92,8 +94,11 @@ export async function registerSurvey(input: CreateSurveyInput) {
     ? new Date(exposedAt.getTime() - minutes * 60 * 1000)
     : null;
 
+  const baseAnnounce = input.announceContent.trim() || buildDefaultAnnounceContent(executedAt, exposedAt);
   const announceContent = wantsAnnounce
-    ? input.announceContent.trim() || buildDefaultAnnounceContent(executedAt, exposedAt)
+    ? input.announceEveryone
+      ? `@everyone\n${baseAnnounce}`
+      : baseAnnounce
     : null;
 
   const surveyId = await createSurvey({ content, executedAt, exposedAt, announceAt, announceContent });

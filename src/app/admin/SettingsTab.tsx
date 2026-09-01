@@ -41,6 +41,7 @@ export function SettingsTab({ current, queue, phase, showToast }: SettingsTabPro
   const [qOpen, setQOpen] = useState(DEFAULT_OPEN_TIME);
   const [qAnnounceMin, setQAnnounceMin] = useState(DEFAULT_ANNOUNCE_MIN);
   const [qAnnounceText, setQAnnounceText] = useState("");
+  const [qEveryone, setQEveryone] = useState(false);
   const [isQueueBusy, startQueueWork] = useTransition();
 
   const waiting = phase === "waiting";
@@ -68,10 +69,12 @@ export function SettingsTab({ current, queue, phase, showToast }: SettingsTabPro
           exposedAt: `${qOpenDate}T${qOpen}`,
           announceMinutesBefore: Number(qAnnounceMin) || 0,
           announceContent: qAnnounceText,
+          announceEveryone: qEveryone,
         });
         setQDate("");
         setQOpenDate("");
         setQAnnounceText("");
+        setQEveryone(false);
         showToast("회차를 큐에 등록했습니다");
       } catch (e) {
         showToast(e instanceof Error ? e.message : "등록에 실패했습니다");
@@ -178,8 +181,18 @@ export function SettingsTab({ current, queue, phase, showToast }: SettingsTabPro
               </label>
             </div>
             <div className={styles.fieldRow}>
-              <label className={styles.field}>
-                <span className={styles.label}>디코 공지 (오픈 몇 분 전, 0이면 안 함)</span>
+              <div className={styles.field}>
+                <span className={styles.labelRow}>
+                  <span className={styles.label}>디코 공지 (오픈 몇 분 전, 0이면 안 함)</span>
+                  <label className={styles.checkRow}>
+                    <input
+                      type="checkbox"
+                      checked={qEveryone}
+                      onChange={(e) => setQEveryone(e.target.checked)}
+                    />
+                    <span className={styles.checkText}>@everyone</span>
+                  </label>
+                </span>
                 <input
                   className={`${styles.input} ${styles.mono}`}
                   type="number"
@@ -187,7 +200,7 @@ export function SettingsTab({ current, queue, phase, showToast }: SettingsTabPro
                   value={qAnnounceMin}
                   onChange={(e) => setQAnnounceMin(e.target.value)}
                 />
-              </label>
+              </div>
             </div>
             <div className={styles.fieldRow}>
               <label className={styles.field}>
