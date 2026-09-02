@@ -46,7 +46,12 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
   const [confirmed, setConfirmed] = useState(false);
   const currentId = current?.id;
 
-  /* 라이브 중에는 몇 초마다 표를 다시 읽어온다. 마감이나 대기 상태면 한 번만. */
+  /*
+   * 라이브 중에는 몇 초마다 표를 다시 읽어온다. 마감이나 대기 상태면 한 번만.
+   * 조정을 시작한 뒤에는 멈춘다 — 마감 뒤라 새 표가 들어올 일이 없는데,
+   * 드래그하는 중에 목록이 갈리면 놓는 자리가 어긋난다.
+   */
+  const adjusting = draft !== null;
   useEffect(() => {
     if (!currentId) return;
     let alive = true;
@@ -63,7 +68,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
       }
     };
     load();
-    if (closed || waiting) {
+    if (closed || waiting || adjusting) {
       return () => {
         alive = false;
       };
@@ -73,7 +78,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
       alive = false;
       clearInterval(timer);
     };
-  }, [currentId, closed, waiting]);
+  }, [currentId, closed, waiting, adjusting]);
 
   const loaded = useMemo(() => votersToMembers(voters), [voters]);
   // 조정 중에는 최신 명단에 조정해 둔 순서만 입힌다. 새 표는 자연히 맨 뒤로 간다.
@@ -88,20 +93,31 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
   const reserve = Math.max(0, roster.length - cap);
   const heading = current ? formatSurveyDate(current.executed_at) : "";
 
-  // 드래그한 행과 놓은 자리 행의 순번을 서로 맞바꾼다
+  /*
+   * 드래그한 행을 놓은 자리로 옮기고 그 사이 사람들을 한 칸씩 민다.
+   *
+   * 예전에는 두 행의 순번을 맞바꿨다. 한 칸 옮길 때는 결과가 같지만, 80번을
+   * 49번으로 끌어올리면 49번이던 사람이 80번으로 튕겨 나가 명단이 엉켰다.
+   * 끌어서 놓는 동작에서 기대하는 것은 교환이 아니라 이동이다.
+   *
+   * 순번은 명단(참여·부속)에만 있으므로 그 안에서만 다시 매긴다.
+   */
   function reorder(id: string, targetId: string) {
     if (id === targetId) return;
     const base = draft ?? loaded;
-    const next = base.map((m) => ({ ...m }));
-    const a = next.find((m) => m.id === id);
-    const b = next.find((m) => m.id === targetId);
-    if (!a || !b) return;
+    const list = rosterOf(base);
+    const from = list.findIndex((m) => m.id === id);
+    const to = list.findIndex((m) => m.id === targetId);
+    if (from < 0 || to < 0) return;
+
+    const moved = list.slice();
+    const [item] = moved.splice(from, 1);
+    moved.splice(to, 0, item);
+
     setHistory((h) => [...h.slice(-19), base.map((m) => ({ ...m }))]);
-    const t = a.ord;
-    a.ord = b.ord;
-    b.ord = t;
-    setDraft(next);
-    setFlashId(a.id);
+    const ordById = new Map(moved.map((m, i) => [m.id, i]));
+    setDraft(base.map((m) => ({ ...m, ord: ordById.get(m.id) ?? m.ord })));
+    setFlashId(id);
   }
 
   function undo() {

@@ -124,7 +124,7 @@ export function RosterTable({
                 <tr
                   className={rowClass}
                   draggable={canDrag}
-                  title={canDrag ? "행을 끌어 원하는 자리와 교체" : undefined}
+                  title={canDrag ? "행을 끌어 원하는 자리로 이동" : undefined}
                   onDragStart={canDrag ? () => setDragId(m.id) : undefined}
                   onDragEnd={
                     canDrag
