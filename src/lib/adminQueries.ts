@@ -1,5 +1,6 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
+import { ATTEND_TYPES } from "@/lib/types";
 import type { ClassType, DbSurvey, VotingType } from "@/lib/types";
 import type { VoterRow } from "@/lib/queries";
 
@@ -234,7 +235,12 @@ export interface RosterDiffRow {
 
 /*
  * 원본과 확정 명단을 나란히 놓고 무엇이 달라졌는지 만든다.
- * 원본에만 있으면 관리자가 뺀 사람, 확정본에만 있으면 관리자가 넣은 사람이다.
+ *
+ * 순번은 명단(참여·부속)에만 있는 개념이므로 그들만 세운다. 미참·늦참까지
+ * 한 줄로 세우면, 확정본에서 그들이 명단 뒤로 밀리는 것만으로 뒤 사람들의
+ * 번호가 통째로 어긋나 조정하지 않은 사람까지 바뀐 것처럼 보인다.
+ *
+ * 원본에만 있으면 관리자가 뺀 사람, 확정본에만 있으면 넣은 사람이다.
  */
 export async function getRosterComparison(surveyId: string): Promise<RosterDiffRow[]> {
   const [original, final] = await Promise.all([
@@ -242,9 +248,13 @@ export async function getRosterComparison(surveyId: string): Promise<RosterDiffR
     getFinalRoster(surveyId),
   ]);
 
-  const originalRank = new Map(original.map((v, i) => [v.nickname, i + 1]));
-  const finalRank = new Map(final.rows.map((v, i) => [v.nickname, i + 1]));
-  const byNick = new Map([...original, ...final.rows].map((v) => [v.nickname, v]));
+  const inRoster = (v: VoterRow) => ATTEND_TYPES.includes(v.votingType);
+  const originalRoster = original.filter(inRoster);
+  const finalRoster = final.rows.filter(inRoster);
+
+  const originalRank = new Map(originalRoster.map((v, i) => [v.nickname, i + 1]));
+  const finalRank = new Map(finalRoster.map((v, i) => [v.nickname, i + 1]));
+  const byNick = new Map([...originalRoster, ...finalRoster].map((v) => [v.nickname, v]));
 
   const rows: RosterDiffRow[] = [];
   for (const [nickname, v] of byNick) {
