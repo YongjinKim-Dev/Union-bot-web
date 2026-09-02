@@ -5,7 +5,7 @@ import { formatKstTimeWithSeconds, formatSurveyDate, formatSurveyTime } from "@/
 import type { PastSurveyRow, RosterDiffRow } from "@/lib/adminQueries";
 import { VOTING_TYPE_LABEL } from "@/lib/types";
 import styles from "./admin.module.css";
-import { fetchPastSurveys, fetchRosterComparison } from "./pastActions";
+import { fetchComparableSurveys, fetchRosterComparison } from "./pastActions";
 
 /*
  * 원본(사람들이 실제로 누른 표)과 확정 명단을 회차별로 나란히 본다.
@@ -13,18 +13,25 @@ import { fetchPastSurveys, fetchRosterComparison } from "./pastActions";
  */
 export function ComparisonTab() {
   const [rows, setRows] = useState<PastSurveyRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(15);
   const [openSurvey, setOpenSurvey] = useState<PastSurveyRow | null>(null);
   const [diff, setDiff] = useState<RosterDiffRow[]>([]);
   const [onlyChanged, setOnlyChanged] = useState(false);
   const [isLoading, startLoad] = useTransition();
 
   useEffect(() => {
-    fetchPastSurveys(1)
-      .then((r) => setRows(r.rows))
+    fetchComparableSurveys(page)
+      .then((r) => {
+        setRows(r.rows);
+        setTotal(r.total);
+        setPageSize(r.pageSize);
+      })
       .catch(() => {
         // 일시적인 실패는 탭을 다시 열면 회복된다
       });
-  }, []);
+  }, [page]);
 
   function open(row: PastSurveyRow) {
     startLoad(async () => {
@@ -66,7 +73,30 @@ export function ComparisonTab() {
                 <span className={styles.sLink}>비교 보기</span>
               </button>
             ))}
-            {rows.length === 0 && <div className={styles.qEmpty}>지난 회차가 아직 없습니다</div>}
+            {rows.length === 0 && (
+              <div className={styles.qEmpty}>아직 확정된 명단이 있는 회차가 없습니다</div>
+            )}
+          </div>
+          <div className={styles.pager}>
+            <button
+              type="button"
+              className={styles.pBtn}
+              disabled={page === 1}
+              onClick={() => setPage(page - 1)}
+            >
+              ‹
+            </button>
+            <span className={styles.pGap}>
+              {page} / {Math.max(1, Math.ceil(total / pageSize))}
+            </span>
+            <button
+              type="button"
+              className={styles.pBtn}
+              disabled={page >= Math.ceil(total / pageSize)}
+              onClick={() => setPage(page + 1)}
+            >
+              ›
+            </button>
           </div>
         </div>
       </section>

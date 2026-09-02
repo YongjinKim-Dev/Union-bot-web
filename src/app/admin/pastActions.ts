@@ -19,3 +19,11 @@ export async function fetchRosterComparison(surveyId: string) {
   const { getRosterComparison } = await import("@/lib/adminQueries");
   return getRosterComparison(surveyId);
 }
+
+/* 비교 탭 회차 목록. 운영 중인 회차도 포함한다. */
+export async function fetchComparableSurveys(page: number) {
+  await requireAdmin();
+  const { getComparableSurveys } = await import("@/lib/adminQueries");
+  const { rows, total } = await getComparableSurveys(page, PAGE_SIZE);
+  return { rows, total, pageSize: PAGE_SIZE };
+}

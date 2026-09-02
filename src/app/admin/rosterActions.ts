@@ -11,7 +11,13 @@ import { pool } from "@/lib/db";
  * 원본에는 남아 있고, 비교 탭에서 무엇이 달라졌는지 볼 수 있다.
  */
 
-/* 확정 순번 저장. 화면의 최종 순서대로 position 을 1부터 다시 매긴다. */
+/*
+ * 확정 순번 저장. 화면의 최종 순서대로 position 을 1부터 다시 매긴다.
+ *
+ * 화면에 서는 것은 참여·부속뿐이라 orderedIds 에도 그들만 들어온다. 미참·늦참의
+ * position 을 그대로 두면 명단 번호와 겹쳐서, 정렬이 그 사이에 끼어 들어가 순번이
+ * 뒤틀린다. 그래서 명단을 매긴 뒤 나머지를 그 뒤 번호로 밀어 1..N 을 유지한다.
+ */
 export async function saveRosterOrderAction(surveyId: string, orderedIds: string[]) {
   await requireAdmin();
 
@@ -23,6 +29,17 @@ export async function saveRosterOrderAction(surveyId: string, orderedIds: string
       await connection.execute(
         "UPDATE survey_history_final SET position = ? WHERE id = ? AND survey_id = ?",
         [i + 1, orderedIds[i], surveyId],
+      );
+    }
+    if (orderedIds.length > 0) {
+      const placeholders = orderedIds.map(() => "?").join(",");
+      await connection.execute(
+        "UPDATE survey_history_final f " +
+          "JOIN (SELECT id, ROW_NUMBER() OVER (ORDER BY position ASC, id ASC) AS rn " +
+          `      FROM survey_history_final WHERE survey_id = ? AND id NOT IN (${placeholders})) t ` +
+          "  ON t.id = f.id " +
+          "SET f.position = ? + t.rn",
+        [surveyId, ...orderedIds, orderedIds.length],
       );
     }
     await connection.commit();

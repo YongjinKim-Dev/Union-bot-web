@@ -272,3 +272,42 @@ export async function getRosterComparison(surveyId: string): Promise<RosterDiffR
   );
   return rows;
 }
+
+/*
+ * 비교 탭에 나열할 회차. 지난 회차 목록과 달리 지금 운영 중인 회차도 뺀 것 없이
+ * 보여준다. 조정을 막 끝낸 회차가 바로 그 회차인데, 그것이 목록에 없으면 확인할
+ * 방법이 없다. 집계는 확정 명단 기준이다.
+ */
+export async function getComparableSurveys(
+  page: number,
+  size: number,
+): Promise<{ rows: PastSurveyRow[]; total: number }> {
+  const offset = (page - 1) * size;
+  const [countRows] = await pool.query<RowDataPacket[]>(
+    "SELECT COUNT(DISTINCT s.id) AS c FROM survey s " +
+      "JOIN survey_history_final f ON f.survey_id = s.id WHERE s.status <> 'cancel'",
+  );
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT s.id, s.executed_at, s.exposed_at, " +
+      "SUM(f.voting_type = 'attend') AS a, SUM(f.voting_type = 'boarding') AS b, " +
+      "SUM(f.voting_type = 'late_attend') AS l, SUM(f.voting_type = 'non_attend') AS n " +
+      "FROM survey s JOIN survey_history_final f ON f.survey_id = s.id " +
+      "WHERE s.status <> 'cancel' " +
+      "GROUP BY s.id, s.executed_at, s.exposed_at " +
+      `ORDER BY s.executed_at DESC, s.id DESC LIMIT ${Number(size)} OFFSET ${Number(offset)}`,
+  );
+  return {
+    total: Number(countRows[0].c),
+    rows: rows.map((r) => ({
+      id: String(r.id),
+      executed_at: r.executed_at as Date,
+      exposed_at: r.exposed_at as Date,
+      counts: {
+        참여: Number(r.a ?? 0),
+        부속: Number(r.b ?? 0),
+        늦참: Number(r.l ?? 0),
+        미참: Number(r.n ?? 0),
+      },
+    })),
+  };
+}
