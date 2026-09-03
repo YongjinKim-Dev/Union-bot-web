@@ -154,10 +154,25 @@ export interface CastVoteResult {
   votedAt: Date;
 }
 
+/**
+ * 표를 기록한다. 순번의 근거가 되는 시각은 요청이 서버에 닿은 순간(arrivedAt)이다.
+ *
+ * 예전에는 INSERT 를 실행하는 순간의 NOW() 를 썼다. 그러면 커넥션을 기다리거나
+ * 앞선 조회가 느렸던 만큼 순번이 뒤로 밀린다. 투표가 열리는 순간처럼 요청이
+ * 한꺼번에 몰릴 때 실제 도착 순서와 다르게 기록됐다.
+ *
+ * NOW() 가 초 단위라는 문제도 같이 사라진다. 컬럼은 datetime(6) 인데 마이크로초가
+ * 늘 0 이라, 같은 초에 들어온 수십 명이 전부 같은 시각으로 남고 순번이 행 id
+ * 로만 갈렸다. arrivedAt 은 밀리초까지 있어 그 안에서 서로 구분된다.
+ *
+ * 클라이언트가 보낸 시각을 쓰지 않는 이유는 요청 본문을 얼마든지 고칠 수 있어서다.
+ * 서버가 직접 찍은 시각만 근거가 된다.
+ */
 export async function castVote(
   surveyId: string,
   userId: string,
   votingType: VotingType,
+  arrivedAt: Date,
 ): Promise<CastVoteResult> {
   const existing = await getVoteForUser(surveyId, userId);
 
@@ -177,24 +192,30 @@ export async function castVote(
       ATTEND_TYPES.includes(votingType) && ATTEND_TYPES.includes(existing.votingType)
     );
     const query = needsTimeUpdate
-      ? "UPDATE survey_history SET voting_type = ?, updated_at = NOW() WHERE id = ?"
+      ? "UPDATE survey_history SET voting_type = ?, updated_at = ? WHERE id = ?"
       : "UPDATE survey_history SET voting_type = ? WHERE id = ?";
-    await pool.execute(query, [votingType, existing.id]);
-  } else {
-    await pool.execute(
-      "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
-      [votingType, surveyId, userId],
-    );
+    const params = needsTimeUpdate
+      ? [votingType, arrivedAt, existing.id]
+      : [votingType, existing.id];
+    await pool.execute(query, params);
+    // 기록한 시각을 이미 알고 있으므로 다시 읽지 않는다. 왕복이 한 번 줄어든다.
+    return {
+      votingType,
+      isDuplicated: false,
+      isAttend: ATTEND_TYPES.includes(votingType),
+      votedAt: needsTimeUpdate ? arrivedAt : existing.votedAt,
+    };
   }
 
-  // Re-read the row so votedAt reflects the actual DB-computed NOW() rather
-  // than an approximate client-side timestamp.
-  const updated = await getVoteForUser(surveyId, userId);
+  await pool.execute(
+    "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    [votingType, surveyId, userId, arrivedAt, arrivedAt],
+  );
   return {
     votingType,
     isDuplicated: false,
     isAttend: ATTEND_TYPES.includes(votingType),
-    votedAt: updated!.votedAt,
+    votedAt: arrivedAt,
   };
 }
 
