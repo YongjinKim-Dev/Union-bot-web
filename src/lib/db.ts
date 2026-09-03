@@ -15,7 +15,10 @@ function createPool() {
     timezone: "+09:00",
     supportBigNumbers: true,
     bigNumberStrings: true,
-    connectionLimit: 10,
+    // 투표가 열리는 순간 150명이 한꺼번에 들어온다. 10 개로는 줄이 길어져
+    // 마지막 사람이 5 초 가까이 기다렸다. 봇이 최대 10 개를 쓰고 MySQL
+    // max_connections 가 151 이라 30 은 넉넉히 들어간다.
+    connectionLimit: 30,
     waitForConnections: true,
   });
 }

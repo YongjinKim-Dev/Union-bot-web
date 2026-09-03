@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { castVote, getCurrentSurvey, isVotingOpen } from "@/lib/queries";
 import type { VotingType } from "@/lib/types";
@@ -32,6 +31,9 @@ export async function submitVote(surveyId: string, votingType: VotingType) {
 
   const result = await castVote(surveyId, user.dbUserId, votingType, arrivedAt);
 
-  revalidatePath("/vote");
+  // revalidatePath 를 부르지 않는다. 화면은 이 반환값으로 VoteButtons 가 직접
+  // 갱신하고, /vote 는 force-dynamic 이라 다시 열면 어차피 새로 읽는다. 반면
+  // revalidate 는 응답에 페이지 전체를 다시 그려 실어 보내므로, 표 하나당 DB
+  // 왕복이 6 번 더 붙는다. 투표가 몰리는 순간에는 그 비용이 그대로 대기열이 된다.
   return result;
 }
