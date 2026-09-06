@@ -106,7 +106,7 @@ export interface VoteRecord {
 
 export async function getVoteForUser(surveyId: string, userId: string): Promise<VoteRecord | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, voting_type, updated_at FROM survey_history WHERE survey_id = ? AND user_id = ?",
+    "SELECT id, voting_type, updated_at FROM survey_history WHERE survey_id = ? AND user_id = ? ORDER BY id ASC LIMIT 1",
     [surveyId, userId],
   );
   const row = rows[0];
@@ -221,13 +221,28 @@ export async function castVote(
 
 // Same tally the bot's !결과 command computes: per voting_type counts among
 // currently active (status = 1) members.
+/*
+ * 같은 유저의 표가 두 줄 이상 남아 있을 때(폰·PC 동시 투표) 가장 먼저 들어온 한 줄(id 최소)만 고르는 조인.
+ * getVoteForUser가 그 줄을 정본으로 잡아 갱신하므로 읽는 쪽도 같은 줄을 본다.
+ * 원본 survey_history는 손대지 않는다. 행마다 되묻는 NOT EXISTS는 보조 인덱스가 없으면 행 수의 제곱으로
+ * 느려져서, 한 번의 GROUP BY로 정본 id 목록을 만들어 조인한다.
+ * 한 회차 조회는 survey_id 자리에 ? 하나가 더 들어가므로 파라미터에 surveyId를 먼저 한 번 더 넣는다.
+ */
+export function firstVoteJoin(alias: string, surveyScoped: boolean): string {
+  const ids = surveyScoped
+    ? "SELECT MIN(id) AS id FROM survey_history WHERE survey_id = ? GROUP BY user_id"
+    : "SELECT MIN(id) AS id FROM survey_history GROUP BY survey_id, user_id";
+  return `JOIN (${ids}) first_vote ON first_vote.id = ${alias}.id `;
+}
+
 export async function getVoteCounts(surveyId: string): Promise<Record<VotingType, number>> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT survey_history.voting_type, COUNT(*) AS count FROM survey_history " +
+      firstVoteJoin("survey_history", true) +
       "JOIN user ON survey_history.user_id = user.id " +
       "WHERE survey_history.survey_id = ? AND user.status = 1 " +
       "GROUP BY survey_history.voting_type",
-    [surveyId],
+    [surveyId, surveyId],
   );
   const counts: Record<VotingType, number> = {
     attend: 0,
@@ -301,6 +316,7 @@ export async function getVoters(surveyId: string): Promise<VoterRow[]> {
     "SELECT sh.id AS history_id, u.user_nickname, g.name AS guild_name, sh.voting_type, sh.updated_at, sh.created_at, " +
       "       cc.name AS class_name, cc.type AS class_type " +
       "FROM survey_history sh " +
+      firstVoteJoin("sh", true) +
       "JOIN user u ON sh.user_id = u.id " +
       "JOIN guild g ON u.guild_id = g.id " +
       "LEFT JOIN user_character_class_map m ON u.id = m.user_id " +
@@ -308,7 +324,7 @@ export async function getVoters(surveyId: string): Promise<VoterRow[]> {
       "WHERE sh.survey_id = ? AND u.status = 1 " +
       // 마감 반영이 조정된 순서대로 다시 넣으므로 넣은 순서가 곧 최종 순번이다
       "ORDER BY sh.id ASC",
-    [surveyId],
+    [surveyId, surveyId],
   );
   return rows.map((r) => ({
     historyId: String(r.history_id),
