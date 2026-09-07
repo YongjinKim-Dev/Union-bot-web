@@ -36,8 +36,12 @@ export async function SiteHeader({ active, kicker = "" }: { active: NavKey; kick
   return (
     <header className={styles.header}>
       <div className={styles.brandBlock}>
-        <Image src="/brand-icon.png" alt="" width={28} height={28} className={styles.brandIcon} />
-        <span className={styles.brand}>아시바당</span>
+        {/* 마크와 이름은 홈으로 가는 링크다. 키커는 지금 있는 곳을 가리키는
+            표시일 뿐이므로 링크 밖에 둔다. */}
+        <Link href="/" className={styles.brandLink}>
+          <Image src="/brand-icon.png" alt="" width={28} height={28} className={styles.brandIcon} />
+          <span className={styles.brand}>아시바당</span>
+        </Link>
         {kicker && <span className={styles.kicker}>{kicker}</span>}
       </div>
       {session?.user?.nickname && (

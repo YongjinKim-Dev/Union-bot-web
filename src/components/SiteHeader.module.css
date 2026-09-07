@@ -36,6 +36,19 @@
   margin-right: auto;
 }
 
+/* 마크와 이름을 묶어 홈으로 보낸다. 링크지만 평소에는 글자색 그대로 두고,
+   올렸을 때만 강조색으로 눌리는 곳임을 알린다. */
+.brandLink {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+  color: inherit;
+}
+
+.brandLink:hover .brand {
+  color: var(--color-accent-deep);
+}
+
 .brand {
   font-family: var(--font-heading);
   font-size: 22px;
