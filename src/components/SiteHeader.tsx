@@ -3,7 +3,7 @@ import { auth, signOut } from "@/auth";
 import Image from "next/image";
 import styles from "./SiteHeader.module.css";
 
-export type NavKey = "home" | "vote" | "classes" | "about" | "docs" | "admin";
+export type NavKey = "home" | "vote" | "classes" | "equipment" | "about" | "docs" | "admin";
 
 interface NavItem {
   key: NavKey;
@@ -22,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "home", label: "홈", href: "/" },
   { key: "vote", label: "투표", href: "/vote" },
   { key: "classes", label: "직업 등록", href: "/classes" },
+  { key: "equipment", label: "스펙조사(준비중)", href: "/equipment" },
   { key: "about", label: "연맹 소개", href: "/about" },
   { key: "docs", label: "문서", href: "/docs" },
 ];
