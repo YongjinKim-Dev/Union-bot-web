@@ -1,0 +1,177 @@
+"use client";
+
+import { useEffect } from "react";
+import styles from "./admin.module.css";
+import type { TabKey } from "./adminData";
+
+interface Section {
+  heading: string;
+  items: string[];
+}
+
+/*
+ * 탭마다 무엇을 하는 곳인지, 무엇을 눌렀을 때 어떻게 되는지 적는다.
+ * 운영진이 읽는 글이므로 코드 용어 대신 화면에 보이는 말로 쓴다.
+ */
+const GUIDES: Record<TabKey, { summary: string; sections: Section[] }> = {
+  "운영": {
+    summary: "이번 회차의 명단을 확정하고, 다음 회차를 등록하는 곳입니다.",
+    sections: [
+      {
+        heading: "언제 무엇을 할 수 있나요",
+        items: [
+          "투표가 열려 있는 동안에는 집계만 보입니다. 순번 조정과 명단 편집은 잠겨 있습니다.",
+          "투표가 마감되면(거점전 1시간 전) 확정 명단이 만들어지고 편집이 열립니다.",
+          "거점전 시각이 지나면 이 회차는 지난 투표로 넘어갑니다. 그전에 확정을 마쳐 주세요.",
+        ],
+      },
+      {
+        heading: "순번 옮기는 두 가지 방법",
+        items: [
+          "눌러서 옮기기 — 옮길 사람을 한 번 누르면 금색으로 표시됩니다. 편하게 스크롤한 뒤 넣을 자리를 누르면 그 자리로 들어갑니다. 취소는 그 행을 다시 누르거나 Esc 입니다.",
+          "끌어서 옮기기 — 한두 칸만 움직일 때 빠릅니다.",
+          "어느 쪽이든 사이에 있던 사람들은 한 칸씩 밀립니다. 자리를 맞바꾸는 것이 아닙니다.",
+        ],
+      },
+      {
+        heading: "버튼 설명",
+        items: [
+          "확정 명단 저장 — 조정한 순서를 저장합니다. 저장하기 전까지는 화면에만 있습니다.",
+          "원본으로 되돌리기 — 사람들이 실제로 누른 순서로 화면을 되돌립니다. 이것도 저장을 눌러야 확정됩니다.",
+          "실행 취소 — 직전 조정 한 단계만 되돌립니다.",
+          "명단 복사 — 정원컷을 적용한 결과를 클립보드로 복사합니다. 미리보기로 먼저 확인할 수 있습니다.",
+          "정원컷 — 55·75·100 중에 고르거나 전체를 누르면 제한 없이 전부 봅니다. 연필을 누르면 값을 추가하거나 지울 수 있습니다.",
+          "닉네임 추가 — 표가 없는 사람을 명단 맨 뒤에 넣습니다. × 는 이 회차 명단에서 뺍니다.",
+        ],
+      },
+      {
+        heading: "알아두면 좋은 것",
+        items: [
+          "순번은 요청이 서버에 도착한 시각으로 정해집니다. 넣은 시각이 밀리초까지 보이는 이유입니다.",
+          "사람들이 새로 고침을 눌러도 순번은 밀리지 않습니다.",
+          "참여와 부속을 서로 바꾸면 순번이 유지되지만, 미참·늦참을 눌렀다가 참여로 돌아오면 맨 뒤로 갑니다.",
+          "조정 배지는 정원컷 경계를 넘나든 사람에게만 붙습니다.",
+        ],
+      },
+    ],
+  },
+  "지난 투표": {
+    summary: "끝난 회차의 집계와 명단을 다시 보는 곳입니다. 읽기 전용입니다.",
+    sections: [
+      {
+        heading: "쓰는 법",
+        items: [
+          "회차를 누르면 그 회차의 명단이 열립니다.",
+          "참여·부속·늦참·미참 칸을 눌러 그 표를 낸 사람만 골라 볼 수 있고, 미투표를 누르면 표를 내지 않은 사람이 나옵니다.",
+          "여기서는 순번을 바꿀 수 없습니다. 확정된 기록을 확인하는 곳입니다.",
+        ],
+      },
+    ],
+  },
+  "명단 비교": {
+    summary: "사람들이 실제로 누른 표와 관리자가 확정한 명단을 나란히 놓고 무엇이 달라졌는지 봅니다.",
+    sections: [
+      {
+        heading: "두 화면이 뜻하는 것",
+        items: [
+          "왼쪽 원본 — 실제로 누른 표입니다. 어떤 경우에도 바뀌지 않습니다.",
+          "오른쪽 확정 명단 — 관리자가 조정한 결과입니다.",
+        ],
+      },
+      {
+        heading: "표시 읽는 법",
+        items: [
+          "뺌 — 원본에는 있는데 확정 명단에서 뺀 사람입니다. 왼쪽에 취소선으로 표시됩니다.",
+          "추가 — 표가 없었는데 관리자가 명단에 넣은 사람입니다.",
+          "↑2 ↓3 — 순번이 그만큼 앞뒤로 움직였다는 뜻입니다.",
+          "변경된 것만 을 누르면 달라진 사람만 남습니다.",
+        ],
+      },
+      {
+        heading: "알아두면 좋은 것",
+        items: [
+          "순번 비교는 참여·부속만 놓고 셉니다. 미참·늦참은 순번이라는 개념이 없습니다.",
+          "조정한 적이 없는 회차는 조정 없이 원본 그대로 확정되었습니다 라고만 나옵니다.",
+        ],
+      },
+    ],
+  },
+  "거절 기록": {
+    summary: "처리되지 못한 투표만 모아 봅니다. 성공한 표는 지난 투표에서 봅니다.",
+    sections: [
+      {
+        heading: "왜 필요한가요",
+        items: [
+          "성공한 표는 도착 시각까지 남아 있어 나중에 얼마든지 확인할 수 있습니다.",
+          "알 수 없었던 것은 실패한 요청이었습니다. 누가 왜 투표하지 못했는지 여기에 남습니다.",
+        ],
+      },
+      {
+        heading: "사유 읽는 법",
+        items: [
+          "마감·미오픈 — 투표 창이 열리기 전이거나 이미 닫힌 뒤에 눌렀습니다. 오픈 순간에 조금 일찍 누르면 여기에 걸립니다.",
+          "로그인 풀림 — 세션이 만료된 상태로 눌렀습니다. 새로 고침하고 다시 로그인하면 됩니다.",
+        ],
+      },
+      {
+        heading: "함께 보이는 것",
+        items: [
+          "기기 — 폰에서 눌렀는지 PC 에서 눌렀는지, 어떤 운영체제인지 보입니다. 특정 기기에서만 실패하는지 가릴 때 씁니다.",
+          "처리 — 서버가 그 요청을 처리하는 데 걸린 시간입니다.",
+          "모바일만 을 누르면 폰에서 온 것만 남습니다.",
+          "여기가 비어 있으면 아무도 거절되지 않았다는 뜻입니다. 정상입니다.",
+        ],
+      },
+    ],
+  },
+};
+
+export function TabGuide({ tab, onClose }: { tab: TabKey; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const guide = GUIDES[tab];
+
+  return (
+    <div className={styles.modal} role="presentation" onClick={onClose}>
+      <div
+        className={`${styles.modalPanel} ${styles.guidePanel}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${tab} 탭 안내`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={styles.modalHead}>
+          <span className={styles.guideTitle}>{tab} 탭 안내</span>
+          <button type="button" className={styles.xclose} onClick={onClose} aria-label="닫기">
+            ×
+          </button>
+        </div>
+        <div className={styles.modalBody}>
+          <p className={styles.guideSummary}>{guide.summary}</p>
+          {guide.sections.map((s) => (
+            <section key={s.heading} className={styles.guideSection}>
+              <h3 className={styles.guideHeading}>{s.heading}</h3>
+              <ul className={styles.guideList}>
+                {s.items.map((it) => (
+                  <li key={it}>{it}</li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+        <div className={styles.modalFoot}>
+          <span className={styles.spacer} />
+          <button type="button" className={`${styles.btnSm} ${styles.btnPrimary}`} onClick={onClose}>
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

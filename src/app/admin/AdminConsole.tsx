@@ -8,6 +8,7 @@ import styles from "./admin.module.css";
 import { OperationTab } from "./OperationTab";
 import { ComparisonTab } from "./ComparisonTab";
 import { FailureLogTab } from "./FailureLogTab";
+import { TabGuide } from "./TabGuide";
 import { PastVotesTab } from "./PastVotesTab";
 import { SettingsTab } from "./SettingsTab";
 import type { PresetControls, TabKey } from "./adminData";
@@ -36,6 +37,8 @@ interface AdminConsoleProps {
 /* 탭 껍데기. 탭을 오가도 유지돼야 하는 상태(정원 프리셋, 마감 여부, 토스트)만 여기서 든다. */
 export function AdminConsole({ current, queue }: AdminConsoleProps) {
   const [tab, setTab] = useState<TabKey>("운영");
+  /* 탭마다 다른 안내를 보여준다. 지금 보고 있는 탭 기준이다. */
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const [cap, setCap] = useState(DEFAULT_PRESETS[0]);
   const [presetList, setPresetList] = useState<number[]>([...DEFAULT_PRESETS]);
@@ -100,7 +103,19 @@ export function AdminConsole({ current, queue }: AdminConsoleProps) {
             {key}
           </button>
         ))}
+        <span className={styles.spacer} />
+        <button
+          type="button"
+          className={styles.guideBtn}
+          onClick={() => setGuideOpen(true)}
+          title={`${tab} 탭 사용법 보기`}
+          aria-label={`${tab} 탭 사용법 보기`}
+        >
+          ?
+        </button>
       </div>
+
+      {guideOpen && <TabGuide tab={tab} onClose={() => setGuideOpen(false)} />}
 
       {tab === "운영" && (
         <>

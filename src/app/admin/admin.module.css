@@ -1244,3 +1244,71 @@ section.opStack + section {
   background: var(--color-accent);
   color: var(--color-dark-ink);
 }
+
+/* ── 탭 사용법 안내 ────────────────────────────────────── */
+
+.guideBtn {
+  width: 26px;
+  height: 26px;
+  margin-bottom: 6px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-ink-dim);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.guideBtn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-deep);
+  background: var(--color-accent-tint);
+}
+
+.guidePanel {
+  max-width: 680px;
+}
+
+.guideTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* 운영진이 읽는 글이라 본문을 작게 두지 않는다. */
+.guideSummary {
+  margin: 0 0 20px;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--color-ink);
+}
+
+.guideSection {
+  margin-bottom: 20px;
+}
+
+.guideSection:last-child {
+  margin-bottom: 0;
+}
+
+.guideHeading {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-accent-deep);
+}
+
+.guideList {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.guideList li {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--color-ink);
+}
