@@ -1195,3 +1195,52 @@ section.opStack + section {
   font-size: 10.5px;
   color: var(--color-ink-faint);
 }
+
+/* ── 눌러서 옮기기 ─────────────────────────────────────── */
+
+/* 고른 행. 끌지 않고 옮기는 중이라는 것을 분명히 보이게 한다. */
+.picked {
+  background: var(--color-accent-tint);
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* 고른 뒤에는 나머지 행이 전부 놓을 자리가 된다. */
+.pickTarget {
+  cursor: pointer;
+}
+
+.pickTarget:hover {
+  background: var(--color-surface);
+  box-shadow: inset 0 2px 0 var(--color-accent);
+}
+
+/* 표 아래에 붙어 무엇을 해야 하는지 알려 준다. */
+.pickHint {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--color-accent-tint);
+  border-top: 1px solid var(--color-accent);
+  font-size: 12.5px;
+  color: var(--color-accent-deeper);
+}
+
+.pickCancel {
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-accent-deep);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.pickCancel:hover {
+  background: var(--color-accent);
+  color: var(--color-dark-ink);
+}

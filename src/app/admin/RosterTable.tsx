@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import styles from "./admin.module.css";
 import { type Member, rosterOf } from "./adminData";
 
@@ -45,6 +45,9 @@ export function RosterTable({
 }: RosterTableProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropId, setDropId] = useState<string | null>(null);
+  /* 끌지 않고 옮기는 길. 한 번 눌러 고르고, 옮길 자리를 눌러 넣는다.
+     명단이 백 명을 넘으면 끌면서 스크롤하는 것이 어렵다. */
+  const [pickedId, setPickedId] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
   const roster = list ?? rosterOf(members);
@@ -61,6 +64,30 @@ export function RosterTable({
   const naturalOrder = !sort || (sort.key === "seq" && sort.dir === "asc");
   const showCut = !list && naturalOrder;
   const canDrag = editable && naturalOrder;
+
+  useEffect(() => {
+    if (!pickedId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPickedId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pickedId]);
+
+  /* 고른 행을 누르면 취소, 다른 행을 누르면 그 자리로 옮긴다. */
+  function handlePick(id: string) {
+    if (!canDrag) return;
+    if (pickedId === null) {
+      setPickedId(id);
+      return;
+    }
+    if (pickedId === id) {
+      setPickedId(null);
+      return;
+    }
+    onReorder?.(pickedId, id);
+    setPickedId(null);
+  }
 
   function cycleSort(key: SortKey) {
     setSort((prev) => {
@@ -109,6 +136,8 @@ export function RosterTable({
               seq > cap ? styles.reserve : "",
               dragId === m.id ? styles.dragging : "",
               dropId === m.id && dragId !== m.id ? styles.dropTarget : "",
+              pickedId === m.id ? styles.picked : "",
+              pickedId !== null && pickedId !== m.id ? styles.pickTarget : "",
               flashId === m.id ? styles.justIn : "",
             ]
               .filter(Boolean)
@@ -124,7 +153,16 @@ export function RosterTable({
                 <tr
                   className={rowClass}
                   draggable={canDrag}
-                  title={canDrag ? "행을 끌어 원하는 자리로 이동" : undefined}
+                  title={
+                    canDrag
+                      ? pickedId === null
+                        ? "눌러서 고르거나 끌어서 옮기기"
+                        : pickedId === m.id
+                          ? "다시 눌러 선택 취소"
+                          : "여기로 옮기기"
+                      : undefined
+                  }
+                  onClick={canDrag ? () => handlePick(m.id) : undefined}
                   onDragStart={canDrag ? () => setDragId(m.id) : undefined}
                   onDragEnd={
                     canDrag
@@ -175,7 +213,10 @@ export function RosterTable({
                         type="button"
                         className={styles.rm}
                         title="이 회차 표 빼기"
-                        onClick={() => onRemove?.(m.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemove?.(m.id);
+                        }}
                       >
                         ×
                       </button>
@@ -187,6 +228,14 @@ export function RosterTable({
           })}
         </tbody>
       </table>
+      {pickedId !== null && (
+        <div className={styles.pickHint}>
+          옮길 자리를 누르세요. 고른 행은 그 자리에 들어가고 사이 사람들은 한 칸씩 밀립니다.
+          <button type="button" className={styles.pickCancel} onClick={() => setPickedId(null)}>
+            취소 (Esc)
+          </button>
+        </div>
+      )}
       {display.length === 0 && <div className={styles.tableEmpty}>아직 들어온 표가 없습니다</div>}
     </div>
   );
