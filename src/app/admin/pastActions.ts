@@ -27,3 +27,10 @@ export async function fetchComparableSurveys(page: number) {
   const { rows, total } = await getComparableSurveys(page, PAGE_SIZE);
   return { rows, total, pageSize: PAGE_SIZE };
 }
+
+/* 거절된 투표 기록. 성공한 표는 survey_history 에 있으므로 여기엔 실패만 쌓인다. */
+export async function fetchVoteFailures() {
+  await requireAdmin();
+  const { getVoteFailures } = await import("@/lib/voteLog");
+  return getVoteFailures(100);
+}

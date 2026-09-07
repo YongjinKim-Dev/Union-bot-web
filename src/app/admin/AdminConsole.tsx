@@ -7,11 +7,12 @@ import type { DbSurvey } from "@/lib/types";
 import styles from "./admin.module.css";
 import { OperationTab } from "./OperationTab";
 import { ComparisonTab } from "./ComparisonTab";
+import { FailureLogTab } from "./FailureLogTab";
 import { PastVotesTab } from "./PastVotesTab";
 import { SettingsTab } from "./SettingsTab";
 import type { PresetControls, TabKey } from "./adminData";
 
-const TABS: TabKey[] = ["운영", "지난 투표", "명단 비교"];
+const TABS: TabKey[] = ["운영", "지난 투표", "명단 비교", "거절 기록"];
 
 export type Phase = "waiting" | "live" | "closed";
 
@@ -116,6 +117,7 @@ export function AdminConsole({ current, queue }: AdminConsoleProps) {
       )}
       {tab === "지난 투표" && <PastVotesTab cap={cap} />}
       {tab === "명단 비교" && <ComparisonTab />}
+      {tab === "거절 기록" && <FailureLogTab />}
 
       <div className={`${styles.toast} ${toast ? styles.toastShow : ""}`}>{toast}</div>
     </div>

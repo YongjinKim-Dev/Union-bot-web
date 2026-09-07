@@ -3,5 +3,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   const { ensureFinalTable } = await import("@/lib/adminQueries");
+  const { ensureVoteFailureTable } = await import("@/lib/voteLog");
   await ensureFinalTable();
+  await ensureVoteFailureTable();
 }
