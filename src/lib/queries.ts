@@ -185,37 +185,73 @@ export async function castVote(
         votedAt: existing.votedAt,
       };
     }
-    // Switching between two "attending" types (attend <-> boarding) keeps the
-    // original queue position; any other change resets updated_at, matching
-    // the priority-ordering logic in !인원제한결과.
-    const needsTimeUpdate = !(
-      ATTEND_TYPES.includes(votingType) && ATTEND_TYPES.includes(existing.votingType)
-    );
-    const query = needsTimeUpdate
-      ? "UPDATE survey_history SET voting_type = ?, updated_at = ? WHERE id = ?"
-      : "UPDATE survey_history SET voting_type = ? WHERE id = ?";
-    const params = needsTimeUpdate
-      ? [votingType, arrivedAt, existing.id]
-      : [votingType, existing.id];
-    await pool.execute(query, params);
-    // 기록한 시각을 이미 알고 있으므로 다시 읽지 않는다. 왕복이 한 번 줄어든다.
-    return {
-      votingType,
-      isDuplicated: false,
-      isAttend: ATTEND_TYPES.includes(votingType),
-      votedAt: needsTimeUpdate ? arrivedAt : existing.votedAt,
-    };
+    return updateVote(existing, votingType, arrivedAt);
   }
 
-  await pool.execute(
-    "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-    [votingType, surveyId, userId, arrivedAt, arrivedAt],
-  );
+  try {
+    await pool.execute(
+      "INSERT INTO survey_history (voting_type, survey_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+      [votingType, surveyId, userId, arrivedAt, arrivedAt],
+    );
+  } catch (error) {
+    /*
+     * 위에서 표가 없다고 봤는데 INSERT 가 막혔다면, 조회와 INSERT 사이에 같은
+     * 사람의 다른 요청이 먼저 들어간 것이다. 폰과 PC 를 함께 열어 두었거나 한
+     * 요청이 재시도됐을 때 생긴다.
+     *
+     * uq_survey_user 가 두 번째 INSERT 를 막아 주므로 중복 행은 생기지 않는다.
+     * 여기서는 이미 들어간 행을 찾아 갱신한다. 그래야 나중에 누른 표가 버려지지
+     * 않고 반영된다.
+     */
+    if ((error as { code?: string }).code !== "ER_DUP_ENTRY") throw error;
+    const inserted = await getVoteForUser(surveyId, userId);
+    if (!inserted) throw error;
+    if (inserted.votingType === votingType) {
+      return {
+        votingType,
+        isDuplicated: true,
+        isAttend: ATTEND_TYPES.includes(votingType),
+        votedAt: inserted.votedAt,
+      };
+    }
+    return updateVote(inserted, votingType, arrivedAt);
+  }
+
   return {
     votingType,
     isDuplicated: false,
     isAttend: ATTEND_TYPES.includes(votingType),
     votedAt: arrivedAt,
+  };
+}
+
+/*
+ * 이미 있는 표를 다른 종류로 바꾼다.
+ *
+ * 참여와 부속 사이의 전환은 순번을 지킨다. 그 밖의 변경은 도착 시각으로 다시
+ * 찍어 맨 뒤로 보낸다. 봇의 !인원제한결과 가 쓰던 우선순위 규칙과 같다.
+ */
+async function updateVote(
+  existing: VoteRecord,
+  votingType: VotingType,
+  arrivedAt: Date,
+): Promise<CastVoteResult> {
+  const needsTimeUpdate = !(
+    ATTEND_TYPES.includes(votingType) && ATTEND_TYPES.includes(existing.votingType)
+  );
+  const query = needsTimeUpdate
+    ? "UPDATE survey_history SET voting_type = ?, updated_at = ? WHERE id = ?"
+    : "UPDATE survey_history SET voting_type = ? WHERE id = ?";
+  const params = needsTimeUpdate
+    ? [votingType, arrivedAt, existing.id]
+    : [votingType, existing.id];
+  await pool.execute(query, params);
+  // 기록한 시각을 이미 알고 있으므로 다시 읽지 않는다. 왕복이 한 번 줄어든다.
+  return {
+    votingType,
+    isDuplicated: false,
+    isAttend: ATTEND_TYPES.includes(votingType),
+    votedAt: needsTimeUpdate ? arrivedAt : existing.votedAt,
   };
 }
 
@@ -238,11 +274,11 @@ export function firstVoteJoin(alias: string, surveyScoped: boolean): string {
 export async function getVoteCounts(surveyId: string): Promise<Record<VotingType, number>> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT survey_history.voting_type, COUNT(*) AS count FROM survey_history " +
-      firstVoteJoin("survey_history", true) +
+      // firstVoteJoin("survey_history", true) +   ← uq_survey_user 로 대체
       "JOIN user ON survey_history.user_id = user.id " +
       "WHERE survey_history.survey_id = ? AND user.status = 1 " +
       "GROUP BY survey_history.voting_type",
-    [surveyId, surveyId],
+    [surveyId],
   );
   const counts: Record<VotingType, number> = {
     attend: 0,
@@ -316,7 +352,7 @@ export async function getVoters(surveyId: string): Promise<VoterRow[]> {
     "SELECT sh.id AS history_id, u.user_nickname, g.name AS guild_name, sh.voting_type, sh.updated_at, sh.created_at, " +
       "       cc.name AS class_name, cc.type AS class_type " +
       "FROM survey_history sh " +
-      firstVoteJoin("sh", true) +
+      // firstVoteJoin("sh", true) +   ← uq_survey_user 로 대체
       "JOIN user u ON sh.user_id = u.id " +
       "JOIN guild g ON u.guild_id = g.id " +
       "LEFT JOIN user_character_class_map m ON u.id = m.user_id " +
