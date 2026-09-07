@@ -36,20 +36,30 @@ export function VoteButtons({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  /* 서버가 마감이라고 답하면 화면도 즉시 잠근다. 오래 열어둔 탭에서 눌렀을 때
+     버튼이 계속 살아 있으면 같은 실패를 반복하게 된다. */
+  const [serverClosed, setServerClosed] = useState(false);
 
   const isAttend = currentVote ? ATTEND_TYPES.includes(currentVote) : false;
+  const votingClosed = closed || serverClosed;
 
   function handleVote(votingType: VotingType) {
     setError(null);
     startTransition(async () => {
       try {
         const result = await submitVote(surveyId, votingType);
-        const kor = VOTING_TYPE_LABEL[result.votingType];
-        setMessage(result.isDuplicated ? `이미 ${kor}를 선택한 상태입니다.` : `${kor} 선택.`);
-        setCurrentVote(result.votingType);
-        setVotedAt(result.votedAt);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "투표 처리 중 오류가 발생했습니다.");
+        if (!result.ok) {
+          setError(result.message);
+          if (result.reason === "closed") setServerClosed(true);
+          return;
+        }
+        const kor = VOTING_TYPE_LABEL[result.vote.votingType];
+        setMessage(result.vote.isDuplicated ? `이미 ${kor}를 선택한 상태입니다.` : `${kor} 선택.`);
+        setCurrentVote(result.vote.votingType);
+        setVotedAt(result.vote.votedAt);
+      } catch {
+        // 여기까지 오는 것은 네트워크가 끊겼거나 서버가 죽은 경우뿐이다.
+        setError("서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.");
       }
     });
   }
@@ -62,7 +72,7 @@ export function VoteButtons({
             key={type}
             type="button"
             className={`${styles.voteButton} ${currentVote === type ? styles.selected : ""}`}
-            disabled={closed || isPending}
+            disabled={votingClosed || isPending}
             onClick={() => handleVote(type)}
           >
             {VOTING_TYPE_LABEL[type]}
@@ -76,11 +86,11 @@ export function VoteButtons({
         </p>
       )}
 
-      {closed && <p className={styles.notice}>투표가 마감되었습니다.</p>}
+      {votingClosed && <p className={styles.notice}>투표가 마감되었습니다.</p>}
       {message && <p className={styles.message}>{message}</p>}
       {error && <p className={styles.error}>{error}</p>}
 
-      {!closed && isAttend && (
+      {!votingClosed && isAttend && (
         <div className={styles.classSection}>
           {classInfo ? (
             <p className={styles.notice}>
