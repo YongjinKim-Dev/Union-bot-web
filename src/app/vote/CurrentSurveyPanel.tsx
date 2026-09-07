@@ -48,7 +48,8 @@ export function CurrentSurveyPanel({
   /** 공지를 쏠 시각(ms). 이미 보냈거나 공지가 없으면 null. */
   announceAt: number | null;
 }) {
-  const offset = useServerClockOffset();
+  // 투표가 열리는 순간이 가장 정확해야 하므로, 그 직전에 시계를 다시 맞춘다.
+  const offset = useServerClockOffset(opensAt);
   const [serverNow, setServerNow] = useState(() => Date.now());
 
   useEffect(() => {
