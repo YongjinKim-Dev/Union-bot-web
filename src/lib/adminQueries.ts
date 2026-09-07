@@ -2,6 +2,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
 import { ATTEND_TYPES } from "@/lib/types";
 import type { ClassType, DbSurvey, VotingType } from "@/lib/types";
+import { firstVoteJoin } from "@/lib/queries";
 import type { VoterRow } from "@/lib/queries";
 
 /* 관리자 화면 전용 조회 */
@@ -42,7 +43,9 @@ export async function ensureFinalTable(): Promise<void> {
       "SELECT h.survey_id, h.user_id, h.voting_type, " +
       "       ROW_NUMBER() OVER (PARTITION BY h.survey_id ORDER BY h.updated_at ASC, h.id ASC), " +
       "       h.created_at, h.updated_at " +
-      "FROM survey_history h JOIN survey s ON s.id = h.survey_id " +
+      "FROM survey_history h " +
+      firstVoteJoin("h", false) +
+      "JOIN survey s ON s.id = h.survey_id " +
       "WHERE s.executed_at <= NOW()",
   );
 }
@@ -79,10 +82,11 @@ export async function getOriginalRoster(surveyId: string): Promise<VoterRow[]> {
     "SELECT src.id AS row_id, src.voting_type, src.updated_at, src.created_at, " +
       ROSTER_COLUMNS +
       "FROM survey_history src " +
+      firstVoteJoin("src", true) +
       ROSTER_JOINS +
       "WHERE src.survey_id = ? AND u.status = 1 " +
       "ORDER BY src.updated_at ASC, src.id ASC",
-    [surveyId],
+    [surveyId, surveyId],
   );
   return rows.map(toVoterRow);
 }
@@ -116,8 +120,10 @@ export async function getFinalRoster(
         "SELECT h.survey_id, h.user_id, h.voting_type, " +
         "       ROW_NUMBER() OVER (ORDER BY h.updated_at ASC, h.id ASC), " +
         "       h.created_at, h.updated_at " +
-        "FROM survey_history h WHERE h.survey_id = ?",
-      [surveyId],
+        "FROM survey_history h " +
+        firstVoteJoin("h", true) +
+        "WHERE h.survey_id = ?",
+      [surveyId, surveyId],
     );
   }
 
@@ -199,6 +205,7 @@ export async function getPastSurveys(
       "SUM(h.voting_type = 'attend') AS a, SUM(h.voting_type = 'boarding') AS b, " +
       "SUM(h.voting_type = 'late_attend') AS l, SUM(h.voting_type = 'non_attend') AS n " +
       "FROM survey s LEFT JOIN survey_history h ON h.survey_id = s.id " +
+      "AND h.id IN (SELECT MIN(id) FROM survey_history GROUP BY survey_id, user_id) " +
       `WHERE s.status <> 'cancel' ${exclude} ` +
       "GROUP BY s.id, s.executed_at, s.exposed_at " +
       `ORDER BY s.executed_at DESC, s.id DESC LIMIT ${Number(size)} OFFSET ${Number(offset)}`,
