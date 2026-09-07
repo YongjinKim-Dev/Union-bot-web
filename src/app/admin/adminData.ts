@@ -1,6 +1,6 @@
 /* 관리자 콘솔의 타입과 순수 계산 */
 
-import { formatKstTimeWithSeconds } from "@/lib/format";
+import { formatKstTimeWithMillis } from "@/lib/format";
 import type { VoterRow } from "@/lib/queries";
 import { CLASS_TYPE_LABEL, VOTING_TYPE_LABEL } from "@/lib/types";
 import { formatDayDate } from "@/lib/week";
@@ -202,7 +202,7 @@ export function votersToMembers(voters: VoterRow[]): Member[] {
       vote,
       ord,
       origSeq: inRoster ? firstSeq.get(v.historyId)! : ord + 1,
-      time: `${formatDayDate(votedAt)} ${formatKstTimeWithSeconds(votedAt)}`,
+      time: `${formatDayDate(votedAt)} ${formatKstTimeWithMillis(votedAt)}`,
     };
   });
 }

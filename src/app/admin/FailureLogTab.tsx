@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { formatKstTimeWithSeconds, formatSurveyDate } from "@/lib/format";
+import { formatKstTimeWithMillis, formatSurveyDate } from "@/lib/format";
 import type { VoteFailureRow } from "@/lib/voteLog";
 import { VOTING_TYPE_LABEL } from "@/lib/types";
 import styles from "./admin.module.css";
@@ -87,7 +87,7 @@ export function FailureLogTab() {
                   <tr key={r.id}>
                     <td className={styles.mono}>
                       {formatSurveyDate(new Date(r.arrivedAt)).slice(5, 10)}{" "}
-                      {formatKstTimeWithSeconds(new Date(r.arrivedAt))}
+                      {formatKstTimeWithMillis(new Date(r.arrivedAt))}
                     </td>
                     <td className={styles.mono}>{r.surveyId ?? "—"}</td>
                     <td>{r.nickname ?? "—"}</td>

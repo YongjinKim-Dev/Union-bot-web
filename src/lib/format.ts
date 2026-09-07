@@ -40,6 +40,24 @@ export function formatKstTimeWithSeconds(date: Date): string {
   }).format(date);
 }
 
+/**
+ * "22:30:00.078" — 순번을 가르는 것은 밀리초다.
+ *
+ * 투표가 열리는 순간에는 같은 초에 수십 명이 몰린다. 초까지만 보면 그 안에서
+ * 누가 먼저인지 알 수 없어 순번의 근거를 확인할 수 없다. 도착 시각은 밀리초까지
+ * 기록되므로 그대로 보여 준다.
+ */
+export function formatKstTimeWithMillis(date: Date): string {
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    fractionalSecondDigits: 3,
+    hour12: false,
+  }).format(date);
+}
+
 // Voting closes one hour before executed_at, same window enforced by the
 // bot's close_survey background task.
 export function getVotingClosesAt(executedAt: Date): Date {

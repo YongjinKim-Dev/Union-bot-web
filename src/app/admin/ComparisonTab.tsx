@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { formatKstTimeWithSeconds, formatSurveyDate, formatSurveyTime } from "@/lib/format";
+import { formatKstTimeWithMillis, formatSurveyDate, formatSurveyTime } from "@/lib/format";
 import type { PastSurveyRow, RosterDiffRow } from "@/lib/adminQueries";
 import { VOTING_TYPE_LABEL } from "@/lib/types";
 import styles from "./admin.module.css";
@@ -135,7 +135,7 @@ export function ComparisonTab() {
           {d.votingType ? VOTING_TYPE_LABEL[d.votingType] : "-"}
           {side === "original" && d.votedAt && (
             <span className={styles.cmpTime}>
-              {formatKstTimeWithSeconds(new Date(d.votedAt))}
+              {formatKstTimeWithMillis(new Date(d.votedAt))}
             </span>
           )}
         </span>
