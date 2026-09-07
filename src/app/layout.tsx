@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, JetBrains_Mono, Lora } from "next/font/google";
 import "./globals.css";
 
@@ -23,9 +23,43 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const SITE_URL = process.env.NEXTAUTH_URL ?? "https://vote.jan-azhidahaka.com";
+const SITE_DESCRIPTION = "디스코드 계정으로 로그인하면 이번 거점전 투표에 참여할 수 있습니다.";
+
+/*
+ * 디스코드와 카톡에 링크를 올리면 뜨는 미리보기.
+ *
+ * 투표 링크는 로그인 가드에 걸려 /login 으로 넘어가므로, 미리보기를 만드는
+ * 크롤러가 실제로 읽는 것은 로그인 페이지다. 그래서 페이지마다 따로 두지 않고
+ * 루트 레이아웃에 한 번만 둔다. 모든 페이지가 이 값을 물려받는다.
+ *
+ * metadataBase 가 있어야 "/og.jpg" 같은 상대 경로가 절대 주소로 바뀐다.
+ * 크롤러는 상대 경로를 읽지 못한다.
+ */
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "아시바당",
-  description: "거점전 투표와 연맹 정보",
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    siteName: "아시바당",
+    title: "아시바당 거점전 투표",
+    description: SITE_DESCRIPTION,
+    url: "/vote",
+    images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "아시바당 거점전" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "아시바당 거점전 투표",
+    description: SITE_DESCRIPTION,
+    images: ["/og.jpg"],
+  },
+};
+
+/* 디스코드 임베드 왼쪽에 그어지는 색 막대. 사이트 강조색과 맞춘다. */
+export const viewport: Viewport = {
+  themeColor: "#b68235",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
