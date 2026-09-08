@@ -82,8 +82,10 @@ export interface EquipmentWorkspace { version: 1 | 2 | 3; activeId: string; buil
 /** v2 까지는 수정·광명석이 세팅 밖에 있었다. 옛 저장값을 읽을 때만 쓴다. */
 type LegacyBuild = Omit<EquipmentBuild, "crystals" | "lightstones"> & Partial<Pick<EquipmentBuild, "crystals" | "lightstones">>;
 interface LegacyWorkspace { version: 1 | 2 | 3; activeId: string; builds: LegacyBuild[] }
-// 기존 구성 형식 검증용 상한. 현재 화면에는 저장/불러오기 기능이 없다.
-const LEGACY_MAX_BUILDS = 8;
+/** 한 사람이 가질 수 있는 세팅 수. spec_build 는 "사용자당 몇 개" 를 제약으로 쓸 수 없어 여기서 막는다. */
+export const MAX_BUILDS = 8;
+/** spec_build.name 이 varchar(40) 이다. */
+export const BUILD_NAME_MAX = 40;
 /** 공식 가이드 wikiNo=308: 바탈리 6 + 10주년 1 + 잠식 1 + 카마/오딜 각 1 + 아침 1 + 레벨 1 + 행복한 흑정령 1. */
 export const COMPLETED_PROGRESSION = { ap: 12, aap: 12, dp: 12 } as const;
 export interface EquipmentSheetStats { ap: number; aap: number; dp: number; score: number; complete: boolean }
@@ -149,6 +151,10 @@ export function migrateEquipmentWorkspace(workspace: LegacyWorkspace): Equipment
     return { ...migrated, crystals: migrated.crystals ?? {}, lightstones: migrated.lightstones ?? {} };
   }) };
 }
+/*
+ * 세팅을 하나로 접는다. 저장·제출이 붙기 전, 화면이 세팅 하나만 다루던 때에
+ * 쓰던 것이다. 지금은 세팅을 여러 개 두므로 화면에서 부르지 않는다.
+ */
 export function singleEquipmentWorkspace(workspace: EquipmentWorkspace): EquipmentWorkspace {
   const current = migrateEquipmentWorkspace(workspace);
   const selected = current.builds.find(b => b.id === current.activeId) ?? current.builds[0];
@@ -180,27 +186,39 @@ function parseAugmentSelection(kind: AugmentKind, raw: unknown): AugmentSelectio
   return selection;
 }
 
+/*
+ * 세팅 하나를 확인한다. 브라우저 저장값도, 화면이 서버로 보낸 값도, DB 에서
+ * 읽어온 값도 모두 이 함수를 지난다. 검증을 한 군데로 모아야 서버와 화면이
+ * 서로 다른 것을 통과시키지 않는다.
+ */
+export function parseBuild(raw: unknown): EquipmentBuild {
+  const b = raw as LegacyBuild;
+  if (!b || typeof b.id !== "string" || !b.id || b.id.length > 80 || typeof b.name !== "string" || !b.name.trim() || b.name.length > BUILD_NAME_MAX || !b.equipment || typeof b.equipment !== "object" || Array.isArray(b.equipment)) throw new Error("장비 세팅 형식이 올바르지 않습니다.");
+  const equipment: EquipmentBuild["equipment"] = {};
+  for (const slot of EQUIPMENT_SLOTS) {
+    if (!Object.hasOwn(b.equipment, slot.id)) continue;
+    const selected = b.equipment[slot.id], item = selected && EQUIPMENT_BY_ID.get(selected.itemId);
+    if (!selected || !item || item.category !== slot.category || !Number.isInteger(selected.enhancement) || selected.enhancement < 0 || selected.enhancement >= enhancementOptions(item.enhancementKind).length || !Number.isInteger(selected.caphras) || selected.caphras < 0 || selected.caphras > 20) throw new Error("장비 또는 강화 단계가 올바르지 않습니다.");
+    equipment[slot.id] = { itemId: item.id, enhancement: selected.enhancement, caphras: canUseCaphras(item, selected.enhancement) ? selected.caphras : 0 };
+  }
+  return {
+    id: b.id, name: b.name.trim(), equipment,
+    crystals: parseAugmentSelection("crystal", b.crystals),
+    lightstones: parseAugmentSelection("lightstone", b.lightstones),
+  };
+}
+
 /** 브라우저 저장값도 신뢰하지 않는다. 버전·슬롯·장비·강화 범위를 확인한다. */
 export function parseWorkspace(raw: string): EquipmentWorkspace {
   if (raw.length > 100_000) throw new Error("저장 데이터가 너무 큽니다.");
   const data = JSON.parse(raw);
-  if (!data || ![1, 2, 3].includes(data.version) || !Array.isArray(data.builds) || !data.builds.length || data.builds.length > LEGACY_MAX_BUILDS) throw new Error("지원하지 않는 장비 데이터입니다.");
+  if (!data || ![1, 2, 3].includes(data.version) || !Array.isArray(data.builds) || !data.builds.length || data.builds.length > MAX_BUILDS) throw new Error("지원하지 않는 장비 데이터입니다.");
   const ids = new Set<string>();
   const builds: LegacyBuild[] = data.builds.map((b: LegacyBuild) => {
-    if (!b || typeof b.id !== "string" || !b.id || b.id.length > 80 || ids.has(b.id) || typeof b.name !== "string" || !b.name.trim() || b.name.length > 40 || !b.equipment || typeof b.equipment !== "object" || Array.isArray(b.equipment)) throw new Error("장비 세팅 형식이 올바르지 않습니다.");
-    ids.add(b.id);
-    const equipment: EquipmentBuild["equipment"] = {};
-    for (const slot of EQUIPMENT_SLOTS) {
-      if (!Object.hasOwn(b.equipment, slot.id)) continue;
-      const selected = b.equipment[slot.id], item = selected && EQUIPMENT_BY_ID.get(selected.itemId);
-      if (!selected || !item || item.category !== slot.category || !Number.isInteger(selected.enhancement) || selected.enhancement < 0 || selected.enhancement >= enhancementOptions(item.enhancementKind).length || !Number.isInteger(selected.caphras) || selected.caphras < 0 || selected.caphras > 20) throw new Error("장비 또는 강화 단계가 올바르지 않습니다.");
-      equipment[slot.id] = { itemId: item.id, enhancement: selected.enhancement, caphras: canUseCaphras(item, selected.enhancement) ? selected.caphras : 0 };
-    }
-    return {
-      id: b.id, name: b.name.trim(), equipment,
-      crystals: parseAugmentSelection("crystal", b.crystals),
-      lightstones: parseAugmentSelection("lightstone", b.lightstones),
-    };
+    const parsed = parseBuild(b);
+    if (ids.has(parsed.id)) throw new Error("장비 세팅 형식이 올바르지 않습니다.");
+    ids.add(parsed.id);
+    return parsed;
   });
   return migrateEquipmentWorkspace({ version: data.version, activeId: ids.has(data.activeId) ? data.activeId : builds[0].id, builds });
 }

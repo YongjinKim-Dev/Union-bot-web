@@ -60,6 +60,20 @@ export function formatKstTimeWithMillis(date: Date): string {
 
 // Voting closes one hour before executed_at, same window enforced by the
 // bot's close_survey background task.
+/** "09.08 16:40" — 제출 시각처럼 날짜와 분까지만 보이면 되는 자리. */
+export function formatKstDateTime(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const at = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${at("month")}.${at("day")} ${at("hour")}:${at("minute")}`;
+}
+
 export function getVotingClosesAt(executedAt: Date): Date {
   return new Date(executedAt.getTime() - 60 * 60 * 1000);
 }

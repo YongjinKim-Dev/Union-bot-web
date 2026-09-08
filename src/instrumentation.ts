@@ -4,6 +4,8 @@ export async function register() {
 
   const { ensureFinalTable } = await import("@/lib/adminQueries");
   const { ensureVoteFailureTable } = await import("@/lib/voteLog");
+  const { ensureSpecTables } = await import("@/lib/specQueries");
   await ensureFinalTable();
   await ensureVoteFailureTable();
+  await ensureSpecTables();
 }

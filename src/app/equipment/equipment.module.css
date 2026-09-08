@@ -136,9 +136,38 @@
   .summaryFooter strong { max-width: 160px; }
   .modeButtons { padding: 10px 0; gap: 6px; }
   .modeButtons button { flex: 1; padding: 7px 5px; gap: 5px; font-size: 10px; }
+  .submitted { white-space: normal; }
+  .buildBar { padding: 11px 12px; gap: 10px; }
+  .buildTabs, .buildActions { width: 100%; }
+  .buildTab { max-width: 100%; }
+  .buildName { flex: 1; }
+  .buildName input { width: 100%; }
+  .buildActions .button, .submitButton { flex: 1; min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .slotIcon, .itemCard { transition: none; }
 }
 
 .nameRow h2 { margin: 0; padding: 7px 0; font: 600 19px var(--font-heading); color: var(--color-ink); }
+
+/* 세팅 보관 — 여러 세팅을 두고 그중 하나를 조사에 낸다. */
+.submitted { margin: 0; padding-bottom: 5px; font-size: 11px; color: var(--color-ink-dim); white-space: nowrap; }
+.submitted strong { color: var(--color-accent-deep); }
+.submitted[data-empty="true"] { color: var(--color-ink-faint); }
+.buildBar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; padding: 12px 15px; border: 1px solid var(--color-hairline); border-radius: 6px; background: #f1efeb; }
+.buildTabs { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; min-width: 0; }
+.buildTab { display: flex; align-items: center; gap: 6px; min-height: 36px; max-width: 220px; padding: 7px 13px; border: 1px solid var(--color-hairline); border-radius: 5px; background: #fbfaf9; color: var(--color-ink-dim); font: 12px var(--font-body); cursor: pointer; }
+.buildTab > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.buildTab:hover { border-color: var(--color-accent); color: var(--color-accent-deep); }
+.buildTab.buildActive { border-color: var(--color-accent); background: var(--color-accent-tint); color: var(--color-accent-deep); box-shadow: inset 0 0 0 1px var(--color-accent); font-weight: 600; }
+.buildDot { flex-shrink: 0; font-size: 9px; line-height: 1; color: var(--color-accent); }
+.buildSent { flex-shrink: 0; padding: 2px 5px; border-radius: 3px; background: var(--color-accent-deep); color: var(--color-paper); font: 600 9px var(--font-mono); letter-spacing: .04em; }
+.buildAdd { min-height: 36px; padding: 7px 12px; border: 1px dashed var(--color-hairline); border-radius: 5px; background: transparent; color: var(--color-ink-faint); font: 12px var(--font-body); cursor: pointer; }
+.buildAdd:hover:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent-deep); }
+.buildActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.buildName { display: flex; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid var(--color-hairline); border-radius: 4px; background: #fff; }
+.buildName input { width: 150px; min-width: 0; padding: 10px 0; border: 0; background: transparent; outline: none; color: var(--color-ink); font: 12px var(--font-body); }
+.buildName:focus-within { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+.submitButton { min-height: 38px; padding: 8px 16px; border: 1px solid var(--color-accent-deep); border-radius: 4px; background: var(--color-accent-deep); color: var(--color-paper); font-size: 12px; font-weight: 600; cursor: pointer; }
+.submitButton:hover:not(:disabled) { background: var(--color-accent-deeper); border-color: var(--color-accent-deeper); }
+
