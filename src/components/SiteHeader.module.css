@@ -121,6 +121,7 @@
   .nav {
     order: 2;
     flex-basis: 100%;
+    flex-wrap: wrap;
     gap: 15px;
   }
 

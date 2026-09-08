@@ -1,0 +1,196 @@
+{
+  "capturedAt": "2026-09-07",
+  "sourceUrl": "https://api.garmoth.com/api/equipment/items?region=kr&lang=kr",
+  "sourceSha256": "8414916bdd3f3d35476531e1deea1a003dd376ede058b98626eefbd91644fd35",
+  "rawCount": 4199,
+  "emptyIds": [
+    0
+  ],
+  "redirects": {
+    "1000000200": 11731,
+    "1000000201": 12142,
+    "1000000202": 12296,
+    "1000000203": 11896,
+    "1000000204": 11733,
+    "1000000205": 12144,
+    "1000000206": 12298,
+    "1000000207": 11898,
+    "1000000208": 11732,
+    "1000000209": 12143,
+    "1000000210": 12297,
+    "1000000211": 11897,
+    "1000000212": 11734,
+    "1000000213": 12145,
+    "1000000214": 12299,
+    "1000000215": 11899,
+    "1000000216": 933501
+  },
+  "slotSourceCount": 3997,
+  "displayCount": 1063,
+  "counts": {
+    "helmet": {
+      "source": 48,
+      "display": 48
+    },
+    "armor": {
+      "source": 106,
+      "display": 106
+    },
+    "gloves": {
+      "source": 49,
+      "display": 49
+    },
+    "shoes": {
+      "source": 49,
+      "display": 49
+    },
+    "main_weapon": {
+      "source": 1045,
+      "display": 47
+    },
+    "awakening_weapon": {
+      "source": 1011,
+      "display": 61
+    },
+    "sub_weapon": {
+      "source": 1044,
+      "display": 58
+    },
+    "ring": {
+      "source": 109,
+      "display": 109
+    },
+    "necklace": {
+      "source": 99,
+      "display": 99
+    },
+    "belt": {
+      "source": 100,
+      "display": 100
+    },
+    "earring": {
+      "source": 96,
+      "display": 96
+    },
+    "alchemy_stone": {
+      "source": 179,
+      "display": 179
+    },
+    "book": {
+      "source": 12,
+      "display": 12
+    },
+    "artifact": {
+      "source": 50,
+      "display": 50
+    }
+  },
+  "otherSlotTypes": [
+    [
+      "14",
+      22
+    ],
+    [
+      "16",
+      15
+    ],
+    [
+      "19",
+      2
+    ],
+    [
+      "100",
+      3
+    ],
+    [
+      "101",
+      3
+    ],
+    [
+      "102",
+      3
+    ],
+    [
+      "103",
+      3
+    ],
+    [
+      "104",
+      3
+    ],
+    [
+      "105",
+      3
+    ],
+    [
+      "200",
+      18
+    ],
+    [
+      "201",
+      4
+    ],
+    [
+      "300",
+      14
+    ],
+    [
+      "400",
+      15
+    ],
+    [
+      "401",
+      15
+    ],
+    [
+      "402",
+      15
+    ],
+    [
+      "403",
+      15
+    ],
+    [
+      "500",
+      5
+    ],
+    [
+      "501",
+      5
+    ],
+    [
+      "502",
+      5
+    ],
+    [
+      "503",
+      5
+    ],
+    [
+      "504",
+      4
+    ],
+    [
+      "600",
+      6
+    ],
+    [
+      "601",
+      1
+    ]
+  ],
+  "corrections": {
+    "primordialSol": {
+      "curveSourceIds": {
+        "748001": 742273,
+        "748002": 742272,
+        "748003": 742271
+      },
+      "reason": "원본은 동(V) 수치 1개만 제공. 개량 전 솔의 강화별 표기 AP/DP를 사용하며 동(V)을 기본 선택한다.",
+      "sourceUrls": [
+        "https://www.kr.playblackdesert.com/ko-KR/Wiki?wikiNo=439",
+        "https://garmoth.com/guides/post/primordial-weapons"
+      ]
+    }
+  }
+}

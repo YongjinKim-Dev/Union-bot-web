@@ -1,0 +1,115 @@
+{
+  "snapshotDate": "2026-09-07",
+  "sourceUrl": "https://api.garmoth.com/api/crystals?region=kr&lang=kr",
+  "sourceSha256": "09c48d6e9a272f9388bece4c8a52376f9d05c36ed0fe339a9014bf3a15f933bb",
+  "sourceCount": 305,
+  "crystalCount": 185,
+  "lightstoneCount": 85,
+  "rulesSource": "https://assets.garmoth.com/_static/_nuxt/Bs-zS63S.js",
+  "rulesSourceSha256": "b583abd35a89fe84d6cc95f17201cd33e400c543be849fae2b79d4fedb2874e9",
+  "crystalSlots": {
+    "general": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      16,
+      17
+    ],
+    "ancientSpirit": [
+      15
+    ],
+    "dawn": [
+      30,
+      31,
+      32,
+      33,
+      34,
+      35
+    ]
+  },
+  "lightstoneSlots": 4,
+  "slotAssumption": "슬롯 해금 완료 기준으로 구성을 편집한다. 장비 개량에 따른 슬롯 잠금 및 상세 스탯 합산은 이번 범위가 아니다.",
+  "lightstoneReference": "https://www.kr.playblackdesert.com/ko-KR/Wiki?wikiNo=272",
+  "excluded": [
+    {
+      "reason": "빈 항목",
+      "ids": [
+        0
+      ]
+    },
+    {
+      "reason": "솔라레 전용 수정: 가모스 일반 수정 프리셋과 동일하게 제외",
+      "ids": [
+        15721,
+        15724,
+        15727,
+        15728,
+        15819,
+        15820,
+        15821,
+        15822,
+        768769,
+        768831,
+        768832,
+        768844
+      ]
+    },
+    {
+      "reason": "군왕 무기 재련석: 일반 수정 프리셋 슬롯 대상이 아님",
+      "ids": [
+        820953,
+        820954,
+        820955,
+        820956,
+        820957,
+        820958,
+        820959,
+        820960,
+        820961,
+        820962,
+        820963,
+        821260,
+        821261,
+        821262,
+        821263,
+        821264,
+        821265,
+        821266,
+        821267,
+        821268,
+        821269,
+        821270
+      ]
+    },
+    {
+      "reason": "가모스에서 숨긴 항목",
+      "ids": []
+    }
+  ],
+  "imageAttribution": "게임 아이콘의 권리는 원 권리자에게 있으며 원본 URL은 각 항목의 sourceImage에 보관한다.",
+  "lightstoneCombinations": {
+    "sourceUrl": "https://garmoth.com/artifacts/combat/lightstone/sets",
+    "rulesSource": "https://assets.garmoth.com/_static/_nuxt/Bs-zS63S.js",
+    "rulesSha256": "b583abd35a89fe84d6cc95f17201cd33e400c543be849fae2b79d4fedb2874e9",
+    "koreanNamesSource": "https://assets.garmoth.com/_static/_nuxt/ByqoDrg4.js",
+    "koreanNamesSha256": "f6fbbf2dd5206c44ff5795a2bebac01b1721f8097f6d29511bd5ba625832c3e6",
+    "count": 165,
+    "combat": 83,
+    "lifeskill": 82,
+    "matching": "순서 무관, 재료 개수 구분, 일반 및 증폭 대체 허용. 더 많은 재료의 조합을 우선 적용한다.",
+    "localizedMissingNames": {
+      "The Wild: Edania": "야수 : 에다니아 종족"
+    }
+  }
+}
