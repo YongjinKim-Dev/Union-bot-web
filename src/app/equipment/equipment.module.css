@@ -15,6 +15,12 @@
 .counter { font-family: var(--font-mono); font-size: 16px; color: var(--color-accent-deep); }
 .counter span { font-size: 10px; color: var(--color-ink-faint); }
 .nameRow { padding: 7px 22px 10px; display: flex; gap: 9px; align-items: center; }
+.modeButtons { display: flex; justify-content: center; gap: 8px; padding: 12px 18px; margin: 0 15px; border-top: 1px solid var(--color-rule); border-bottom: 1px solid var(--color-rule); }
+.modeButtons button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 7px 13px; border: 1px solid var(--color-hairline); border-radius: 5px; color: var(--color-ink-dim); background: #f1efeb; cursor: pointer; font: 11px var(--font-body); }
+.modeButtons svg { width: 23px; height: 23px; flex-shrink: 0; }
+.modeButtons button:hover { border-color: var(--color-accent); color: var(--color-accent-deep); }
+.modeButtons .modeActive { color: var(--color-accent-deep); background: var(--color-accent-tint); border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
+.modeButtons button:focus-visible { outline: 2px solid var(--color-accent-deep); outline-offset: 3px; }
 .sheetHeading { display: flex; justify-content: space-between; gap: 8px; padding: 12px 20px 9px; font-size: 10px; color: var(--color-ink-dim); }
 .sheetHeading > span:last-child { color: var(--color-accent-deep); }
 .sheetStats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0 15px; border: 1px solid var(--color-rule); border-radius: 5px; background: #efede8; overflow: hidden; text-align: center; }
@@ -128,6 +134,8 @@
   .levels button { min-height: 42px; }
   .summaryFooter { padding: 16px; }
   .summaryFooter strong { max-width: 160px; }
+  .modeButtons { padding: 10px 0; gap: 6px; }
+  .modeButtons button { flex: 1; padding: 7px 5px; gap: 5px; font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .slotIcon, .itemCard { transition: none; }

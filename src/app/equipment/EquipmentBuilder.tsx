@@ -8,10 +8,17 @@ import {
   type EquipmentBuild, type EquipmentSlot, type EquipmentSlotId,
 } from "@/lib/equipment";
 import styles from "./equipment.module.css";
+import { AugmentBoard, AugmentEditor, EquipmentModeIcon, useAugmentEditor, type EquipmentMode } from "./AugmentPanels";
+import { LightstoneCombinations } from "./LightstoneCombinations";
 
 export function EquipmentBuilder() {
   const boardRef = useRef<HTMLElement>(null);
   const editorRef = useRef<HTMLElement>(null);
+  const [mode, setMode] = useState<EquipmentMode>("gear");
+  const crystals = useAugmentEditor("crystal");
+  const lightstones = useAugmentEditor("lightstone");
+  const augment = mode === "lightstone" ? lightstones : crystals;
+  const modeTitle = mode === "gear" ? "장비" : augment.title;
   const [storedWorkspace, setWorkspace] = useState(defaultEquipmentWorkspace);
   const workspace = migrateEquipmentWorkspace(storedWorkspace);
   const [slotId, setSlotId] = useState<EquipmentSlotId>("helmet");
@@ -79,16 +86,20 @@ export function EquipmentBuilder() {
       <div className={styles.pageHeading}>
         <div><p className={styles.eyebrow}>SPEC SURVEY</p><h1>스펙조사</h1></div>
       </div>
-      {notice && <p role={notice.error ? "alert" : "status"} className={`${styles.notice} ${notice.error ? styles.error : ""}`}>{notice.text}</p>}
+      {mode === "gear" && notice && <p role={notice.error ? "alert" : "status"} className={`${styles.notice} ${notice.error ? styles.error : ""}`}>{notice.text}</p>}
 
-      <div className={styles.workspace}>
-        <section ref={boardRef} className={styles.boardPanel} aria-label="내 장비 슬롯">
-          <div className={styles.panelHeading}><span className={styles.sectionLabel}>MY EQUIPMENT</span><span className={styles.counter}>{count}<span> / {EQUIPMENT_SLOTS.length}</span></span></div>
-          <div className={styles.nameRow}><h2>내 장비</h2></div>
-          <div className={styles.gearBoard}>
+      <div className={styles.workspace} data-equipment-mode={mode}>
+        <section ref={boardRef} className={styles.boardPanel} aria-label={`내 ${modeTitle} 슬롯`}>
+          <div className={styles.panelHeading}><span className={styles.sectionLabel}>{mode === "gear" ? "MY EQUIPMENT" : mode === "crystal" ? "MY CRYSTALS" : "MY LIGHTSTONES"}</span><span className={styles.counter}>{mode === "gear" ? count : augment.count}<span> / {mode === "gear" ? EQUIPMENT_SLOTS.length : augment.slots.length}</span></span></div>
+          <div className={styles.nameRow}><h2>내 {modeTitle}</h2></div>
+          {mode === "gear" ? <div className={styles.gearBoard}>
             <div className={styles.orbit} aria-hidden="true" />
             <div className={styles.boardMark} aria-hidden="true"><svg viewBox="0 0 100 124" fill="none"><path d="M50 5 91 23v36c0 28-23 49-41 61C32 108 9 87 9 59V23L50 5Z" stroke="currentColor" strokeWidth="1.5" /><path d="m50 24 22 42-22 33-22-33 22-42Z" stroke="currentColor" /><path d="M50 24v75M28 66h44" stroke="currentColor" /></svg></div>
             {EQUIPMENT_SLOTS.map(s => slotButton(s))}
+          </div> : <AugmentBoard editor={augment} onSelectSlot={() => { if (window.matchMedia("(max-width: 760px)").matches) scrollToPanel(editorRef.current); }} />}
+          {mode === "lightstone" && <LightstoneCombinations selection={lightstones.selection} />}
+          <div className={styles.modeButtons} role="group" aria-label="장착 화면 전환">
+            {([['gear', '장비'], ['crystal', '수정'], ['lightstone', '광명석']] as const).map(([value, label]) => <button key={value} type="button" data-equipment-mode-button={value} aria-pressed={mode === value} className={mode === value ? styles.modeActive : ""} title={`${label} 장착 화면`} onClick={() => setMode(value)}><EquipmentModeIcon mode={value} /><span>{label}</span></button>)}
           </div>
           <div className={styles.sheetHeading}><span>표기 공격력 · 방어력</span><span>내실 전체 완료</span></div>
           <dl className={styles.sheetStats} aria-label="현재 세팅 표기 공방" aria-live="polite" aria-atomic="true">
@@ -97,7 +108,8 @@ export function EquipmentBuilder() {
           <p className={styles.sheetNote}>{stats.complete ? '공방합 = AP·AAP 중 높은 값 + DP' : '수치를 확인하지 못한 장비가 있어 합계를 표시하지 않습니다.'}<br />레벨 60 이상 · 일지·영구 보상 완료 (AP·AAP·DP 각 +12)</p>
         </section>
 
-        <section ref={editorRef} className={styles.editorPanel} aria-label="장비 선택">
+        <section ref={editorRef} className={styles.editorPanel} aria-label={`${modeTitle} 선택`}>
+          {mode !== "gear" ? <AugmentEditor editor={augment} onReturnToSlots={() => scrollToPanel(boardRef.current)} /> : <>
           <button type="button" className={styles.mobileBack} onClick={() => scrollToPanel(boardRef.current)}>↑ 장비 슬롯으로</button>
           <div className={styles.filters}>
             <div className={styles.selectorTitle}><Image src={`/equipment/slots/${slot.category}.png`} alt="" width={28} height={28} unoptimized /><h2>{slot.label}</h2></div>
@@ -120,6 +132,7 @@ export function EquipmentBuilder() {
               {item.caphras && <div className={styles.caphras}><label htmlFor="equipment-caphras">카프라스 돌파 <span>고(III) 이상 · 최대 20단계</span></label><input id="equipment-caphras" type="number" min={0} max={20} step={1} disabled={!canUseCaphras(item, selected.enhancement)} value={selected.caphras} onChange={e => { const caphras = Math.max(0, Math.min(20, Math.trunc(Number(e.target.value) || 0))); edit(b => ({ ...b, equipment: { ...b.equipment, [slotId]: { ...selected, caphras } } })); }} /></div>}
           </div>}
           <div className={styles.summaryFooter}><div><p className={styles.sectionLabel}>MY EQUIPMENT</p><strong>내 장비</strong><span> · {count}개 장착</span></div><button type="button" className={styles.button} disabled={!count} onClick={copyText}>장비 목록 복사</button></div>
+          </>}
         </section>
       </div>
       <footer className={styles.pageFooter}><a href="https://garmoth.com/character/default" target="_blank" rel="noreferrer">참고: Garmoth Gear Planner ↗</a></footer>
