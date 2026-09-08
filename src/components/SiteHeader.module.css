@@ -13,8 +13,28 @@
   padding: 27.6px 46px 18.4px;
 }
 
-.nickname {
+.user {
   order: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* 줄이지 않는다. 헤더가 좁아지면 다른 것보다 먼저 이 칸이 찌그러져서
+     닉네임이 폭 0 으로 밀려난다. 안에 있는 이름은 어차피 줄바꿈하지 않는다. */
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 1px solid var(--color-hairline);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.nickname {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--color-ink);

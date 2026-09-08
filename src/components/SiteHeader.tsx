@@ -29,6 +29,24 @@ const NAV_ITEMS: NavItem[] = [
 
 const ADMIN_NAV_ITEM: NavItem[] = [{ key: "admin", label: "관리자", href: "/admin" }];
 
+/*
+ * 디스코드는 ?size= 로 원하는 크기를 준다. 헤더에 26px 로 들어가는 그림이라
+ * 원본을 통째로 받을 이유가 없다.
+ *
+ * 이 그림은 최적화 서버를 거치지 않고 브라우저가 디스코드에서 바로 받는다.
+ * 거치게 하면 우리 서버가 매번 디스코드로 나가야 하고, 그 경로가 막힌 곳에서는
+ * 그림이 통째로 깨진다. 26px 짜리를 위해 질 위험이 아니다.
+ */
+function avatarSrc(image: string): string {
+  try {
+    const url = new URL(image);
+    url.searchParams.set("size", "64");
+    return url.toString();
+  } catch {
+    return image;
+  }
+}
+
 export async function SiteHeader({ active, kicker = "" }: { active: NavKey; kicker?: string }) {
   // 관리자 항목은 디스코드 부대장·대장에게만 보인다. 화면에서 숨기는 것과 별개로
   // /admin 페이지와 서버 액션이 각각 다시 확인한다.
@@ -46,7 +64,21 @@ export async function SiteHeader({ active, kicker = "" }: { active: NavKey; kick
         {kicker && <span className={styles.kicker}>{kicker}</span>}
       </div>
       {session?.user?.nickname && (
-        <span className={styles.nickname}>{session.user.nickname}</span>
+        <span className={styles.user}>
+          {/* 로그인할 때 토큰에 담긴 주소다. 디스코드에서 사진을 바꾸면 다음
+              로그인 때 따라온다. 사진이 없는 사람도 있으므로 있을 때만 그린다. */}
+          {session.user.image && (
+            <Image
+              src={avatarSrc(session.user.image)}
+              alt=""
+              width={26}
+              height={26}
+              className={styles.avatar}
+              unoptimized
+            />
+          )}
+          <span className={styles.nickname}>{session.user.nickname}</span>
+        </span>
       )}
       <form
         className={styles.logoutForm}
