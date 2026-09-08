@@ -94,7 +94,7 @@ export function AugmentBoard({ editor, onSelectSlot }: { editor: AugmentEditorSt
       <div className={styles.dawnRow} aria-label="새벽의 수정 슬롯"><span className={styles.dawnTitle}>새벽의 수정</span>{slots.filter(slot => slot.type === "kharazad").map(slot => slotButton(slot))}</div>
     </> : <div className={styles.artifacts}>
       {["유물 1", "유물 2"].map(section => <div className={styles.artifact} key={section}>
-        <div className={styles.artifactTitle}><Image src="/equipment/slots/artifact.png" alt="" width={25} height={25} unoptimized /><h3>{section}</h3><span>LIGHTSTONES</span></div>
+        <div className={styles.artifactTitle}><Image src="/gear/slots/artifact.png" alt="" width={25} height={25} unoptimized /><h3>{section}</h3><span>LIGHTSTONES</span></div>
         <div className={styles.lightstoneRow}>{slots.filter(slot => slot.section === section).map(slot => slotButton(slot))}</div>
       </div>)}
     </div>}

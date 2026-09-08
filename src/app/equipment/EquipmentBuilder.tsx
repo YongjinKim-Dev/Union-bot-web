@@ -72,7 +72,7 @@ export function EquipmentBuilder() {
         aria-pressed={s.id === slotId} aria-label={`${s.label}: ${equipped && selection ? equippedItemName(equipped, selection.enhancement) : "미장착"}`}
         title={equipped?.name ?? s.label} onClick={() => chooseSlot(s.id)}>
         <span className={styles.slotIcon} data-rarity={equipped?.rarity}>
-          <Image src={equipped ? `/equipment/items/${equipped.id}.webp` : `/equipment/slots/${s.category}.png`} alt="" width={48} height={48} unoptimized />
+          <Image src={equipped ? `/gear/items/${equipped.id}.webp` : `/gear/slots/${s.category}.png`} alt="" width={48} height={48} unoptimized />
           {level !== "0" && <span className={styles.slotLevel}>{level}</span>}
           {selection && selection.caphras > 0 && <span className={styles.slotCaphras}>C{selection.caphras}</span>}
         </span>
@@ -112,14 +112,14 @@ export function EquipmentBuilder() {
           {mode !== "gear" ? <AugmentEditor editor={augment} onReturnToSlots={() => scrollToPanel(boardRef.current)} /> : <>
           <button type="button" className={styles.mobileBack} onClick={() => scrollToPanel(boardRef.current)}>↑ 장비 슬롯으로</button>
           <div className={styles.filters}>
-            <div className={styles.selectorTitle}><Image src={`/equipment/slots/${slot.category}.png`} alt="" width={28} height={28} unoptimized /><h2>{slot.label}</h2></div>
+            <div className={styles.selectorTitle}><Image src={`/gear/slots/${slot.category}.png`} alt="" width={28} height={28} unoptimized /><h2>{slot.label}</h2></div>
             <label className={styles.search}><svg aria-hidden="true" viewBox="0 0 20 20" fill="none"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" strokeWidth="1.5" /><path d="m13 13 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg><input type="search" aria-label="장비 검색" placeholder="장비 이름 검색" value={search} onChange={e => setSearch(e.target.value)} /></label>
             <select aria-label="장비 정렬" value={sort} onChange={e => setSort(e.target.value)}><option value="recommended">기본순</option><option value="rarity">등급순</option><option value="name">이름순</option></select>
           </div>
           <div className={styles.resultsLabel}><span>{search ? "검색 결과" : "전체 장비"} <strong>{items.length}</strong></span><div>{search && <button type="button" className={styles.textButton} onClick={() => setSearch("")}>검색 초기화</button>}{selected && <button type="button" className={styles.removeButton} onClick={removeItem}>장착 해제</button>}</div></div>
           <div key={`${slotId}:${search}:${sort}`} className={styles.itemGrid} role="group" aria-label={`${slot.label} 장비 목록`}>
             {items.map(i => <button type="button" key={i.id} className={`${styles.itemCard} ${i.id === item?.id ? styles.itemSelected : ""}`} aria-pressed={i.id === item?.id} onClick={() => edit(b => equipItem(b, slotId, i.id))}>
-              <span className={styles.itemIcon} data-rarity={i.rarity}><Image src={`/equipment/items/${i.id}.webp`} alt="" width={44} height={44} unoptimized /></span>
+              <span className={styles.itemIcon} data-rarity={i.rarity}><Image src={`/gear/items/${i.id}.webp`} alt="" width={44} height={44} unoptimized /></span>
               <span className={styles.itemText}><span className={styles.itemName}>{i.name}</span><span className={styles.itemHint}>{i.enhancementKind === "none" ? "강화 없음" : `최대 ${enhancementLabel(i, enhancementOptions(i.enhancementKind).length - 1)}`}</span></span>
               <span className={styles.check} aria-hidden="true">{i.id === item?.id ? "✓" : "+"}</span>
             </button>)}
