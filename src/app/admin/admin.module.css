@@ -1312,3 +1312,23 @@ section.opStack + section {
   line-height: 1.65;
   color: var(--color-ink);
 }
+
+/* 스펙조사 — 접어 펴는 명단. 펼치면 연맹원 화면과 같은 판이 나온다. */
+.specList { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.specRow { display: grid; grid-template-columns: 34px minmax(70px, 1fr) minmax(60px, 1fr) 62px minmax(0, 200px) 92px 20px; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border: 1px solid var(--color-rule); border-radius: 5px; background: #fbfaf9; color: var(--color-ink); text-align: left; font-size: 12px; cursor: pointer; }
+.specRow:hover { border-color: var(--color-accent); background: var(--color-accent-tint); }
+.specOpen .specRow { border-color: var(--color-accent); background: var(--color-accent-tint); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.specRank { color: var(--color-ink-faint); text-align: right; }
+.specName { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.specBuild { color: var(--color-ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.specScore { font-size: 16px; font-weight: 700; color: var(--color-accent-deep); text-align: right; }
+.specParts, .specTime { font-size: 10px; color: var(--color-ink-faint); white-space: nowrap; }
+.specTime { text-align: right; }
+.specChevron { color: var(--color-accent-deep); text-align: center; }
+.specPanel { padding: 14px; border: 1px solid var(--color-accent); border-top: 0; border-radius: 0 0 5px 5px; background: #f4f2ef; }
+.specText { margin: 0; padding: 14px; border: 1px solid var(--color-rule); border-radius: 5px; background: #fbfaf9; font: 11px/1.8 var(--font-mono); white-space: pre-wrap; }
+@media (max-width: 900px) {
+  .specRow { grid-template-columns: 28px minmax(0, 1fr) 56px 18px; row-gap: 4px; }
+  .specBuild, .specParts, .specTime { grid-column: 2 / -1; }
+  .specTime { text-align: left; }
+}

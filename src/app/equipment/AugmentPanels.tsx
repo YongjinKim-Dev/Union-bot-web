@@ -65,18 +65,35 @@ const CRYSTAL_POSITIONS: Record<string, [number, number]> = {
   "crystal-14": [12, 88], "crystal-16": [50, 88], "crystal-17": [88, 88],
 };
 
-export function AugmentBoard({ editor, onSelectSlot }: { editor: AugmentEditorState; onSelectSlot: () => void }) {
-  const { kind, slots, selection, slotId, chooseSlot } = editor;
+/*
+ * 편집기가 아니라 장착 구성만 받는다. 관리자가 낸 스펙을 펼쳐 볼 때는 편집기가
+ * 없다. onSelect 를 주지 않으면 보기 전용이라 누를 수 없는 그림으로 그린다.
+ */
+export function AugmentBoard({ kind, selection, activeSlotId, onSelect }: {
+  kind: AugmentKind;
+  selection: AugmentSelection;
+  activeSlotId?: string;
+  onSelect?: (slotId: string) => void;
+}) {
+  const slots = AUGMENT_SLOTS[kind];
   function slotButton(slot: AugmentSlot, position?: CSSProperties) {
     const equipped = AUGMENT_BY_ID.get(selection[slot.id]);
-    return <button key={slot.id} type="button" data-augment-slot={slot.id} data-slot-type={slot.type} style={position}
-      className={`${styles.slot} ${slot.id === slotId ? styles.slotActive : ""} ${equipped ? styles.slotEquipped : ""}`}
-      aria-pressed={slot.id === slotId} aria-label={`${slot.section} ${slot.label}: ${equipped?.name ?? "미장착"}`}
-      title={equipped?.name ?? slot.label} onClick={() => { chooseSlot(slot.id); onSelectSlot(); }}>
+    const label = `${slot.section} ${slot.label}: ${equipped?.name ?? "미장착"}`;
+    const shared = `${styles.slot} ${slot.id === activeSlotId ? styles.slotActive : ""} ${equipped ? styles.slotEquipped : ""}`;
+    const node = <>
       <span className={styles.gem} data-rarity={equipped?.rarity}>
         {equipped ? <Image src={equipped.image} alt="" width={44} height={44} unoptimized /> : <EquipmentModeIcon mode={kind} />}
       </span>
       <span className={styles.slotLabel}>{slot.label}</span>
+    </>;
+    if (!onSelect) {
+      return <div key={slot.id} data-augment-slot={slot.id} data-slot-type={slot.type} style={position}
+        className={`${shared} ${styles.slotStatic}`} role="img" aria-label={label} title={label}>{node}</div>;
+    }
+    return <button key={slot.id} type="button" data-augment-slot={slot.id} data-slot-type={slot.type} style={position}
+      className={shared} aria-pressed={slot.id === activeSlotId} aria-label={label}
+      title={equipped?.name ?? slot.label} onClick={() => onSelect(slot.id)}>
+      {node}
     </button>;
   }
   return <div className={styles.board} data-augment-board={kind}>

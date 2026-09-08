@@ -283,3 +283,60 @@ export async function submitSpec(surveyId: string, userId: string, buildId: stri
     },
   };
 }
+
+/* ── 관리자 ── */
+
+export interface SpecSubmissionListRow extends SpecBuildStats {
+  userId: string;
+  nickname: string;
+  buildName: string;
+  summaryText: string;
+  submittedAt: Date;
+  /** 카탈로그가 바뀌어 판으로 그릴 수 없으면 비어 있다. 그때는 summaryText 를 보여준다. */
+  build: EquipmentBuild | null;
+}
+
+/** 열려 있는 조사가 없으면 마지막 조사를 본다. 관리자는 끝난 조사도 봐야 한다. */
+export async function getLatestSpecSurvey(): Promise<SpecSurveyRow | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT id, title, opened_at, closed_at FROM spec_survey ORDER BY opened_at DESC, id DESC LIMIT 1",
+  );
+  if (!rows.length) return null;
+  return { id: String(rows[0].id), title: rows[0].title, openedAt: rows[0].opened_at, closedAt: rows[0].closed_at };
+}
+
+/*
+ * 공방합 내림차순. 같은 값이면 먼저 낸 사람이 앞이다.
+ * 수치를 확인하지 못한 장비가 섞인 제출은 합계를 믿을 수 없으므로 맨 뒤로 보낸다.
+ */
+export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissionListRow[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT s.user_id, u.user_nickname, s.build_name, s.gear, s.crystals, s.lightstones, " +
+      "s.ap, s.aap, s.dp, s.score, s.is_complete, s.summary_text, s.updated_at " +
+      "FROM spec_submission s LEFT JOIN user u ON u.id = s.user_id " +
+      "WHERE s.spec_survey_id = ? " +
+      "ORDER BY s.is_complete DESC, s.score DESC, s.updated_at ASC",
+    [surveyId],
+  );
+  return rows.map((row) => {
+    let build: EquipmentBuild | null = null;
+    try {
+      build = parseBuild({
+        id: String(row.user_id), name: row.build_name,
+        equipment: row.gear, crystals: row.crystals, lightstones: row.lightstones,
+      });
+    } catch {
+      build = null;
+    }
+    return {
+      userId: String(row.user_id),
+      nickname: row.user_nickname ?? "알 수 없음",
+      buildName: row.build_name,
+      summaryText: row.summary_text,
+      submittedAt: row.updated_at,
+      ap: row.ap, aap: row.aap, dp: row.dp, score: row.score,
+      isComplete: row.is_complete === 1,
+      build,
+    };
+  });
+}

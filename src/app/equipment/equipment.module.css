@@ -136,6 +136,8 @@
   .summaryFooter strong { max-width: 160px; }
   .modeButtons { padding: 10px 0; gap: 6px; }
   .modeButtons button { flex: 1; padding: 7px 5px; gap: 5px; font-size: 10px; }
+  .viewer { grid-template-columns: minmax(0, 1fr); }
+  .viewerRows { max-height: none; }
   .submitted { white-space: normal; }
   .buildBar { padding: 11px 12px; gap: 10px; }
   .buildTabs, .buildActions { width: 100%; }
@@ -149,6 +151,20 @@
 }
 
 .nameRow h2 { margin: 0; padding: 7px 0; font: 600 19px var(--font-heading); color: var(--color-ink); }
+
+/* 보기 전용 — 누를 수 없는 슬롯은 눌러도 되는 것처럼 보이지 않아야 한다. */
+.slotStatic { cursor: default; }
+.slotStatic:hover .slotIcon { transform: none; border-color: #b9b3ab; }
+.viewer { display: grid; grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.viewerBoard, .viewerList { border: 1px solid var(--color-hairline); border-radius: 6px; background: #f8f7f6; overflow: hidden; }
+.viewerBoard { padding-top: 10px; }
+.viewerList { padding-bottom: 14px; }
+.viewerRows { display: grid; gap: 6px; margin: 10px 0 0; padding: 0 16px; list-style: none; max-height: 470px; overflow-y: auto; }
+.viewerRows li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--color-rule); border-radius: 5px; background: #fbfaf9; }
+.viewerText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.viewerName { font-size: 12px; color: var(--color-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.viewerHint { font-size: 10px; color: var(--color-ink-faint); }
+.viewerEmpty { margin: 16px; font-size: 11px; color: var(--color-ink-faint); }
 
 /* 세팅 보관 — 여러 세팅을 두고 그중 하나를 조사에 낸다. */
 .submitted { margin: 0; padding-bottom: 5px; font-size: 11px; color: var(--color-ink-dim); white-space: nowrap; }

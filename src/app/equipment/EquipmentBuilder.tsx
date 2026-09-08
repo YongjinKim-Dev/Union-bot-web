@@ -4,13 +4,14 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import {
   EQUIPMENT_SLOTS, EQUIPMENT_ITEMS, EQUIPMENT_BY_ID, BUILD_NAME_MAX, MAX_BUILDS,
-  defaultEquipmentWorkspace, migrateEquipmentWorkspace, equipItem, enhancementOptions, enhancementLabel, equippedItemName, canUseCaphras, buildEquipmentText, calculateEquipmentStats,
-  type EquipmentBuild, type EquipmentSlot, type EquipmentSlotId, type EquipmentWorkspace,
+  defaultEquipmentWorkspace, migrateEquipmentWorkspace, equipItem, enhancementOptions, enhancementLabel, canUseCaphras, buildEquipmentText, calculateEquipmentStats,
+  type EquipmentBuild, type EquipmentSlotId, type EquipmentWorkspace,
 } from "@/lib/equipment";
 import { formatKstDateTime } from "@/lib/format";
 import type { SpecSubmissionRow } from "@/lib/specQueries";
 import styles from "./equipment.module.css";
-import { AugmentBoard, AugmentEditor, EquipmentModeIcon, useAugmentEditor, type EquipmentMode } from "./AugmentPanels";
+import { AugmentBoard, AugmentEditor, useAugmentEditor, type EquipmentMode } from "./AugmentPanels";
+import { GearBoard, SpecModeButtons, SpecSheet } from "./SpecBoards";
 import { LightstoneCombinations } from "./LightstoneCombinations";
 import { deleteBuildAction, saveBuildAction, submitSpecAction } from "./actions";
 
@@ -167,25 +168,6 @@ export function EquipmentBuilder({ savedBuilds, brokenBuilds, surveyTitle, submi
   function removeItem() {
     edit(b => { const equipment = { ...b.equipment }; delete equipment[slotId]; return { ...b, equipment }; });
   }
-  function slotButton(s: EquipmentSlot) {
-    const selection = build.equipment[s.id];
-    const equipped = selection && EQUIPMENT_BY_ID.get(selection.itemId);
-    const level = equipped && selection ? enhancementOptions(equipped.enhancementKind)[selection.enhancement] : "0";
-    return (
-      <button key={s.id} type="button" data-slot={s.id}
-        className={`${styles.slot} ${s.id === slotId ? styles.slotActive : ""} ${equipped ? styles.slotEquipped : ""}`}
-        style={{ left: `${s.x}%`, top: `${s.y}%` }}
-        aria-pressed={s.id === slotId} aria-label={`${s.label}: ${equipped && selection ? equippedItemName(equipped, selection.enhancement) : "미장착"}`}
-        title={equipped?.name ?? s.label} onClick={() => chooseSlot(s.id)}>
-        <span className={styles.slotIcon} data-rarity={equipped?.rarity}>
-          <Image src={equipped ? `/gear/items/${equipped.id}.webp` : `/gear/slots/${s.category}.png`} alt="" width={48} height={48} unoptimized />
-          {level !== "0" && <span className={styles.slotLevel}>{level}</span>}
-          {selection && selection.caphras > 0 && <span className={styles.slotCaphras}>C{selection.caphras}</span>}
-        </span>
-        <span className={styles.slotLabel}>{s.label}</span>
-      </button>
-    );
-  }
 
   return (
     <div className={styles.content}>
@@ -238,20 +220,13 @@ export function EquipmentBuilder({ savedBuilds, brokenBuilds, surveyTitle, submi
         <section ref={boardRef} className={styles.boardPanel} aria-label={`내 ${modeTitle} 슬롯`}>
           <div className={styles.panelHeading}><span className={styles.sectionLabel}>{mode === "gear" ? "MY EQUIPMENT" : mode === "crystal" ? "MY CRYSTALS" : "MY LIGHTSTONES"}</span><span className={styles.counter}>{mode === "gear" ? count : augment.count}<span> / {mode === "gear" ? EQUIPMENT_SLOTS.length : augment.slots.length}</span></span></div>
           <div className={styles.nameRow}><h2>{build.name.trim() || "이름 없는 세팅"} · {modeTitle}</h2></div>
-          {mode === "gear" ? <div className={styles.gearBoard}>
-            <div className={styles.orbit} aria-hidden="true" />
-            <div className={styles.boardMark} aria-hidden="true"><svg viewBox="0 0 100 124" fill="none"><path d="M50 5 91 23v36c0 28-23 49-41 61C32 108 9 87 9 59V23L50 5Z" stroke="currentColor" strokeWidth="1.5" /><path d="m50 24 22 42-22 33-22-33 22-42Z" stroke="currentColor" /><path d="M50 24v75M28 66h44" stroke="currentColor" /></svg></div>
-            {EQUIPMENT_SLOTS.map(s => slotButton(s))}
-          </div> : <AugmentBoard editor={augment} onSelectSlot={() => { if (window.matchMedia("(max-width: 760px)").matches) scrollToPanel(editorRef.current); }} />}
+          {mode === "gear"
+            ? <GearBoard build={build} activeSlotId={slotId} onSelect={chooseSlot} />
+            : <AugmentBoard kind={augment.kind} selection={augment.selection} activeSlotId={augment.slotId}
+                onSelect={id => { augment.chooseSlot(id); if (window.matchMedia("(max-width: 760px)").matches) scrollToPanel(editorRef.current); }} />}
           {mode === "lightstone" && <LightstoneCombinations selection={lightstones.selection} />}
-          <div className={styles.modeButtons} role="group" aria-label="장착 화면 전환">
-            {([['gear', '장비'], ['crystal', '수정'], ['lightstone', '광명석']] as const).map(([value, label]) => <button key={value} type="button" data-equipment-mode-button={value} aria-pressed={mode === value} className={mode === value ? styles.modeActive : ""} title={`${label} 장착 화면`} onClick={() => setMode(value)}><EquipmentModeIcon mode={value} /><span>{label}</span></button>)}
-          </div>
-          <div className={styles.sheetHeading}><span>표기 공격력 · 방어력</span><span>내실 전체 완료</span></div>
-          <dl className={styles.sheetStats} aria-label="현재 세팅 표기 공방" aria-live="polite" aria-atomic="true">
-            {([['ap', 'AP', '주무기 공격력'], ['aap', 'AAP', '각성 공격력'], ['dp', 'DP', '방어력'], ['score', 'SCORE', '공방합']] as const).map(([key, label, description]) => <div key={key} className={key === 'score' ? styles.scoreStat : undefined}><dt><abbr title={description}>{label}</abbr></dt><dd data-stat={key}>{stats.complete ? stats[key] : '—'}</dd></div>)}
-          </dl>
-          <p className={styles.sheetNote}>{stats.complete ? '공방합 = AP·AAP 중 높은 값 + DP' : '수치를 확인하지 못한 장비가 있어 합계를 표시하지 않습니다.'}<br />레벨 60 이상 · 일지·영구 보상 완료 (AP·AAP·DP 각 +12)</p>
+          <SpecModeButtons mode={mode} onChange={setMode} />
+          <SpecSheet stats={stats} />
         </section>
 
         <section ref={editorRef} className={styles.editorPanel} aria-label={`${modeTitle} 선택`}>

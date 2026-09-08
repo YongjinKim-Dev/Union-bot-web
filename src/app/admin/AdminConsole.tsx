@@ -8,12 +8,13 @@ import styles from "./admin.module.css";
 import { OperationTab } from "./OperationTab";
 import { ComparisonTab } from "./ComparisonTab";
 import { FailureLogTab } from "./FailureLogTab";
+import { SpecTab } from "./SpecTab";
 import { TabGuide } from "./TabGuide";
 import { PastVotesTab } from "./PastVotesTab";
 import { SettingsTab } from "./SettingsTab";
 import type { PresetControls, TabKey } from "./adminData";
 
-const TABS: TabKey[] = ["운영", "지난 투표", "명단 비교", "거절 기록"];
+const TABS: TabKey[] = ["운영", "지난 투표", "명단 비교", "스펙조사", "거절 기록"];
 
 export type Phase = "waiting" | "live" | "closed";
 
@@ -132,6 +133,7 @@ export function AdminConsole({ current, queue }: AdminConsoleProps) {
       )}
       {tab === "지난 투표" && <PastVotesTab cap={cap} />}
       {tab === "명단 비교" && <ComparisonTab />}
+      {tab === "스펙조사" && <SpecTab />}
       {tab === "거절 기록" && <FailureLogTab />}
 
       <div className={`${styles.toast} ${toast ? styles.toastShow : ""}`}>{toast}</div>
