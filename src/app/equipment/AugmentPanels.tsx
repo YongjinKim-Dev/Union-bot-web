@@ -17,12 +17,14 @@ export function EquipmentModeIcon({ mode }: { mode: EquipmentMode }) {
   </svg>;
 }
 
-// 상태를 상위 빌더에 보관해 화면을 전환해도 장착 구성과 검색 조건을 유지한다.
-export function useAugmentEditor(kind: AugmentKind) {
+/*
+ * 장착 구성은 세팅에 들어 있으므로 여기서 들고 있지 않고 받아서 쓴다. 검색어와
+ * 정렬 같은 화면 상태만 남긴다 — 그것은 세팅이 아니라 보는 방식이다.
+ */
+export function useAugmentEditor(kind: AugmentKind, selection: AugmentSelection, onChange: (next: AugmentSelection) => void) {
   const title = kind === "crystal" ? "수정" : "광명석";
   const slots = AUGMENT_SLOTS[kind];
   const allItems = AUGMENT_ITEMS.filter(item => item.kind === kind);
-  const [selection, setSelection] = useState<AugmentSelection>({});
   const [slotId, setSlotId] = useState(slots[0].id);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("default");
@@ -39,11 +41,11 @@ export function useAugmentEditor(kind: AugmentKind) {
     setSlotId(next); setSearch(""); setNotice("");
   }
   function selectItem(itemId: string) {
-    setSelection(previous => augmentUnavailableReason(kind, previous, slotId, itemId) ? previous : equipAugment(kind, previous, slotId, itemId));
+    if (!augmentUnavailableReason(kind, selection, slotId, itemId)) onChange(equipAugment(kind, selection, slotId, itemId));
     setNotice("");
   }
   function removeItem() {
-    setSelection(previous => removeAugment(kind, previous, slotId)); setNotice("");
+    onChange(removeAugment(kind, selection, slotId)); setNotice("");
   }
   function clearSearch() { setSearch(""); }
   async function copyText() {

@@ -15,17 +15,18 @@ export function EquipmentBuilder() {
   const boardRef = useRef<HTMLElement>(null);
   const editorRef = useRef<HTMLElement>(null);
   const [mode, setMode] = useState<EquipmentMode>("gear");
-  const crystals = useAugmentEditor("crystal");
-  const lightstones = useAugmentEditor("lightstone");
-  const augment = mode === "lightstone" ? lightstones : crystals;
-  const modeTitle = mode === "gear" ? "장비" : augment.title;
   const [storedWorkspace, setWorkspace] = useState(defaultEquipmentWorkspace);
-  const workspace = migrateEquipmentWorkspace(storedWorkspace);
   const [slotId, setSlotId] = useState<EquipmentSlotId>("helmet");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("recommended");
   const [notice, setNotice] = useState<{ error?: boolean; text: string } | null>(null);
+  const workspace = migrateEquipmentWorkspace(storedWorkspace);
   const build = workspace.builds.find(b => b.id === workspace.activeId)!;
+  // 수정·광명석도 세팅의 일부다. 편집기가 따로 들고 있지 않고 세팅에서 읽고 쓴다.
+  const crystals = useAugmentEditor("crystal", build.crystals, next => edit(b => ({ ...b, crystals: next })));
+  const lightstones = useAugmentEditor("lightstone", build.lightstones, next => edit(b => ({ ...b, lightstones: next })));
+  const augment = mode === "lightstone" ? lightstones : crystals;
+  const modeTitle = mode === "gear" ? "장비" : augment.title;
   const slot = EQUIPMENT_SLOTS.find(s => s.id === slotId)!;
   const selected = build.equipment[slotId];
   const item = selected && EQUIPMENT_BY_ID.get(selected.itemId);

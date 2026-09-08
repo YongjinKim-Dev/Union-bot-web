@@ -1,7 +1,13 @@
 import catalog from "./equipmentCatalog.json";
 import { CAPHRAS_SHEET_DATA } from "./equipmentCaphrasData";
+import { AUGMENT_SLOTS, buildAugmentText, equipAugment } from "./equipmentAugments";
+import type { AugmentKind, AugmentSelection } from "./equipmentAugments";
 
-/** 장비 구성과 표기 공방 계산 전용. 상세 스탯 및 조사/DB 연동은 하지 않는다. */
+/*
+ * 한 세팅은 장비·수정·광명석 셋을 함께 담는다. 장비만 바꾸고 수정이 그대로
+ * 남으면 그것은 세팅이 아니다. 표기 공방 계산에는 장비만 쓴다 — 수정과
+ * 광명석의 수치는 카탈로그에 없다.
+ */
 export type EquipmentCategory = "main_weapon" | "sub_weapon" | "awakening_weapon" | "helmet" | "armor" | "gloves" | "shoes" | "necklace" | "belt" | "ring" | "earring" | "alchemy_stone" | "book" | "artifact";
 export type EnhancementKind = "standard" | "standard-ten" | "standard-four" | "three" | "five" | "ten" | "ancient" | "numeric-five" | "reformed" | "none";
 export type EquipmentSlotId = EquipmentCategory | "ring2" | "earring2" | "artifact2";
@@ -65,8 +71,17 @@ export function equippedItemName(item: EquipmentItem, enhancement: number): stri
   return `${enhancement ? enhancementLabel(item, enhancement) + " " : ""}${item.name}`;
 }
 export interface EquippedItem { itemId: string; enhancement: number; caphras: number }
-export interface EquipmentBuild { id: string; name: string; equipment: Partial<Record<EquipmentSlotId, EquippedItem>> }
-export interface EquipmentWorkspace { version: 1 | 2; activeId: string; builds: EquipmentBuild[] }
+export interface EquipmentBuild {
+  id: string;
+  name: string;
+  equipment: Partial<Record<EquipmentSlotId, EquippedItem>>;
+  crystals: AugmentSelection;
+  lightstones: AugmentSelection;
+}
+export interface EquipmentWorkspace { version: 1 | 2 | 3; activeId: string; builds: EquipmentBuild[] }
+/** v2 까지는 수정·광명석이 세팅 밖에 있었다. 옛 저장값을 읽을 때만 쓴다. */
+type LegacyBuild = Omit<EquipmentBuild, "crystals" | "lightstones"> & Partial<Pick<EquipmentBuild, "crystals" | "lightstones">>;
+interface LegacyWorkspace { version: 1 | 2 | 3; activeId: string; builds: LegacyBuild[] }
 // 기존 구성 형식 검증용 상한. 현재 화면에는 저장/불러오기 기능이 없다.
 const LEGACY_MAX_BUILDS = 8;
 /** 공식 가이드 wikiNo=308: 바탈리 6 + 10주년 1 + 잠식 1 + 카마/오딜 각 1 + 아침 1 + 레벨 1 + 행복한 흑정령 1. */
@@ -97,10 +112,10 @@ export function calculateEquipmentStats(build: EquipmentBuild): EquipmentSheetSt
   ap = Math.floor(ap); aap = Math.floor(aap);
   return { ap, aap, dp, score: Math.max(ap, aap) + dp, complete };
 }
-export function emptyWorkspace(): EquipmentWorkspace { return { version: 2, activeId: "initial", builds: [{ id: "initial", name: "내 장비", equipment: {} }] }; }
+export function emptyWorkspace(): EquipmentWorkspace { return { version: 3, activeId: "initial", builds: [{ id: "initial", name: "내 장비", equipment: {}, crystals: {}, lightstones: {} }] }; }
 /** 사용자가 2026-09-07 화면에서 지정한 기본 구성. 매번 독립 객체로 시작한다. */
 export function defaultEquipmentWorkspace(): EquipmentWorkspace {
-  return { version: 2, activeId: "initial", builds: [{ id: "initial", name: "내 장비", equipment: {
+  return { version: 3, activeId: "initial", builds: [{ id: "initial", crystals: {}, lightstones: {}, name: "내 장비", equipment: {
     helmet: { itemId: "garmoth-930601", enhancement: 8, caphras: 0 },
     armor: { itemId: "garmoth-930602", enhancement: 8, caphras: 0 },
     gloves: { itemId: "garmoth-930603", enhancement: 8, caphras: 0 },
@@ -121,18 +136,23 @@ export function defaultEquipmentWorkspace(): EquipmentWorkspace {
   } }] };
 }
 /** v1의 태초 솔 index 0은 미강화가 아니라 동(V) 수치였으므로 기존 구성을 보존한다. */
-export function migrateEquipmentWorkspace(workspace: EquipmentWorkspace): EquipmentWorkspace {
-  if (workspace.version === 2) return workspace;
-  return { ...workspace, version: 2, builds: workspace.builds.map(build => {
-    const sol = build.equipment.awakening_weapon;
-    if (!sol || sol.enhancement !== 0 || !["garmoth-748001", "garmoth-748002", "garmoth-748003"].includes(sol.itemId)) return build;
-    return { ...build, equipment: { ...build.equipment, awakening_weapon: { ...sol, enhancement: 20 } } };
+function migrateSol(build: LegacyBuild): LegacyBuild {
+  const sol = build.equipment.awakening_weapon;
+  if (!sol || sol.enhancement !== 0 || !["garmoth-748001", "garmoth-748002", "garmoth-748003"].includes(sol.itemId)) return build;
+  return { ...build, equipment: { ...build.equipment, awakening_weapon: { ...sol, enhancement: 20 } } };
+}
+/** v2 까지는 수정·광명석이 세팅 밖에 있었다. 그때 저장한 세팅은 빈 구성으로 연다. */
+export function migrateEquipmentWorkspace(workspace: LegacyWorkspace): EquipmentWorkspace {
+  if (workspace.version === 3) return workspace as EquipmentWorkspace;
+  return { ...workspace, version: 3, builds: workspace.builds.map(build => {
+    const migrated = workspace.version === 1 ? migrateSol(build) : build;
+    return { ...migrated, crystals: migrated.crystals ?? {}, lightstones: migrated.lightstones ?? {} };
   }) };
 }
 export function singleEquipmentWorkspace(workspace: EquipmentWorkspace): EquipmentWorkspace {
   const current = migrateEquipmentWorkspace(workspace);
   const selected = current.builds.find(b => b.id === current.activeId) ?? current.builds[0];
-  return { version: 2, activeId: selected.id, builds: [{ ...selected, name: "내 장비" }] };
+  return { version: 3, activeId: selected.id, builds: [{ ...selected, name: "내 장비" }] };
 }
 export function canUseCaphras(item: EquipmentItem, enhancement: number): boolean { return Boolean(item.caphrasCategory && CAPHRAS_SHEET_DATA[enhancement]?.[item.caphrasCategory]); }
 export function equipItem(build: EquipmentBuild, slotId: EquipmentSlotId, itemId: string): EquipmentBuild {
@@ -141,13 +161,32 @@ export function equipItem(build: EquipmentBuild, slotId: EquipmentSlotId, itemId
   if (build.equipment[slotId]?.itemId === itemId) return build;
   return { ...build, equipment: { ...build.equipment, [slotId]: { itemId, enhancement: item.defaultEnhancement ?? 0, caphras: 0 } } };
 }
+/*
+ * 슬롯 하나씩 equipAugment 에 태워 확인한다. 그 함수가 이미 "이 슬롯에 낄 수
+ * 있는 종류인가" 와 "계열 장착 한도를 넘지 않는가" 를 들고 있으므로, 검증
+ * 규칙을 여기에 다시 쓰면 두 벌이 되어 어긋난다.
+ */
+function parseAugmentSelection(kind: AugmentKind, raw: unknown): AugmentSelection {
+  if (raw === undefined || raw === null) return {};
+  if (typeof raw !== "object" || Array.isArray(raw)) throw new Error("수정·광명석 형식이 올바르지 않습니다.");
+  const source = raw as Record<string, unknown>;
+  let selection: AugmentSelection = {};
+  for (const slot of AUGMENT_SLOTS[kind]) {
+    const itemId = source[slot.id];
+    if (itemId === undefined || itemId === null) continue;
+    if (typeof itemId !== "string") throw new Error("수정·광명석 형식이 올바르지 않습니다.");
+    selection = equipAugment(kind, selection, slot.id, itemId);
+  }
+  return selection;
+}
+
 /** 브라우저 저장값도 신뢰하지 않는다. 버전·슬롯·장비·강화 범위를 확인한다. */
 export function parseWorkspace(raw: string): EquipmentWorkspace {
   if (raw.length > 100_000) throw new Error("저장 데이터가 너무 큽니다.");
   const data = JSON.parse(raw);
-  if (!data || ![1, 2].includes(data.version) || !Array.isArray(data.builds) || !data.builds.length || data.builds.length > LEGACY_MAX_BUILDS) throw new Error("지원하지 않는 장비 데이터입니다.");
+  if (!data || ![1, 2, 3].includes(data.version) || !Array.isArray(data.builds) || !data.builds.length || data.builds.length > LEGACY_MAX_BUILDS) throw new Error("지원하지 않는 장비 데이터입니다.");
   const ids = new Set<string>();
-  const builds: EquipmentBuild[] = data.builds.map((b: EquipmentBuild) => {
+  const builds: LegacyBuild[] = data.builds.map((b: LegacyBuild) => {
     if (!b || typeof b.id !== "string" || !b.id || b.id.length > 80 || ids.has(b.id) || typeof b.name !== "string" || !b.name.trim() || b.name.length > 40 || !b.equipment || typeof b.equipment !== "object" || Array.isArray(b.equipment)) throw new Error("장비 세팅 형식이 올바르지 않습니다.");
     ids.add(b.id);
     const equipment: EquipmentBuild["equipment"] = {};
@@ -157,15 +196,24 @@ export function parseWorkspace(raw: string): EquipmentWorkspace {
       if (!selected || !item || item.category !== slot.category || !Number.isInteger(selected.enhancement) || selected.enhancement < 0 || selected.enhancement >= enhancementOptions(item.enhancementKind).length || !Number.isInteger(selected.caphras) || selected.caphras < 0 || selected.caphras > 20) throw new Error("장비 또는 강화 단계가 올바르지 않습니다.");
       equipment[slot.id] = { itemId: item.id, enhancement: selected.enhancement, caphras: canUseCaphras(item, selected.enhancement) ? selected.caphras : 0 };
     }
-    return { id: b.id, name: b.name.trim(), equipment };
+    return {
+      id: b.id, name: b.name.trim(), equipment,
+      crystals: parseAugmentSelection("crystal", b.crystals),
+      lightstones: parseAugmentSelection("lightstone", b.lightstones),
+    };
   });
   return migrateEquipmentWorkspace({ version: data.version, activeId: ids.has(data.activeId) ? data.activeId : builds[0].id, builds });
 }
 export function buildEquipmentText(build: EquipmentBuild): string {
   const stats = calculateEquipmentStats(build);
-  return [`[${build.name}]`, stats.complete ? `AP ${stats.ap} / AAP ${stats.aap} / DP ${stats.dp} / 공방합 ${stats.score}` : "표기 공방: 수치 미확인 장비 포함", "내실 전체 완료 · 레벨 60 이상 기준", ...EQUIPMENT_SLOTS.flatMap(slot => {
+  const gear = [`[${build.name}]`, stats.complete ? `AP ${stats.ap} / AAP ${stats.aap} / DP ${stats.dp} / 공방합 ${stats.score}` : "표기 공방: 수치 미확인 장비 포함", "내실 전체 완료 · 레벨 60 이상 기준", ...EQUIPMENT_SLOTS.flatMap(slot => {
     const selected = build.equipment[slot.id], item = selected && EQUIPMENT_BY_ID.get(selected.itemId);
     if (!selected || !item) return [];
     return [`${slot.label}: ${equippedItemName(item, selected.enhancement)}${selected.caphras ? ` (카프라스 ${selected.caphras}단계)` : ""}`];
-  })].join("\n");
+  })];
+  // 세팅에 함께 담기므로 복사한 글에도 같이 나간다. 빈 것은 줄을 만들지 않는다.
+  const augments = ([["crystal", build.crystals], ["lightstone", build.lightstones]] as const)
+    .filter(([, selection]) => Object.keys(selection).length)
+    .map(([kind, selection]) => `\n${buildAugmentText(kind, selection)}`);
+  return [...gear, ...augments].join("\n");
 }
