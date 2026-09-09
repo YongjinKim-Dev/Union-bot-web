@@ -151,3 +151,5 @@
     white-space: nowrap;
   }
 }
+
+.themeControl { order: 1; flex-shrink: 0; }

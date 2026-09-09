@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import Image from "next/image";
 import styles from "./SiteHeader.module.css";
+import { ThemeToggle } from "./ThemeToggle";
 
 export type NavKey = "home" | "vote" | "classes" | "equipment" | "about" | "docs" | "admin";
 
@@ -80,6 +81,7 @@ export async function SiteHeader({ active, kicker = "" }: { active: NavKey; kick
           <span className={styles.nickname}>{session.user.nickname}</span>
         </span>
       )}
+      <div className={styles.themeControl}><ThemeToggle /></div>
       <form
         className={styles.logoutForm}
         action={async () => {

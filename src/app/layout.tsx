@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, JetBrains_Mono, Lora } from "next/font/google";
 import "./globals.css";
+import { THEME_INIT_SCRIPT } from "@/components/theme";
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
@@ -66,9 +67,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="ko"
+      suppressHydrationWarning
       className={`${cormorant.variable} ${lora.variable} ${jetbrainsMono.variable}`}
     >
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         {/*
           Nanum Myeongjo loads from Google's CDN rather than next/font.
           next/font types this family for "latin" only, and omitting `subsets`

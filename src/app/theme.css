@@ -3,6 +3,7 @@
    (--background/--foreground/…)을 여기에 다시 매핑하므로 기존 CSS 모듈도
    따라온다. 값 출처: docs/design_handoff_union_ledger/README.md > Design Tokens */
 :root {
+  color-scheme: light;
   /* 지면 */
   --color-paper: #f3f2f2;
   --color-surface: #eae9e9;
@@ -109,4 +110,70 @@
     rgba(26, 25, 24, 0.5) 42%,
     rgba(26, 25, 24, 0.94)
   );
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: #1a1918;
+  --color-surface: #252423;
+  --color-raised: #302e2b;
+  --color-input: #302e2b;
+  --color-card: #2a2826;
+  --color-panel: #22211f;
+  --color-control: #302d28;
+  --color-detail: #242220;
+  --color-sunken: #272521;
+  --color-inset: #2b2823;
+  --color-slot: #302d28;
+  --color-slot-empty: #36322c;
+  --color-stripe: #302e2b;
+  --color-ink: #f3f2f2;
+  --color-ink-dim: #bab6b6;
+  --color-ink-faint: #a39e98;
+  --color-hairline: rgba(243, 242, 242, 0.2);
+  --color-rule: rgba(243, 242, 242, 0.14);
+  --color-rule-subtle: rgba(243, 242, 242, 0.1);
+  --color-rule-medium: rgba(243, 242, 242, 0.24);
+  --color-rule-dashed: rgba(243, 242, 242, 0.28);
+  --color-rule-strong: rgba(243, 242, 242, 0.32);
+  --color-line-orbit: #4c463e;
+  --color-line-soft: #3f3a34;
+  --color-watermark: #605646;
+  --color-line-strong: #817361;
+  --color-line-slot: #8e7b5c;
+  --color-slot-placeholder: #b4a083;
+  --color-check-empty: #a69a86;
+  --color-text-muted: rgba(243, 242, 242, 0.7);
+  --color-text-caption: rgba(243, 242, 242, 0.72);
+  --color-text-list: rgba(243, 242, 242, 0.75);
+  --color-text-aside: rgba(243, 242, 242, 0.78);
+  --color-text-prose: rgba(243, 242, 242, 0.8);
+  --color-accent: #e1ad66;
+  --color-accent-deep: #e1ad66;
+  --color-accent-deeper: #facb8d;
+  --color-accent-tint: #352b1f;
+  --color-accent-wash: #3c3020;
+  --color-accent-hover: #352d23;
+  --color-accent-inset: #403221;
+  --color-accent-line: #977346;
+  --color-accent-frame: #b48d52;
+  --color-accent-glow: #e1ad6630;
+  --color-accent-glow-soft: #e1ad6622;
+  --color-accent-halo: #6b503033;
+  --color-accent-underline: rgba(225, 173, 102, 0.45);
+  --color-on-accent: #201a12;
+  --color-danger: #ff9a8e;
+  --color-danger-deep: #ffb5aa;
+  --color-danger-tint: #3e2522;
+  --color-danger-hover: #ffb5aa;
+  --color-warning: #e8ae83;
+  --color-plate: #38332b;
+  --color-plate-base: #332e28;
+  --color-plate-gem: #38342c;
+  --color-plate-recipe: #3a332b;
+  --color-plate-dim: #786147;
+  --shadow-card: 0 3px 10px rgba(0, 0, 0, 0.24);
+  --shadow-modal: 0 8px 28px rgba(0, 0, 0, 0.5);
+  --class-icon-filter: brightness(1.06) saturate(0.9);
+  --class-icon-selected-filter: sepia(0.65) saturate(1.2) brightness(1.08);
 }

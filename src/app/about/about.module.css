@@ -20,6 +20,11 @@
   object-fit: cover;
 }
 
+:global(html[data-theme="dark"]) .hero {
+  outline: 1px solid var(--color-hairline);
+  outline-offset: -1px;
+}
+
 .heroScrim {
   position: absolute;
   left: 0;
