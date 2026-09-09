@@ -1,0 +1,2 @@
+.avatar { flex: none; border-radius: 50%; object-fit: cover; }
+.placeholder { display: grid; place-items: center; background: var(--color-accent-inset); color: var(--color-accent-deep); border: 1px solid var(--color-accent-line); font-weight: 600; line-height: 1; }

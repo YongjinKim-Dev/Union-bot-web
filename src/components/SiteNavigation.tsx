@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { NavKey } from "./SiteHeader";
+import { ProfileAvatar } from "./ProfileAvatar";
 import { ThemeToggle } from "./ThemeToggle";
 import styles from "./SiteHeader.module.css";
 
@@ -56,10 +57,17 @@ export function SiteNavigation({ active, kicker, items, nickname, avatar, signOu
   );
   const footer = (
     <div className={styles.bottom}>
-      {nickname && <div className={styles.user}>
-        {avatar && <Image src={avatar} alt="" width={26} height={26} className={styles.avatar} unoptimized />}
-        <span className={styles.nickname}>{nickname}</span>
-      </div>}
+      {nickname && <Link href="/profile" onClick={close}
+        aria-label={`${nickname} · 내 정보`}
+        aria-current={active === "profile" ? "page" : undefined}
+        className={`${styles.profileLink} ${active === "profile" ? styles.profileActive : ""}`}>
+        <ProfileAvatar image={avatar} name={nickname} size={34} />
+        <span className={styles.profileText}>
+          <span className={styles.nickname}>{nickname}</span>
+          <span className={styles.profileHint}>내 정보</span>
+        </span>
+        <svg className={styles.profileArrow} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+      </Link>}
       <div className={styles.footer}>
         <ThemeToggle compact />
         <form action={signOutAction}><button type="submit" className={styles.logoutButton}>로그아웃</button></form>
