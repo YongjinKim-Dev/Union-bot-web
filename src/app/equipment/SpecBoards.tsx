@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import {
-  EQUIPMENT_SLOTS, EQUIPMENT_BY_ID, enhancementOptions, equippedItemName,
+  EQUIPMENT_SLOTS, EQUIPMENT_BY_ID, AP_BASIS_LABEL, enhancementOptions, equippedItemName,
   type EquipmentBuild, type EquipmentSheetStats, type EquipmentSlot, type EquipmentSlotId,
 } from "@/lib/equipment";
 import styles from "./equipment.module.css";
@@ -81,18 +81,32 @@ const SHEET_ROWS = [
 ] as const;
 
 export function SpecSheet({ stats }: { stats: EquipmentSheetStats }) {
+  // 공방합만 두 가지 이유로 빌 수 있다. 수치를 모르는 장비가 있거나, 직업이 없거나.
+  const scoreReady = stats.complete && stats.basis !== null;
+  const note = !stats.complete
+    ? "수치를 확인하지 못한 장비가 있어 합계를 표시하지 않습니다."
+    : stats.basis === null
+      ? "직업을 등록하면 공방합이 나옵니다. 직업에 따라 주무기와 각성무기 중 어느 쪽을 보는지가 달라집니다."
+      : `공방합 = ${AP_BASIS_LABEL[stats.basis]} + DP`;
   return (
     <>
-      <div className={styles.sheetHeading}><span>표기 공격력 · 방어력</span><span>내실 전체 완료</span></div>
+      <div className={styles.sheetHeading}>
+        <span>표기 공격력 · 방어력</span>
+        <span>{stats.basis === null ? "내실 전체 완료" : `${AP_BASIS_LABEL[stats.basis]} 기준`}</span>
+      </div>
       <dl className={styles.sheetStats} aria-label="표기 공방" aria-live="polite" aria-atomic="true">
-        {SHEET_ROWS.map(([key, label, description]) => (
-          <div key={key} className={key === "score" ? styles.scoreStat : undefined}>
-            <dt><abbr title={description}>{label}</abbr></dt>
-            <dd data-stat={key}>{stats.complete ? stats[key] : "—"}</dd>
-          </div>
-        ))}
+        {SHEET_ROWS.map(([key, label, description]) => {
+          const shown = key === "score" ? scoreReady : stats.complete;
+          const used = (key === "ap" && stats.basis === "main") || (key === "aap" && stats.basis === "awakening");
+          return (
+            <div key={key} className={key === "score" ? styles.scoreStat : used ? styles.usedStat : undefined}>
+              <dt><abbr title={description}>{label}</abbr>{used && <span className={styles.usedMark} title="공방합에 쓰이는 값"> ●</span>}</dt>
+              <dd data-stat={key}>{shown ? stats[key] : "—"}</dd>
+            </div>
+          );
+        })}
       </dl>
-      <p className={styles.sheetNote}>{stats.complete ? "공방합 = AP·AAP 중 높은 값 + DP" : "수치를 확인하지 못한 장비가 있어 합계를 표시하지 않습니다."}<br />레벨 60 이상 · 일지·영구 보상 완료 (AP·AAP·DP 각 +12)</p>
+      <p className={styles.sheetNote}>{note}<br />레벨 60 이상 · 일지·영구 보상 완료 (AP·AAP·DP 각 +12)</p>
     </>
   );
 }

@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import {
   EQUIPMENT_SLOTS, EQUIPMENT_BY_ID, equippedItemName, calculateEquipmentStats,
-  type EquipmentBuild,
+  type ApBasis, type EquipmentBuild,
 } from "@/lib/equipment";
 import { AUGMENT_SLOTS, AUGMENT_BY_ID, augmentGroupLabel } from "@/lib/equipmentAugments";
 import styles from "./equipment.module.css";
@@ -16,9 +16,9 @@ import { GearBoard, SpecModeButtons, SpecSheet } from "./SpecBoards";
  * 낸 스펙을 보기만 하는 화면. 세팅 화면과 같은 판을 쓰고 고르는 기능만 뺐다.
  * 장비·수정·광명석 전환은 그대로 두어야 무엇을 냈는지 다 볼 수 있다.
  */
-export function SpecViewer({ build }: { build: EquipmentBuild }) {
+export function SpecViewer({ build, basis }: { build: EquipmentBuild; basis: ApBasis | null }) {
   const [mode, setMode] = useState<EquipmentMode>("gear");
-  const stats = calculateEquipmentStats(build);
+  const stats = calculateEquipmentStats(build, basis);
   const selection = mode === "lightstone" ? build.lightstones : build.crystals;
 
   const rows = mode === "gear"

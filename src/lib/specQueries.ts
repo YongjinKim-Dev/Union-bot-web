@@ -1,7 +1,8 @@
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
-import { MAX_BUILDS, buildEquipmentText, calculateEquipmentStats, parseBuild } from "@/lib/equipment";
-import type { EquipmentBuild } from "@/lib/equipment";
+import { MAX_BUILDS, apBasisFor, buildEquipmentText, calculateEquipmentStats, parseBuild } from "@/lib/equipment";
+import type { ApBasis, EquipmentBuild } from "@/lib/equipment";
+import type { ClassType } from "@/lib/types";
 
 /*
  * 스펙조사 저장 구조.
@@ -94,6 +95,14 @@ export async function ensureSpecTables(): Promise<void> {
       "KEY idx_submission_user (user_id))",
   );
 
+  /*
+   * 공방합 기준은 나중에 붙였다. 처음에는 AP·AAP 중 큰 쪽을 썼는데, 직업이
+   * 정하는 값이라 그 판단 근거를 함께 남겨야 나중에도 같은 수를 설명할 수 있다.
+   */
+  await ensureSpecColumn("spec_build", "ap_basis", "varchar(12) NOT NULL DEFAULT ''");
+  await ensureSpecColumn("spec_submission", "ap_basis", "varchar(12) NOT NULL DEFAULT ''");
+  await backfillApBasis();
+
   // 회차를 나누기 전까지는 상시 접수 한 줄로 받는다. 나중에 회차제로 갈 때
   // 행만 추가하면 되므로 스키마를 다시 바꿀 일이 없다.
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -106,6 +115,40 @@ export async function ensureSpecTables(): Promise<void> {
   );
 }
 
+/* 이름은 모두 우리 코드가 적은 문자열이라 바깥에서 들어올 자리가 없다. */
+async function ensureSpecColumn(table: string, column: string, definition: string): Promise<void> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT COUNT(*) AS found FROM information_schema.columns " +
+      "WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
+    [table, column],
+  );
+  if (Number(rows[0].found) > 0) return;
+  await pool.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+/*
+ * 기준을 붙이기 전에 저장된 줄을 채운다. 규칙은 apBasisFor 한 군데에 있으므로
+ * SQL 에 다시 쓰지 않고 읽어서 계산한 뒤 되돌려 준다. 그때의 직업을 알 길이
+ * 없어 지금 등록된 직업으로 채우는데, 한 번만 도는 일이라 그 뒤로는 낼 때의
+ * 직업이 그대로 굳는다.
+ */
+async function backfillApBasis(): Promise<void> {
+  for (const table of ["spec_build", "spec_submission"]) {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT t.id, t.ap, t.aap, t.dp, c.type, c.name FROM ${table} t ` +
+        "JOIN user_character_class_map m ON m.user_id = t.user_id " +
+        "JOIN character_class c ON c.id = m.character_class_id " +
+        "WHERE t.ap_basis = ''",
+    );
+    for (const row of rows) {
+      const basis = apBasisFor({ type: row.type as ClassType, name: row.name as string });
+      if (!basis) continue;
+      const score = (basis === "main" ? row.ap : row.aap) + row.dp;
+      await pool.execute(`UPDATE ${table} SET ap_basis = ?, score = ? WHERE id = ?`, [basis, score, row.id]);
+    }
+  }
+}
+
 /* ── 세팅 ── */
 
 export interface SpecBuildStats { ap: number; aap: number; dp: number; score: number; isComplete: boolean }
@@ -114,12 +157,12 @@ export type SaveBuildResult =
   | { ok: true; id: string; stats: SpecBuildStats }
   | { ok: false; reason: "duplicate-name" | "limit"; message: string };
 
-function buildValues(build: EquipmentBuild): [string, string, string, string, number, number, number, number, number] {
-  const stats = calculateEquipmentStats(build);
+function buildValues(build: EquipmentBuild, basis: ApBasis | null): [string, string, string, string, number, number, number, number, number, string] {
+  const stats = calculateEquipmentStats(build, basis);
   return [
     build.name,
     JSON.stringify(build.equipment), JSON.stringify(build.crystals), JSON.stringify(build.lightstones),
-    stats.ap, stats.aap, stats.dp, stats.score, stats.complete ? 1 : 0,
+    stats.ap, stats.aap, stats.dp, stats.score, stats.complete ? 1 : 0, basis ?? "",
   ];
 }
 
@@ -152,9 +195,9 @@ export async function getSpecBuilds(userId: string): Promise<{ builds: Equipment
  * 세팅은 숫자가 아닌 임시 id 를 달고 오므로 새 줄이 된다. 고칠 줄이 남의
  * 것이거나 이미 지워졌으면 affectedRows 가 0 이고, 그때도 새로 만든다.
  */
-export async function saveSpecBuild(userId: string, build: EquipmentBuild): Promise<SaveBuildResult> {
-  const values = buildValues(build);
-  const stats = calculateEquipmentStats(build);
+export async function saveSpecBuild(userId: string, build: EquipmentBuild, basis: ApBasis | null): Promise<SaveBuildResult> {
+  const values = buildValues(build, basis);
+  const stats = calculateEquipmentStats(build, basis);
   const asStats: SpecBuildStats = { ap: stats.ap, aap: stats.aap, dp: stats.dp, score: stats.score, isComplete: stats.complete };
   const now = new Date();
   const existingId = /^\d+$/.test(build.id) ? build.id : null;
@@ -162,7 +205,7 @@ export async function saveSpecBuild(userId: string, build: EquipmentBuild): Prom
     if (existingId) {
       const [updated] = await pool.execute<ResultSetHeader>(
         "UPDATE spec_build SET name = ?, gear = ?, crystals = ?, lightstones = ?, " +
-          "ap = ?, aap = ?, dp = ?, score = ?, is_complete = ?, updated_at = ? " +
+          "ap = ?, aap = ?, dp = ?, score = ?, is_complete = ?, ap_basis = ?, updated_at = ? " +
           "WHERE id = ? AND user_id = ?",
         [...values, now, existingId, userId],
       );
@@ -176,8 +219,8 @@ export async function saveSpecBuild(userId: string, build: EquipmentBuild): Prom
       return { ok: false, reason: "limit", message: `세팅은 최대 ${MAX_BUILDS}개까지 저장할 수 있습니다. 쓰지 않는 세팅을 지워 주세요.` };
     }
     const [inserted] = await pool.execute<ResultSetHeader>(
-      "INSERT INTO spec_build (user_id, name, gear, crystals, lightstones, ap, aap, dp, score, is_complete, created_at, updated_at) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO spec_build (user_id, name, gear, crystals, lightstones, ap, aap, dp, score, is_complete, ap_basis, created_at, updated_at) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [userId, ...values, now, now],
     );
     return { ok: true, id: String(inserted.insertId), stats: asStats };
@@ -248,7 +291,7 @@ export async function getSpecSubmission(surveyId: string, userId: string): Promi
  *
  * 낸 값은 그 자리에서 굳는다. 나중에 그 세팅을 고쳐도 이 줄은 그대로다.
  */
-export async function submitSpec(surveyId: string, userId: string, buildId: string): Promise<SubmitSpecResult> {
+export async function submitSpec(surveyId: string, userId: string, buildId: string, basis: ApBasis): Promise<SubmitSpecResult> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, name, gear, crystals, lightstones FROM spec_build WHERE id = ? AND user_id = ?",
     [buildId, userId],
@@ -261,19 +304,19 @@ export async function submitSpec(surveyId: string, userId: string, buildId: stri
     id: String(row.id), name: row.name,
     equipment: row.gear, crystals: row.crystals, lightstones: row.lightstones,
   });
-  const values = buildValues(build);
+  const values = buildValues(build, basis);
   const now = new Date();
   await pool.execute(
     "INSERT INTO spec_submission (spec_survey_id, user_id, source_build_id, build_name, gear, crystals, lightstones, " +
-      "ap, aap, dp, score, is_complete, summary_text, created_at, updated_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) AS new " +
+      "ap, aap, dp, score, is_complete, ap_basis, summary_text, created_at, updated_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) AS new " +
       "ON DUPLICATE KEY UPDATE source_build_id = new.source_build_id, build_name = new.build_name, " +
       "gear = new.gear, crystals = new.crystals, lightstones = new.lightstones, " +
       "ap = new.ap, aap = new.aap, dp = new.dp, score = new.score, is_complete = new.is_complete, " +
-      "summary_text = new.summary_text, updated_at = new.updated_at",
-    [surveyId, userId, buildId, ...values, buildEquipmentText(build), now, now],
+      "ap_basis = new.ap_basis, summary_text = new.summary_text, updated_at = new.updated_at",
+    [surveyId, userId, buildId, ...values, buildEquipmentText(build, basis), now, now],
   );
-  const stats = calculateEquipmentStats(build);
+  const stats = calculateEquipmentStats(build, basis);
   return {
     ok: true,
     submission: {
@@ -287,6 +330,7 @@ export async function submitSpec(surveyId: string, userId: string, buildId: stri
 /* ── 관리자 ── */
 
 export interface SpecSubmissionListRow extends SpecBuildStats {
+  apBasis: ApBasis | null;
   userId: string;
   nickname: string;
   guildName: string;
@@ -321,7 +365,7 @@ export async function getLatestSpecSurvey(): Promise<SpecSurveyRow | null> {
 export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissionListRow[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT s.user_id, u.user_nickname, g.name AS guild_name, s.build_name, s.gear, s.crystals, s.lightstones, " +
-      "s.ap, s.aap, s.dp, s.score, s.is_complete, s.summary_text, s.updated_at " +
+      "s.ap, s.aap, s.dp, s.score, s.is_complete, s.ap_basis, s.summary_text, s.updated_at " +
       "FROM spec_submission s LEFT JOIN user u ON u.id = s.user_id " +
       "LEFT JOIN guild g ON g.id = u.guild_id " +
       "WHERE s.spec_survey_id = ? " +
@@ -347,6 +391,7 @@ export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissi
       submittedAt: row.updated_at,
       ap: row.ap, aap: row.aap, dp: row.dp, score: row.score,
       isComplete: row.is_complete === 1,
+      apBasis: row.ap_basis === "main" || row.ap_basis === "awakening" ? row.ap_basis : null,
       build,
     };
   });

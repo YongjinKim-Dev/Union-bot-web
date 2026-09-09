@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import {
   EQUIPMENT_SLOTS, EQUIPMENT_ITEMS, EQUIPMENT_BY_ID, BUILD_NAME_MAX, MAX_BUILDS,
   defaultEquipmentWorkspace, migrateEquipmentWorkspace, equipItem, enhancementOptions, enhancementLabel, canUseCaphras, buildEquipmentText, calculateEquipmentStats,
-  type EquipmentBuild, type EquipmentSlotId, type EquipmentWorkspace,
+  type ApBasis, type EquipmentBuild, type EquipmentSlotId, type EquipmentWorkspace,
 } from "@/lib/equipment";
 import { formatKstDateTime } from "@/lib/format";
 import type { SpecSubmissionRow } from "@/lib/specQueries";
@@ -36,9 +37,12 @@ interface Props {
   brokenBuilds: number;
   surveyTitle: string | null;
   submission: SpecSubmissionRow | null;
+  /** 등록한 직업이 정하는 공방합 기준. 직업이 없으면 비어 있다. */
+  basis: ApBasis | null;
+  className: string | null;
 }
 
-export function EquipmentBuilder({ savedBuilds, brokenBuilds, surveyTitle, submission: submitted }: Props) {
+export function EquipmentBuilder({ savedBuilds, brokenBuilds, surveyTitle, submission: submitted, basis, className }: Props) {
   const boardRef = useRef<HTMLElement>(null);
   const editorRef = useRef<HTMLElement>(null);
   const [mode, setMode] = useState<EquipmentMode>("gear");
@@ -65,7 +69,7 @@ export function EquipmentBuilder({ savedBuilds, brokenBuilds, surveyTitle, submi
   const selected = build.equipment[slotId];
   const item = selected && EQUIPMENT_BY_ID.get(selected.itemId);
   const count = Object.keys(build.equipment).length;
-  const stats = calculateEquipmentStats(build);
+  const stats = calculateEquipmentStats(build, basis);
   const query = search.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, "");
   const items = EQUIPMENT_ITEMS.filter(i => i.category === slot.category && `${i.name}${i.english}${i.aliases.join(" ")}`.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, "").includes(query));
   if (sort === "name") items.sort((a, b) => a.name.localeCompare(b.name, "ko"));
@@ -158,7 +162,7 @@ export function EquipmentBuilder({ savedBuilds, brokenBuilds, surveyTitle, submi
     if (window.matchMedia("(max-width: 760px)").matches) scrollToPanel(editorRef.current);
   }
   async function copyText() {
-    try { await navigator.clipboard.writeText(buildEquipmentText(build)); setNotice({ text: "현재 장비 목록을 복사했어요." }); }
+    try { await navigator.clipboard.writeText(buildEquipmentText(build, basis)); setNotice({ text: "현재 장비 목록을 복사했어요." }); }
     catch { setNotice({ error: true, text: "복사 권한을 확인해 주세요. 장비 세팅은 그대로 유지됩니다." }); }
   }
   function changeEnhancement(value: number) {
@@ -173,9 +177,12 @@ export function EquipmentBuilder({ savedBuilds, brokenBuilds, surveyTitle, submi
     <div className={styles.content}>
       <div className={styles.pageHeading}>
         <div><p className={styles.eyebrow}>SPEC SURVEY</p><h1>스펙조사</h1></div>
-        {submission
-          ? <p className={styles.submitted}><strong>제출함</strong> · {submission.buildName} · 공방합 {submission.isComplete ? submission.score : "—"} · {formatKstDateTime(submission.updatedAt)}</p>
-          : <p className={styles.submitted} data-empty="true">아직 낸 스펙이 없어요{surveyTitle ? ` · ${surveyTitle} 접수 중` : ""}</p>}
+        <div className={styles.headingSide}>
+          {basis && className && <p className={styles.basisNote}>{className} · 공방합은 {basis === "main" ? "주무기" : "각성무기"} 공격력 + DP</p>}
+          {submission
+            ? <p className={styles.submitted}><strong>제출함</strong> · {submission.buildName} · 공방합 {submission.isComplete ? submission.score : "—"} · {formatKstDateTime(submission.updatedAt)}</p>
+            : <p className={styles.submitted} data-empty="true">아직 낸 스펙이 없어요{surveyTitle ? ` · ${surveyTitle} 접수 중` : ""}</p>}
+        </div>
       </div>
 
       <div className={styles.buildBar}>
@@ -205,14 +212,15 @@ export function EquipmentBuilder({ savedBuilds, brokenBuilds, surveyTitle, submi
           <button type="button" className={styles.button} disabled={busy !== null} onClick={remove}>
             {busy === "delete" ? "지우는 중…" : "삭제"}
           </button>
-          <button type="button" className={styles.submitButton} disabled={busy !== null || !nameReady || !surveyTitle}
-            title={surveyTitle ? `${surveyTitle}에 이 세팅을 냅니다` : "지금은 받고 있는 스펙조사가 없어요"}
+          <button type="button" className={styles.submitButton} disabled={busy !== null || !nameReady || !surveyTitle || !basis}
+            title={!basis ? "직업을 먼저 등록해 주세요" : surveyTitle ? `${surveyTitle}에 이 세팅을 냅니다` : "지금은 받고 있는 스펙조사가 없어요"}
             onClick={submit}>
             {busy === "submit" ? "제출 중…" : "스펙조사 제출"}
           </button>
         </div>
       </div>
 
+      {!basis && <p role="status" className={`${styles.notice} ${styles.error}`}>직업을 먼저 등록해 주세요. 공방합을 주무기로 볼지 각성무기로 볼지가 직업에 따라 달라서, 등록 전에는 공방합이 나오지 않고 제출도 할 수 없어요. <Link href="/classes">직업 등록하러 가기</Link></p>}
       {brokenBuilds > 0 && <p role="status" className={`${styles.notice} ${styles.error}`}>장비 목록이 바뀌어 열지 못한 세팅이 {brokenBuilds}개 있어요. 새로 만들어 주세요.</p>}
       {notice && <p role={notice.error ? "alert" : "status"} className={`${styles.notice} ${notice.error ? styles.error : ""}`}>{notice.text}</p>}
 

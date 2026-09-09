@@ -1,7 +1,8 @@
 "use server";
 
 import { auth } from "@/auth";
-import { parseBuild } from "@/lib/equipment";
+import { apBasisFor, parseBuild } from "@/lib/equipment";
+import { getUserCharacterClass } from "@/lib/queries";
 import {
   deleteSpecBuild, getOpenSpecSurvey, saveSpecBuild, submitSpec,
   type SpecBuildStats, type SpecSubmissionRow,
@@ -29,7 +30,12 @@ export async function saveBuildAction(raw: unknown): Promise<SaveBuildResponse> 
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "세팅을 저장할 수 없습니다." };
   }
-  const saved = await saveSpecBuild(session.user.dbUserId, build);
+  /*
+   * 어느 공격력을 볼지는 직업이 정하므로 서버가 직접 읽는다. 화면이 함께
+   * 보내면 직업을 바꿔 놓고 옛 기준으로 저장할 수 있다.
+   */
+  const basis = apBasisFor(await getUserCharacterClass(session.user.dbUserId));
+  const saved = await saveSpecBuild(session.user.dbUserId, build, basis);
   if (!saved.ok) return { ok: false, message: saved.message };
   return { ok: true, id: saved.id, name: build.name, stats: saved.stats };
 }
@@ -63,7 +69,12 @@ export async function submitSpecAction(buildId: string): Promise<SubmitSpecRespo
   if (!survey) {
     return { ok: false, message: "지금은 받고 있는 스펙조사가 없습니다." };
   }
-  const result = await submitSpec(survey.id, session.user.dbUserId, buildId);
+  // 직업을 모르면 공방합을 낼 수 없다. 낼 수 없는 값을 명단에 올리지 않는다.
+  const basis = apBasisFor(await getUserCharacterClass(session.user.dbUserId));
+  if (!basis) {
+    return { ok: false, message: "직업을 먼저 등록해 주세요. 공방합 기준이 직업에 따라 달라집니다." };
+  }
+  const result = await submitSpec(survey.id, session.user.dbUserId, buildId, basis);
   if (!result.ok) return { ok: false, message: result.message };
   return { ok: true, surveyTitle: survey.title, submission: result.submission };
 }

@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { SiteHeader } from "@/components/SiteHeader";
+import { apBasisFor } from "@/lib/equipment";
+import { getUserCharacterClass } from "@/lib/queries";
 import { getOpenSpecSurvey, getSpecBuilds, getSpecSubmission } from "@/lib/specQueries";
 import { EquipmentBuilder } from "./EquipmentBuilder";
 import styles from "./equipment.module.css";
@@ -13,7 +15,11 @@ export default async function EquipmentPage() {
   const userId = session?.user?.dbUserId;
   if (!userId) redirect("/login?callbackUrl=%2Fequipment");
 
-  const [saved, survey] = await Promise.all([getSpecBuilds(userId), getOpenSpecSurvey()]);
+  const [saved, survey, characterClass] = await Promise.all([
+    getSpecBuilds(userId),
+    getOpenSpecSurvey(),
+    getUserCharacterClass(userId),
+  ]);
   const submission = survey ? await getSpecSubmission(survey.id, userId) : null;
 
   return (
@@ -25,6 +31,8 @@ export default async function EquipmentPage() {
         brokenBuilds={saved.broken}
         surveyTitle={survey?.title ?? null}
         submission={submission}
+        basis={apBasisFor(characterClass)}
+        className={characterClass?.name ?? null}
       />
     </main>
   );

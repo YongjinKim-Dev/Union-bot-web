@@ -1327,6 +1327,8 @@ section.opStack + section {
 .specBuild { color: var(--color-ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .specScore { font-size: 16px; font-weight: 700; color: var(--color-accent-deep); text-align: right; }
 .specParts, .specTime { font-size: 10px; color: var(--color-ink-faint); white-space: nowrap; }
+.specParts b { font-weight: 400; }
+.specParts .specUsed { font-weight: 700; color: var(--color-accent-deep); }
 .specTime { text-align: right; }
 .specChevron { color: var(--color-accent-deep); text-align: center; }
 .specPanel { padding: 14px; border: 1px solid var(--color-accent); border-top: 0; border-radius: 0 0 5px 5px; background: #f4f2ef; }

@@ -1,6 +1,7 @@
 import catalog from "./equipmentCatalog.json";
 import { CAPHRAS_SHEET_DATA } from "./equipmentCaphrasData";
 import { AUGMENT_SLOTS, buildAugmentText, equipAugment } from "./equipmentAugments";
+import type { ClassType } from "./types";
 import type { AugmentKind, AugmentSelection } from "./equipmentAugments";
 
 /*
@@ -88,8 +89,40 @@ export const MAX_BUILDS = 8;
 export const BUILD_NAME_MAX = 40;
 /** 공식 가이드 wikiNo=308: 바탈리 6 + 10주년 1 + 잠식 1 + 카마/오딜 각 1 + 아침 1 + 레벨 1 + 행복한 흑정령 1. */
 export const COMPLETED_PROGRESSION = { ap: 12, aap: 12, dp: 12 } as const;
-export interface EquipmentSheetStats { ap: number; aap: number; dp: number; score: number; complete: boolean }
-export function calculateEquipmentStats(build: EquipmentBuild): EquipmentSheetStats {
+
+/*
+ * 공방합에 어느 공격력을 더할지는 직업이 정한다.
+ *
+ *   전승   주무기 공격력
+ *   각성   각성무기 공격력
+ *   기타   각성무기 공격력. 다만 데드아이·세라핌·샤이는 주무기 공격력이다.
+ *
+ * 둘 중 큰 쪽을 쓰면 안 된다. 각성 직업이 주무기를 더 올려 두었다고 해서 그
+ * 수치로 줄 세우면 실제로 쓰는 무기와 다른 것을 비교하게 된다.
+ */
+export type ApBasis = "main" | "awakening";
+const MAIN_WEAPON_ELSE = ["데드아이", "세라핌", "샤이"];
+export function apBasisFor(characterClass: { type: ClassType; name: string } | null): ApBasis | null {
+  if (!characterClass) return null;
+  if (characterClass.type === "Succession") return "main";
+  if (characterClass.type === "Awaken") return "awakening";
+  return MAIN_WEAPON_ELSE.includes(characterClass.name) ? "main" : "awakening";
+}
+export const AP_BASIS_LABEL: Record<ApBasis, string> = {
+  main: "주무기 공격력",
+  awakening: "각성 공격력",
+};
+
+export interface EquipmentSheetStats {
+  ap: number;
+  aap: number;
+  dp: number;
+  /** 기준이 없으면 뜻이 없는 값이다. basis 가 null 일 때는 보여주지 않는다. */
+  score: number;
+  complete: boolean;
+  basis: ApBasis | null;
+}
+export function calculateEquipmentStats(build: EquipmentBuild, basis: ApBasis | null): EquipmentSheetStats {
   let ap: number = COMPLETED_PROGRESSION.ap, aap: number = COMPLETED_PROGRESSION.aap, dp: number = COMPLETED_PROGRESSION.dp;
   let complete = true;
   for (const slot of EQUIPMENT_SLOTS) {
@@ -112,7 +145,7 @@ export function calculateEquipmentStats(build: EquipmentBuild): EquipmentSheetSt
   }
   // 개별 아이템의 0.5를 먼저 버리면 표기 공격력이 달라진다. 합친 뒤 한 번만 버린다.
   ap = Math.floor(ap); aap = Math.floor(aap);
-  return { ap, aap, dp, score: Math.max(ap, aap) + dp, complete };
+  return { ap, aap, dp, score: basis === null ? 0 : (basis === "main" ? ap : aap) + dp, complete, basis };
 }
 export function emptyWorkspace(): EquipmentWorkspace { return { version: 3, activeId: "initial", builds: [{ id: "initial", name: "내 장비", equipment: {}, crystals: {}, lightstones: {} }] }; }
 /** 사용자가 2026-09-07 화면에서 지정한 기본 구성. 매번 독립 객체로 시작한다. */
@@ -222,9 +255,14 @@ export function parseWorkspace(raw: string): EquipmentWorkspace {
   });
   return migrateEquipmentWorkspace({ version: data.version, activeId: ids.has(data.activeId) ? data.activeId : builds[0].id, builds });
 }
-export function buildEquipmentText(build: EquipmentBuild): string {
-  const stats = calculateEquipmentStats(build);
-  const gear = [`[${build.name}]`, stats.complete ? `AP ${stats.ap} / AAP ${stats.aap} / DP ${stats.dp} / 공방합 ${stats.score}` : "표기 공방: 수치 미확인 장비 포함", "내실 전체 완료 · 레벨 60 이상 기준", ...EQUIPMENT_SLOTS.flatMap(slot => {
+export function buildEquipmentText(build: EquipmentBuild, basis: ApBasis | null): string {
+  const stats = calculateEquipmentStats(build, basis);
+  const summary = !stats.complete
+    ? "표기 공방: 수치 미확인 장비 포함"
+    : stats.basis === null
+      ? `AP ${stats.ap} / AAP ${stats.aap} / DP ${stats.dp} · 공방합은 직업을 등록해야 나옵니다`
+      : `AP ${stats.ap} / AAP ${stats.aap} / DP ${stats.dp} / 공방합 ${stats.score} (${AP_BASIS_LABEL[stats.basis]} 기준)`;
+  const gear = [`[${build.name}]`, summary, "내실 전체 완료 · 레벨 60 이상 기준", ...EQUIPMENT_SLOTS.flatMap(slot => {
     const selected = build.equipment[slot.id], item = selected && EQUIPMENT_BY_ID.get(selected.itemId);
     if (!selected || !item) return [];
     return [`${slot.label}: ${equippedItemName(item, selected.enhancement)}${selected.caphras ? ` (카프라스 ${selected.caphras}단계)` : ""}`];

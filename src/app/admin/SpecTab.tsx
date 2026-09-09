@@ -210,8 +210,12 @@ export function SpecTab() {
                   </span>
                   <span className={styles.specBuild}>{row.buildName}</span>
                   <span className={`${styles.specScore} ${styles.mono}`}>{row.isComplete ? row.score : "—"}</span>
+                  {/* 공방합에 실제로 더한 쪽을 굵게 둔다. 직업마다 다르므로 숫자만으로는 알 수 없다. */}
                   <span className={`${styles.specParts} ${styles.mono}`}>
-                    AP {row.ap} / AAP {row.aap} / DP {row.dp}
+                    <b className={row.apBasis === "main" ? styles.specUsed : undefined}>AP {row.ap}</b>
+                    {" / "}
+                    <b className={row.apBasis === "awakening" ? styles.specUsed : undefined}>AAP {row.aap}</b>
+                    {" / DP "}{row.dp}
                   </span>
                   <span className={`${styles.specTime} ${styles.mono}`}>{formatKstDateTime(new Date(row.submittedAt))}</span>
                   <span className={styles.specChevron} aria-hidden="true">{open ? "▴" : "▾"}</span>
@@ -219,7 +223,7 @@ export function SpecTab() {
                 {open && (
                   <div className={styles.specPanel}>
                     {row.build
-                      ? <SpecViewer build={row.build} />
+                      ? <SpecViewer build={row.build} basis={row.apBasis} />
                       : <pre className={styles.specText}>{row.summaryText}</pre>}
                   </div>
                 )}
