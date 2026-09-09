@@ -1332,3 +1332,6 @@ section.opStack + section {
   .specBuild, .specParts, .specTime { grid-column: 2 / -1; }
   .specTime { text-align: left; }
 }
+
+.sortBar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 0 2px; }
+.sortBar .label { margin-right: 4px; }
