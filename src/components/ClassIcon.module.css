@@ -16,11 +16,11 @@
 /* Source art is white line work, so it needs inverting to read on the light
    ground. Values come from the design handoff's icon rules. */
 .toneDefault .icon {
-  filter: invert(1) sepia(0.4) brightness(0.78) contrast(1.05);
+  filter: var(--class-icon-filter);
 }
 
 .toneSelected .icon {
-  filter: invert(1) sepia(0.75) saturate(1.6) brightness(0.52) contrast(1.1);
+  filter: var(--class-icon-selected-filter);
 }
 
 .toneDark .icon {

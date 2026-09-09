@@ -6,21 +6,21 @@
 .constellation circle:nth-child(3) { stroke-width: 1.5; }
 .slot { min-width: 0; position: relative; display: flex; flex-direction: column; align-items: center; padding: 0; border: 0; background: transparent; color: var(--color-ink-dim); cursor: pointer; }
 .crystalOrbit .slot { position: absolute; width: min(11%, 44px); transform: translate(-50%, -50%); }
-.gem { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; border: 1px solid #b6a995; border-radius: 4px; background: #efebe5; transition: border-color .15s, box-shadow .15s; }
-.gem > svg { width: 76%; height: 76%; color: #b0a087; }
+.gem { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; border: 1px solid var(--color-line-slot); border-radius: 4px; background: var(--color-slot); transition: border-color .15s, box-shadow .15s; }
+.gem > svg { width: 76%; height: 76%; color: var(--color-slot-placeholder); }
 .gem > img { object-fit: contain; width: 90%; height: 90%; }
-.slotEquipped .gem { background: #292822; }
-.slot:hover .gem { border-color: var(--color-accent); box-shadow: 0 0 12px #b6823522; }
-.slotActive .gem { outline: 2px solid var(--color-accent); outline-offset: 3px; box-shadow: 0 0 18px #b6823530; }
+.slotEquipped .gem { background: var(--color-plate-gem); }
+.slot:hover .gem { border-color: var(--color-accent); box-shadow: 0 0 12px var(--color-accent-glow-soft); }
+.slotActive .gem { outline: 2px solid var(--color-accent); outline-offset: 3px; box-shadow: 0 0 18px var(--color-accent-glow); }
 .slotLabel { position: absolute; top: calc(100% + 5px); font-size: 8px; line-height: 1.2; white-space: nowrap; }
 .slotActive .slotLabel { color: var(--color-accent-deep); font-weight: 600; }
-.slot[data-slot-type="ancient-spirit"] .gem::before, .slot[data-slot-type="kharazad"] .gem::before { content: ""; position: absolute; inset: -4px; border: 1px solid #c3a873; transform: rotate(45deg); pointer-events: none; z-index: -1; }
+.slot[data-slot-type="ancient-spirit"] .gem::before, .slot[data-slot-type="kharazad"] .gem::before { content: ""; position: absolute; inset: -4px; border: 1px solid var(--color-accent-frame); transform: rotate(45deg); pointer-events: none; z-index: -1; }
 .dawnRow { position: absolute; left: 0; right: 0; bottom: 3%; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 7%; padding: 10px 4% 0; border-top: 1px solid var(--color-rule); }
-.dawnTitle { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: #f8f7f6; padding: 0 10px; color: var(--color-ink-faint); font-size: 9px; white-space: nowrap; }
+.dawnTitle { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--color-panel); padding: 0 10px; color: var(--color-ink-faint); font-size: 9px; white-space: nowrap; }
 .dawnRow .slot { width: 100%; max-width: 38px; margin: auto; }
 .dawnRow .slotLabel { font-size: 7px; }
 .artifacts { display: grid; gap: 12px; }
-.artifact { border: 1px solid var(--color-rule); border-radius: 6px; padding: 14px 16px; background: radial-gradient(ellipse at center, #eee7d9aa, transparent 70%); display: flex; flex-direction: column; gap: 16px; }
+.artifact { border: 1px solid var(--color-rule); border-radius: 6px; padding: 14px 16px; background: radial-gradient(ellipse at center, var(--color-accent-halo), transparent 70%); display: flex; flex-direction: column; gap: 16px; }
 .artifactTitle { display: flex; align-items: center; gap: 9px; color: var(--color-ink-dim); }
 .artifactTitle img { opacity: .7; }
 .artifactTitle h3 { font-size: 12px; margin: 0; font-weight: 600; }
@@ -31,26 +31,26 @@
 .lightstoneRow .slotLabel { font-size: 9px; }
 .lightstoneRow .gem { border-radius: 50%; }
 .selectorTitle > svg { width: 26px; height: 26px; color: var(--color-accent-deep); }
-.limit { font-size: 9px; line-height: 1.5; color: #8d492f; }
+.limit { font-size: 9px; line-height: 1.5; color: var(--color-warning); }
 .notice { margin: 0; padding: 12px 20px; border-top: 1px solid var(--color-rule); font-size: 11px; line-height: 1.7; color: var(--color-accent-deep); background: var(--color-accent-tint); }
 .combinations { margin: 0 20px 18px; border: 1px solid var(--color-rule); border-radius: 5px; overflow: hidden; }
-.currentCombination { padding: 12px 15px; background: #efede8; }
+.currentCombination { padding: 12px 15px; background: var(--color-inset); }
 .combinationLabel { display: block; margin-bottom: 7px; color: var(--color-ink-faint); font-size: 10px; }
 .currentCombination > strong { display: block; color: var(--color-ink-dim); font-size: 14px; }
 .currentCombination > p { margin: 8px 0 0; font-size: 10px; line-height: 1.6; color: var(--color-ink-faint); }
 .combinationActive { background: var(--color-accent-tint); }
 .combinationActive > strong { color: var(--color-accent-deep); }
 .formula { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 11px 0 0; }
-.formula li { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 4px 7px 4px 4px; border: 1px solid var(--color-rule); background: #fffefd; border-radius: 4px; color: var(--color-ink-dim); font-size: 10px; line-height: 1.5; }
-.formula img { flex-shrink: 0; width: 25px; height: 25px; border-radius: 3px; background: #302b25; }
+.formula li { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 4px 7px 4px 4px; border: 1px solid var(--color-rule); background: var(--color-raised); border-radius: 4px; color: var(--color-ink-dim); font-size: 10px; line-height: 1.5; }
+.formula img { flex-shrink: 0; width: 25px; height: 25px; border-radius: 3px; background: var(--color-plate-recipe); }
 .formula li > span { overflow-wrap: anywhere; }
 .formula b { flex-shrink: 0; font: 600 10px var(--font-mono); color: var(--color-accent-deep); }
-.recipeToggle { display: flex; width: 100%; justify-content: space-between; align-items: center; min-height: 42px; padding: 10px 15px; border: 0; border-top: 1px solid var(--color-rule); background: #f8f7f6; color: var(--color-ink-dim); cursor: pointer; font: 11px var(--font-body); }
+.recipeToggle { display: flex; width: 100%; justify-content: space-between; align-items: center; min-height: 42px; padding: 10px 15px; border: 0; border-top: 1px solid var(--color-rule); background: var(--color-panel); color: var(--color-ink-dim); cursor: pointer; font: 11px var(--font-body); }
 .recipeToggle b { margin-left: 5px; color: var(--color-accent-deep); font: 10px var(--font-mono); }
 .recipeToggle > span:last-child { color: var(--color-accent-deep); }
 .recipeToggle:hover { background: var(--color-accent-tint); }
 .recipeFilters { display: flex; gap: 7px; padding: 0 12px; }
-.recipeFilters input, .recipeFilters select { border: 1px solid var(--color-hairline); border-radius: 4px; background: white; min-height: 36px; color: var(--color-ink); font: 11px var(--font-body); padding: 7px; }
+.recipeFilters input, .recipeFilters select { border: 1px solid var(--color-hairline); border-radius: 4px; background: var(--color-input); min-height: 36px; color: var(--color-ink); font: 11px var(--font-body); padding: 7px; }
 .recipeFilters input { width: 100%; min-width: 0; }
 .recipeFilters select { flex-shrink: 0; }
 .combinations :focus-visible { outline: 2px solid var(--color-accent-deep); outline-offset: -2px; }
