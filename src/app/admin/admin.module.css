@@ -981,7 +981,7 @@ section.opStack + section {
   transform: translateX(-50%) translateY(0);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 900px), (min-width: 1025px) and (max-width: 1124px) {
   .body {
     padding: 24px 20px 56px;
   }
@@ -1182,7 +1182,7 @@ section.opStack + section {
   text-align: right;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 860px), (min-width: 1025px) and (max-width: 1084px) {
   .cmpGrid {
     grid-template-columns: 1fr;
   }
@@ -1333,7 +1333,7 @@ section.opStack + section {
 .specChevron { color: var(--color-accent-deep); text-align: center; }
 .specPanel { padding: 14px; border: 1px solid var(--color-accent); border-top: 0; border-radius: 0 0 5px 5px; background: var(--color-detail); }
 .specText { margin: 0; padding: 14px; border: 1px solid var(--color-rule); border-radius: 5px; background: var(--color-card); font: 11px/1.8 var(--font-mono); white-space: pre-wrap; }
-@media (max-width: 900px) {
+@media (max-width: 900px), (min-width: 1025px) and (max-width: 1124px) {
   /* 칸이 접히면 머리글이 어느 칸을 가리키는지 알 수 없다. 행마다 값이 스스로를 밝힌다. */
   .specHead { display: none; }
   .specRow { grid-template-columns: 28px minmax(0, 1fr) 56px 18px; row-gap: 4px; }

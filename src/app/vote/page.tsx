@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SiteShell } from "@/components/SiteShell";
 import {
   getCurrentSurvey,
   getLatestClosedSurvey,
@@ -38,8 +38,7 @@ export default async function VotePage() {
   ]);
 
   return (
-    <main className={styles.main}>
-      <SiteHeader active="vote" kicker="VOTE" />
+    <SiteShell mainClassName={styles.main} active="vote" kicker="VOTE">
 
       <div className={styles.content}>
         <div className={styles.card}>
@@ -74,6 +73,6 @@ export default async function VotePage() {
           />
         </div>
       </div>
-    </main>
+    </SiteShell>
   );
 }

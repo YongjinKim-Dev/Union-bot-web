@@ -109,7 +109,8 @@
 .content [data-rarity="4"] { border-color: #b59248; }
 .content [data-rarity="5"] { border-color: #a85b50; }
 .content [data-rarity="6"] { border-color: #9b75bb; }
-@media (max-width: 1050px) {
+/* 펼친 메뉴 224px를 빼고도 목록의 읽을 폭을 확보한다. */
+@media (max-width: 1274px) {
   .content { padding-left: 24px; padding-right: 24px; }
   .workspace { grid-template-columns: 340px minmax(0, 1fr); gap: 16px; }
   .itemGrid { grid-template-columns: 1fr; }
@@ -192,3 +193,11 @@
 .buildName:focus-within { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 .submitButton { min-height: 38px; padding: 8px 16px; border: 1px solid var(--color-accent-deep); border-radius: 4px; background: var(--color-accent-deep); color: var(--color-paper); font-size: 12px; font-weight: 600; cursor: pointer; }
 .submitButton:hover:not(:disabled) { background: var(--color-accent-deeper); border-color: var(--color-accent-deeper); }
+
+/* 좁은 본문에서도 이름 입력칸이 작업 버튼을 한 글자씩 밀어내지 않는다. */
+.buildActions { min-width: 0; }
+.buildName { min-width: 0; }
+.buildActions > button { flex-shrink: 0; white-space: nowrap; }
+@media (max-width: 760px) {
+  .buildActions .buildName { flex: 1 1 100%; }
+}

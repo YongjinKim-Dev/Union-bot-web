@@ -1,8 +1,5 @@
-import Link from "next/link";
 import { auth, signOut } from "@/auth";
-import Image from "next/image";
-import styles from "./SiteHeader.module.css";
-import { ThemeToggle } from "./ThemeToggle";
+import { SiteNavigation } from "./SiteNavigation";
 
 export type NavKey = "home" | "vote" | "classes" | "equipment" | "about" | "docs" | "admin";
 
@@ -54,62 +51,16 @@ export async function SiteHeader({ active, kicker = "" }: { active: NavKey; kick
   const session = await auth();
   const isAdmin = session?.user?.isAdmin === true;
   return (
-    <header className={styles.header}>
-      <div className={styles.brandBlock}>
-        {/* 마크와 이름은 홈으로 가는 링크다. 키커는 지금 있는 곳을 가리키는
-            표시일 뿐이므로 링크 밖에 둔다. */}
-        <Link href="/" className={styles.brandLink}>
-          <Image src="/brand-icon.png" alt="" width={28} height={28} className={styles.brandIcon} />
-          <span className={styles.brand}>아시바당</span>
-        </Link>
-        {kicker && <span className={styles.kicker}>{kicker}</span>}
-      </div>
-      {session?.user?.nickname && (
-        <span className={styles.user}>
-          {/* 로그인할 때 토큰에 담긴 주소다. 디스코드에서 사진을 바꾸면 다음
-              로그인 때 따라온다. 사진이 없는 사람도 있으므로 있을 때만 그린다. */}
-          {session.user.image && (
-            <Image
-              src={avatarSrc(session.user.image)}
-              alt=""
-              width={26}
-              height={26}
-              className={styles.avatar}
-              unoptimized
-            />
-          )}
-          <span className={styles.nickname}>{session.user.nickname}</span>
-        </span>
-      )}
-      <div className={styles.themeControl}><ThemeToggle /></div>
-      <form
-        className={styles.logoutForm}
-        action={async () => {
-          "use server";
-          await signOut({ redirectTo: "/login" });
-        }}
-      >
-        <button type="submit" className={styles.logoutButton}>
-          로그아웃
-        </button>
-      </form>
-      <nav className={styles.nav}>
-        {[...NAV_ITEMS, ...(isAdmin ? ADMIN_NAV_ITEM : [])].map((item) =>
-          item.href ? (
-            <Link
-              key={item.key}
-              href={item.href}
-              className={`${styles.navLink} ${item.key === active ? styles.navLinkActive : ""}`}
-            >
-              {item.label}
-            </Link>
-          ) : (
-            <span key={item.key} className={styles.navLinkSoon} title="준비 중">
-              {item.label}
-            </span>
-          ),
-        )}
-      </nav>
-    </header>
+    <SiteNavigation
+      active={active}
+      kicker={kicker}
+      items={[...NAV_ITEMS, ...(isAdmin ? ADMIN_NAV_ITEM : [])]}
+      nickname={session?.user?.nickname ?? null}
+      avatar={session?.user?.image ? avatarSrc(session.user.image) : null}
+      signOutAction={async () => {
+        "use server";
+        await signOut({ redirectTo: "/login" });
+      }}
+    />
   );
 }

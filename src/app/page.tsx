@@ -3,7 +3,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { ClassIcon } from "@/components/ClassIcon";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SiteShell } from "@/components/SiteShell";
 import { ReferenceSection } from "./ReferenceSection";
 // getVotesForUser is still exported for when "내 표" comes back.
 import { getSurveysInRange, getUserCharacterClass } from "@/lib/queries";
@@ -54,8 +54,7 @@ export default async function HomePage() {
   // const todayVote = todaySurvey ? votes.get(todaySurvey.id) : undefined;
 
   return (
-    <main className={styles.main}>
-      <SiteHeader active="home" />
+    <SiteShell mainClassName={styles.main} active="home">
 
       <section className={styles.hero}>
         <Image
@@ -139,6 +138,6 @@ export default async function HomePage() {
 
         <ReferenceSection />
       </div>
-    </main>
+    </SiteShell>
   );
 }

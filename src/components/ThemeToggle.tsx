@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { getServerTheme, getTheme, subscribeTheme, toggleTheme } from "./theme";
 import styles from "./ThemeToggle.module.css";
 
-export function ThemeToggle({ floating = false }: { floating?: boolean }) {
+export function ThemeToggle({ floating = false, compact = false }: { floating?: boolean; compact?: boolean }) {
   const theme = useSyncExternalStore(subscribeTheme, getTheme, getServerTheme);
   return (
     <button
@@ -12,7 +12,8 @@ export function ThemeToggle({ floating = false }: { floating?: boolean }) {
       role="switch"
       aria-label="다크 모드"
       aria-checked={theme === "dark"}
-      className={`${styles.toggle} ${floating ? styles.floating : ""}`}
+      title={compact ? (theme === "dark" ? "밝은 테마로 전환" : "어두운 테마로 전환") : undefined}
+      className={`${styles.toggle} ${floating ? styles.floating : ""} ${compact ? styles.compact : ""}`}
       onClick={toggleTheme}
     >
       <svg className={styles.sun} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -22,9 +23,11 @@ export function ThemeToggle({ floating = false }: { floating?: boolean }) {
       <svg className={styles.moon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
         <path d="M20.5 14A9 9 0 0 1 10 3.5 9 9 0 1 0 20.5 14Z" />
       </svg>
-      <span className={styles.sun}>밝은 테마</span>
-      <span className={styles.moon}>어두운 테마</span>
-      <span className={styles.track} aria-hidden="true"><span /></span>
+      {!compact && <>
+        <span className={styles.sun}>밝은 테마</span>
+        <span className={styles.moon}>어두운 테마</span>
+        <span className={styles.track} aria-hidden="true"><span /></span>
+      </>}
     </button>
   );
 }
