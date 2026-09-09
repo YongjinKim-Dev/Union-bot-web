@@ -63,10 +63,13 @@ export default async function ProfilePage() {
         <section className={styles.profile} aria-labelledby="profile-spec-heading">
           <div className={styles.sectionHeader}>
             <h2 id="profile-spec-heading">최근 제출 스펙</h2>
-            {submission && <span className={styles.badge}>{submission.isComplete ? "제출 완료" : "수치 미확정"}</span>}
+            <Link href="/equipment" className={styles.link}>스펙조사로 이동 <span aria-hidden="true">↗</span></Link>
           </div>
           {submission ? <>
-            <p className={styles.surveyTitle}>{submission.surveyTitle ?? "조사 정보 없음"}</p>
+            <div className={styles.surveySummary}>
+              <p className={styles.surveyTitle}>{submission.surveyTitle ?? "조사 정보 없음"}</p>
+              <span className={styles.badge}>{submission.isComplete ? "제출 완료" : "수치 미확정"}</span>
+            </div>
             <dl className={styles.stats}>
               <div><dt>주무기 AP</dt><dd>{submission.isComplete ? submission.ap : "—"}</dd></div>
               <div><dt>각성 AAP</dt><dd>{submission.isComplete ? submission.aap : "—"}</dd></div>
@@ -75,7 +78,6 @@ export default async function ProfilePage() {
             </dl>
             <p className={styles.submittedAt}>제출일 <time dateTime={submission.submittedAt.toISOString()}>{formatKstDateTime(submission.submittedAt)}</time></p>
           </> : <p className={styles.empty}>아직 제출한 스펙이 없습니다.</p>}
-          <Link href="/equipment" className={styles.link}>스펙조사로 이동 <span aria-hidden="true">↗</span></Link>
         </section>
       </div>
     </SiteShell>

@@ -6,7 +6,9 @@ import Link from "next/link";
 import type { NavKey } from "./SiteHeader";
 import { ProfileAvatar } from "./ProfileAvatar";
 import { ThemeToggle } from "./ThemeToggle";
+import { getTheme, subscribeTheme } from "./theme";
 import styles from "./SiteHeader.module.css";
+import lightStyles from "./LightSiteHeader.module.css";
 
 interface Props {
   active: NavKey;
@@ -18,6 +20,7 @@ interface Props {
 }
 
 export function SiteNavigation({ active, kicker, items, nickname, avatar, signOutAction }: Props) {
+  const header = useRef<HTMLElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -35,7 +38,13 @@ export function SiteNavigation({ active, kicker, items, nickname, avatar, signOu
     if (!open) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previous; };
+    // 다크 테마의 모바일 메뉴가 열린 채 라이트 테마로 바뀌면 메뉴를 닫는다.
+    // 메뉴를 닫아 배경 클릭 차단을 풀고, 아래 정리 함수에서 스크롤 잠금도 해제한다.
+    // 테마 버튼뿐 아니라 다른 탭이나 시스템 설정을 통한 전환도 함께 처리한다.
+    const unsubscribe = subscribeTheme(() => {
+      if (getTheme() === "light") dialog.current?.close();
+    });
+    return () => { unsubscribe(); document.body.style.overflow = previous; };
   }, [open]);
 
   const brand = (
@@ -44,15 +53,15 @@ export function SiteNavigation({ active, kicker, items, nickname, avatar, signOu
       <span className={styles.brand}>아시바당</span>
     </Link>
   );
-  const menu = (
-    <nav className={styles.nav} aria-label="주 메뉴">
+  const menu = (navStyles: Record<string, string>) => (
+    <nav className={navStyles.nav} aria-label="주 메뉴">
       {items.map(item => item.href ? (
         <Link key={item.key} href={item.href} onClick={close}
           aria-current={item.key === active ? "page" : undefined}
-          className={`${styles.navLink} ${item.key === active ? styles.navLinkActive : ""}`}>
+          className={`${navStyles.navLink} ${item.key === active ? navStyles.navLinkActive : ""}`}>
           {item.label}
         </Link>
-      ) : <span key={item.key} className={styles.navLinkSoon} title="준비 중">{item.label}</span>)}
+      ) : <span key={item.key} className={navStyles.navLinkSoon} title="준비 중">{item.label}</span>)}
     </nav>
   );
   const footer = (
@@ -75,9 +84,28 @@ export function SiteNavigation({ active, kicker, items, nickname, avatar, signOu
     </div>
   );
   return <>
+    <header ref={header} className={`${lightStyles.header} ${active === "equipment" ? lightStyles.wide : ""}`} aria-label="사이트 메뉴">
+      <div className={lightStyles.brandBlock}>
+        <Link href="/" className={lightStyles.brandLink}>
+          <Image src="/brand-icon.png" alt="" width={28} height={28} className={lightStyles.brandIcon} />
+          <span className={lightStyles.brand}>아시바당</span>
+        </Link>
+        {kicker && <span className={lightStyles.kicker}>{kicker}</span>}
+      </div>
+      <div className={lightStyles.themeControl}><ThemeToggle compact /></div>
+      {nickname && <Link href="/profile" className={lightStyles.user}
+        aria-label={`${nickname} · 내 정보`} aria-current={active === "profile" ? "page" : undefined}>
+        {avatar && <ProfileAvatar image={avatar} name={nickname} size={26} />}
+        <span className={lightStyles.nickname}>{nickname}</span>
+      </Link>}
+      <form className={lightStyles.logoutForm} action={signOutAction}>
+        <button type="submit" className={lightStyles.logoutButton}>로그아웃</button>
+      </form>
+      {menu(lightStyles)}
+    </header>
     <aside className={styles.sidebar} aria-label="사이트 메뉴">
       <div>{brand}<span className={styles.edition}>UNION LEDGER</span></div>
-      {menu}
+      {menu(styles)}
       {footer}
     </aside>
     <header className={styles.mobileHeader}>
@@ -106,7 +134,11 @@ export function SiteNavigation({ active, kicker, items, nickname, avatar, signOu
           first?.focus();
         }
       }}
-      onClose={() => { setOpen(false); if (opener.current?.getClientRects().length) opener.current.focus(); }}
+      onClose={() => {
+        setOpen(false);
+        if (opener.current?.getClientRects().length) opener.current.focus();
+        else if (getTheme() === "light") header.current?.querySelector<HTMLButtonElement>('[role="switch"]')?.focus();
+      }}
       onClick={event => {
         if (event.target !== event.currentTarget) return;
         const bounds = event.currentTarget.getBoundingClientRect();
@@ -118,7 +150,7 @@ export function SiteNavigation({ active, kicker, items, nickname, avatar, signOu
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
         </button>
       </div>
-      {menu}
+      {menu(styles)}
       {footer}
     </dialog>
   </>;
