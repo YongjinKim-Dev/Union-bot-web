@@ -1314,8 +1314,13 @@ section.opStack + section {
 }
 
 /* 스펙조사 — 접어 펴는 명단. 펼치면 연맹원 화면과 같은 판이 나온다. */
+/* 머리글과 행이 같은 칸 나눔을 써야 줄이 맞는다. 한 군데서 정해 둘로 나눠 쓴다. */
+.specTable { --spec-cols: 34px minmax(70px, 1fr) minmax(60px, 1fr) 62px minmax(0, 200px) 92px 20px; }
+/* 행은 1px 테두리를 두르므로 머리글도 그만큼 안으로 들여야 줄이 맞는다. */
+.specHead { display: grid; grid-template-columns: var(--spec-cols); align-items: center; gap: 10px; padding: 10px 13px 6px; border-bottom: 1px solid var(--color-rule); font-size: 10px; letter-spacing: .04em; color: var(--color-ink-faint); }
+.specHead > span:first-child, .specHead > span:nth-child(4), .specHead > span:nth-child(6) { text-align: right; }
 .specList { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
-.specRow { display: grid; grid-template-columns: 34px minmax(70px, 1fr) minmax(60px, 1fr) 62px minmax(0, 200px) 92px 20px; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border: 1px solid var(--color-rule); border-radius: 5px; background: #fbfaf9; color: var(--color-ink); text-align: left; font-size: 12px; cursor: pointer; }
+.specRow { display: grid; grid-template-columns: var(--spec-cols); align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border: 1px solid var(--color-rule); border-radius: 5px; background: #fbfaf9; color: var(--color-ink); text-align: left; font-size: 12px; cursor: pointer; }
 .specRow:hover { border-color: var(--color-accent); background: var(--color-accent-tint); }
 .specOpen .specRow { border-color: var(--color-accent); background: var(--color-accent-tint); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .specRank { color: var(--color-ink-faint); text-align: right; }
@@ -1327,6 +1332,8 @@ section.opStack + section {
 .specPanel { padding: 14px; border: 1px solid var(--color-accent); border-top: 0; border-radius: 0 0 5px 5px; background: #f4f2ef; }
 .specText { margin: 0; padding: 14px; border: 1px solid var(--color-rule); border-radius: 5px; background: #fbfaf9; font: 11px/1.8 var(--font-mono); white-space: pre-wrap; }
 @media (max-width: 900px) {
+  /* 칸이 접히면 머리글이 어느 칸을 가리키는지 알 수 없다. 행마다 값이 스스로를 밝힌다. */
+  .specHead { display: none; }
   .specRow { grid-template-columns: 28px minmax(0, 1fr) 56px 18px; row-gap: 4px; }
   .specBuild, .specParts, .specTime { grid-column: 2 / -1; }
   .specTime { text-align: left; }

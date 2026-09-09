@@ -180,6 +180,18 @@ export function SpecTab() {
           <p className={styles.hint}>아직 아무도 스펙을 내지 않았습니다.</p>
         )}
 
+        <div className={styles.specTable}>
+        {sorted.length > 0 && (
+          <div className={styles.specHead}>
+            <span>#</span>
+            <span>닉네임 · 길드</span>
+            <span>세팅</span>
+            <span>공방합</span>
+            <span>AP / AAP / DP</span>
+            <span>제출</span>
+            <span />
+          </div>
+        )}
         <ol className={styles.specList}>
           {sorted.map((row, index) => {
             const open = openId === row.userId;
@@ -215,6 +227,7 @@ export function SpecTab() {
             );
           })}
         </ol>
+        </div>
       </div>
     </section>
   );
