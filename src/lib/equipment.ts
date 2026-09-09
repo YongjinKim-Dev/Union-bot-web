@@ -95,13 +95,13 @@ export const COMPLETED_PROGRESSION = { ap: 12, aap: 12, dp: 12 } as const;
  *
  *   전승   주무기 공격력
  *   각성   각성무기 공격력
- *   기타   각성무기 공격력. 다만 데드아이·세라핌·샤이는 주무기 공격력이다.
+ *   기타   각성무기 공격력. 다만 데드아이·세라핌·샤이·오공은 주무기 공격력이다.
  *
  * 둘 중 큰 쪽을 쓰면 안 된다. 각성 직업이 주무기를 더 올려 두었다고 해서 그
  * 수치로 줄 세우면 실제로 쓰는 무기와 다른 것을 비교하게 된다.
  */
 export type ApBasis = "main" | "awakening";
-const MAIN_WEAPON_ELSE = ["데드아이", "세라핌", "샤이"];
+const MAIN_WEAPON_ELSE = ["데드아이", "세라핌", "샤이", "오공"];
 export function apBasisFor(characterClass: { type: ClassType; name: string } | null): ApBasis | null {
   if (!characterClass) return null;
   if (characterClass.type === "Succession") return "main";
