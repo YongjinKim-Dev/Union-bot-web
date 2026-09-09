@@ -20,6 +20,7 @@ const SORTS = [
   { key: "aap", label: "AAP", desc: true },
   { key: "dp", label: "DP", desc: true },
   { key: "nickname", label: "닉네임", desc: false },
+  { key: "guildName", label: "길드", desc: false },
   { key: "submittedAt", label: "제출 시각", desc: true },
 ] as const;
 type SortKey = (typeof SORTS)[number]["key"];
@@ -28,6 +29,7 @@ const NUMERIC: SortKey[] = ["score", "ap", "aap", "dp"];
 
 function at(row: SpecSubmissionListRow, key: SortKey): number | string {
   if (key === "nickname") return row.nickname;
+  if (key === "guildName") return row.guildName;
   if (key === "submittedAt") return new Date(row.submittedAt).getTime();
   return row[key];
 }
@@ -39,7 +41,10 @@ function at(row: SpecSubmissionListRow, key: SortKey): number | string {
  */
 export function SpecTab() {
   const [survey, setSurvey] = useState<SpecSurveyView | null>(null);
+  const [guilds, setGuilds] = useState<string[]>([]);
   const [rows, setRows] = useState<SpecSubmissionListRow[]>([]);
+  /* 빈 집합이 "모두" 다. 상자를 다 풀면 자연히 전체로 돌아온다. */
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [desc, setDesc] = useState(true);
@@ -51,6 +56,7 @@ export function SpecTab() {
       try {
         const result = await fetchSpecSubmissions();
         setSurvey(result.survey);
+        setGuilds(result.guilds);
         setRows(result.rows);
       } catch {
         // 다시 열면 회복된다
@@ -66,8 +72,22 @@ export function SpecTab() {
     setDesc(SORTS.find(s => s.key === key)!.desc);
   }
 
+  function toggleGuild(name: string) {
+    setPicked(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  }
+
+  const countByGuild = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of rows) counts.set(row.guildName, (counts.get(row.guildName) ?? 0) + 1);
+    return counts;
+  }, [rows]);
+
   const sorted = useMemo(() => {
-    const list = [...rows];
+    const list = picked.size ? rows.filter(row => picked.has(row.guildName)) : [...rows];
     list.sort((a, b) => {
       if (NUMERIC.includes(sortKey) && a.isComplete !== b.isComplete) return a.isComplete ? -1 : 1;
       const left = at(a, sortKey), right = at(b, sortKey);
@@ -75,15 +95,18 @@ export function SpecTab() {
         ? left.localeCompare(right as string, "ko")
         : (left as number) - (right as number);
       if (diff !== 0) return desc ? -diff : diff;
-      // 값이 같으면 어느 방향으로 보든 먼저 낸 사람이 앞이다.
+      // 같은 길드끼리는 공방합이 높은 쪽이 위다. 길드별로 묶어 보는 이유가 그것이다.
+      if (sortKey === "guildName" && a.score !== b.score) return b.score - a.score;
+      // 그 밖에는 값이 같으면 어느 방향으로 보든 먼저 낸 사람이 앞이다.
       return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
     });
     return list;
-  }, [rows, sortKey, desc]);
+  }, [rows, picked, sortKey, desc]);
 
   async function copyList() {
+    const mixed = new Set(sorted.map(row => row.guildName)).size > 1;
     const text = sorted
-      .map((row, index) => `${index + 1}. ${row.nickname} · ${row.isComplete ? row.score : "?"} (AP ${row.ap} / AAP ${row.aap} / DP ${row.dp}) · ${row.buildName}`)
+      .map((row, index) => `${index + 1}. ${row.nickname}${mixed ? `(${row.guildName})` : ""} · ${row.isComplete ? row.score : "?"} (AP ${row.ap} / AAP ${row.aap} / DP ${row.dp}) · ${row.buildName}`)
       .join("\n");
     try {
       await navigator.clipboard.writeText(text);
@@ -93,13 +116,13 @@ export function SpecTab() {
     }
   }
 
-  const unknown = rows.filter((row) => !row.isComplete).length;
+  const unknown = sorted.filter((row) => !row.isComplete).length;
 
   return (
     <section className={styles.opStack}>
       <h2 className={styles.rosterTitle}>스펙조사 제출 명단</h2>
       <p className={styles.hint}>
-        기본은 공방합이 높은 순이고, 아래에서 기준을 바꿀 수 있습니다.
+        기본은 공방합이 높은 순이고, 아래에서 길드를 거르거나 정렬 기준을 바꿀 수 있습니다.
         행을 누르면 그 사람이 낸 장비·수정·광명석을 볼 수 있습니다.
         낸 값은 제출한 순간에 굳으므로, 그 뒤에 세팅을 고쳐도 여기 보이는 것은 바뀌지 않습니다.
       </p>
@@ -108,6 +131,7 @@ export function SpecTab() {
         <div className={styles.rosterBar}>
           <span className={styles.label}>
             {survey ? `${survey.title}${survey.open ? "" : " (마감)"} · 제출 ${rows.length}명` : "등록된 스펙조사가 없습니다"}
+            {picked.size > 0 && ` · 표시 ${sorted.length}명`}
             {unknown > 0 && ` · 수치 미확인 ${unknown}명`}
           </span>
           <span className={styles.spacer} />
@@ -117,6 +141,20 @@ export function SpecTab() {
           <button type="button" className={styles.btnSm} onClick={load} disabled={isLoading}>
             {isLoading ? "새로 고치는 중..." : "새로 고침"}
           </button>
+        </div>
+
+        <div className={styles.sortBar}>
+          <span className={styles.label}>길드</span>
+          <label className={styles.check}>
+            <input type="checkbox" checked={picked.size === 0} onChange={() => setPicked(new Set())} />
+            <span>모두 {rows.length}</span>
+          </label>
+          {guilds.map((name) => (
+            <label key={name} className={styles.check}>
+              <input type="checkbox" checked={picked.has(name)} onChange={() => toggleGuild(name)} />
+              <span>{name} {countByGuild.get(name) ?? 0}</span>
+            </label>
+          ))}
         </div>
 
         <div className={styles.sortBar} role="group" aria-label="정렬 기준">
@@ -154,7 +192,10 @@ export function SpecTab() {
                   onClick={() => setOpenId(open ? null : row.userId)}
                 >
                   <span className={`${styles.specRank} ${styles.mono}`}>{index + 1}</span>
-                  <span className={styles.specName}>{row.nickname}</span>
+                  <span className={styles.specName}>
+                    <span className={styles.specNick}>{row.nickname}</span>
+                    <span className={styles.specGuild}>{row.guildName}</span>
+                  </span>
                   <span className={styles.specBuild}>{row.buildName}</span>
                   <span className={`${styles.specScore} ${styles.mono}`}>{row.isComplete ? row.score : "—"}</span>
                   <span className={`${styles.specParts} ${styles.mono}`}>

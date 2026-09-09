@@ -289,11 +289,20 @@ export async function submitSpec(surveyId: string, userId: string, buildId: stri
 export interface SpecSubmissionListRow extends SpecBuildStats {
   userId: string;
   nickname: string;
+  guildName: string;
   buildName: string;
   summaryText: string;
   submittedAt: Date;
   /** 카탈로그가 바뀌어 판으로 그릴 수 없으면 비어 있다. 그때는 summaryText 를 보여준다. */
   build: EquipmentBuild | null;
+}
+
+/** 거르기 상자를 만들 목록. 아무도 내지 않은 길드도 상자는 있어야 한다. */
+export async function getGuildNames(): Promise<string[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT name FROM guild WHERE status = 1 ORDER BY id",
+  );
+  return rows.map((row) => row.name as string);
 }
 
 /** 열려 있는 조사가 없으면 마지막 조사를 본다. 관리자는 끝난 조사도 봐야 한다. */
@@ -311,9 +320,10 @@ export async function getLatestSpecSurvey(): Promise<SpecSurveyRow | null> {
  */
 export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissionListRow[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT s.user_id, u.user_nickname, s.build_name, s.gear, s.crystals, s.lightstones, " +
+    "SELECT s.user_id, u.user_nickname, g.name AS guild_name, s.build_name, s.gear, s.crystals, s.lightstones, " +
       "s.ap, s.aap, s.dp, s.score, s.is_complete, s.summary_text, s.updated_at " +
       "FROM spec_submission s LEFT JOIN user u ON u.id = s.user_id " +
+      "LEFT JOIN guild g ON g.id = u.guild_id " +
       "WHERE s.spec_survey_id = ? " +
       "ORDER BY s.is_complete DESC, s.score DESC, s.updated_at ASC",
     [surveyId],
@@ -331,6 +341,7 @@ export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissi
     return {
       userId: String(row.user_id),
       nickname: row.user_nickname ?? "알 수 없음",
+      guildName: row.guild_name ?? "소속 없음",
       buildName: row.build_name,
       summaryText: row.summary_text,
       submittedAt: row.updated_at,
