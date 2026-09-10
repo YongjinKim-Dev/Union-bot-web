@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { ClassIcon } from "@/components/ClassIcon";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { SiteShell } from "@/components/SiteShell";
-import { AP_BASIS_LABEL } from "@/lib/equipment";
+import { AP_BASIS_LABEL, apBasisFor } from "@/lib/equipment";
 import { formatKstDateTime } from "@/lib/format";
 import { getLatestProfileSubmission, getProfileMembership } from "@/lib/profileQueries";
 import { CLASS_TYPE_LABEL } from "@/lib/types";
@@ -26,6 +26,16 @@ export default async function ProfilePage() {
     getLatestProfileSubmission(session.user.dbUserId),
   ]);
   const characterClass = membership.characterClass;
+  /*
+   * 어느 공격력을 보는지는 지금 등록된 직업이 정한다. 낼 때 무슨 직업이었든
+   * 마지막으로 고른 직업을 따른다. 장비 수치는 낸 그대로이고 어느 쪽을 볼지만
+   * 달라지므로, 합계는 여기서 낸다.
+   */
+  const apBasis = apBasisFor(characterClass);
+  const score = submission && apBasis
+    ? (apBasis === "main" ? submission.ap : submission.aap) + submission.dp
+    : null;
+  const scoreReady = Boolean(submission?.isComplete) && score !== null;
 
   return (
     <SiteShell active="profile" kicker="MY PAGE" mainClassName={styles.main}>
@@ -73,20 +83,20 @@ export default async function ProfilePage() {
             </div>
             {/* 공방합에 어느 공격력을 더했는지는 직업이 정한다. 숫자만으로는 알 수 없으므로 쓰인 쪽에 표시를 남긴다. */}
             <dl className={styles.stats}>
-              <div className={submission.apBasis === "main" ? styles.used : undefined}>
-                <dt>주무기{submission.apBasis === "main" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
+              <div className={apBasis === "main" ? styles.used : undefined}>
+                <dt>주무기{apBasis === "main" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
                 <dd>{submission.isComplete ? submission.ap : "—"}</dd>
               </div>
-              <div className={submission.apBasis === "awakening" ? styles.used : undefined}>
-                <dt>각성무기{submission.apBasis === "awakening" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
+              <div className={apBasis === "awakening" ? styles.used : undefined}>
+                <dt>각성무기{apBasis === "awakening" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
                 <dd>{submission.isComplete ? submission.aap : "—"}</dd>
               </div>
               <div><dt>방어력</dt><dd>{submission.isComplete ? submission.dp : "—"}</dd></div>
-              <div className={styles.score}><dt>공방합</dt><dd>{submission.isComplete ? submission.score : "—"}</dd></div>
+              <div className={styles.score}><dt>공방합</dt><dd>{scoreReady ? score : "—"}</dd></div>
             </dl>
-            {submission.apBasis && (
-              <p className={styles.basisNote}>공방합 = {AP_BASIS_LABEL[submission.apBasis]} + 방어력 · 낼 때의 직업이 정한 기준입니다</p>
-            )}
+            {apBasis
+              ? <p className={styles.basisNote}>공방합 = {AP_BASIS_LABEL[apBasis]} + 방어력 · 지금 등록된 직업({characterClass?.name})이 정한 기준입니다</p>
+              : <p className={styles.basisNote}>직업을 등록하면 공방합이 나옵니다.</p>}
             <p className={styles.submittedAt}>제출일 <time dateTime={submission.submittedAt.toISOString()}>{formatKstDateTime(submission.submittedAt)}</time></p>
           </> : <p className={styles.empty}>아직 제출한 스펙이 없습니다.</p>}
         </section>

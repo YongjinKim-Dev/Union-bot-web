@@ -1,6 +1,5 @@
 import type { RowDataPacket } from "mysql2";
 import { pool } from "@/lib/db";
-import type { ApBasis } from "@/lib/equipment";
 import type { ClassType, UserCharacterClass } from "@/lib/types";
 
 export interface ProfileMembership {
@@ -10,12 +9,9 @@ export interface ProfileMembership {
 
 export interface ProfileSubmission {
   surveyTitle: string | null;
-  /** 낼 때 굳은 공방합 기준. 직업이 정하므로 사람마다 다르다. */
-  apBasis: ApBasis | null;
   ap: number;
   aap: number;
   dp: number;
-  score: number;
   isComplete: boolean;
   submittedAt: Date;
 }
@@ -41,8 +37,11 @@ export async function getProfileMembership(userId: string): Promise<ProfileMembe
 export async function getLatestProfileSubmission(userId: string): Promise<ProfileSubmission | null> {
   // 최신 조사 여부와 관계없이 본인이 마지막으로 낸 스펙을 표시합니다.
   // 재제출은 같은 행을 갱신하므로 id가 아닌 updated_at을 먼저 비교합니다.
+  //
+  // 공방합은 여기서 내지 않는다. 어느 공격력을 보는지는 지금 등록된 직업이
+  // 정하므로, 직업을 함께 아는 화면에서 계산한다.
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT v.title AS survey_title, s.ap, s.aap, s.dp, s.score, s.is_complete, s.ap_basis, s.updated_at " +
+    "SELECT v.title AS survey_title, s.ap, s.aap, s.dp, s.is_complete, s.updated_at " +
       "FROM spec_submission s LEFT JOIN spec_survey v ON v.id = s.spec_survey_id " +
       "WHERE s.user_id = ? ORDER BY s.updated_at DESC, s.id DESC LIMIT 1",
     [userId],
@@ -51,11 +50,9 @@ export async function getLatestProfileSubmission(userId: string): Promise<Profil
   if (!row) return null;
   return {
     surveyTitle: row.survey_title ?? null,
-    apBasis: row.ap_basis === "main" || row.ap_basis === "awakening" ? row.ap_basis : null,
     ap: row.ap,
     aap: row.aap,
     dp: row.dp,
-    score: row.score,
     isComplete: Number(row.is_complete) === 1,
     submittedAt: row.updated_at,
   };

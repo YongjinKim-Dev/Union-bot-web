@@ -102,9 +102,9 @@ export async function ensureSpecTables(): Promise<void> {
   await ensureSpecColumn("spec_build", "ap_basis", "varchar(12) NOT NULL DEFAULT ''");
   await ensureSpecColumn("spec_submission", "ap_basis", "varchar(12) NOT NULL DEFAULT ''");
   /*
-   * 낼 때의 직업도 함께 굳힌다. 공방합 기준을 정한 것이 그 직업이므로, 지금
-   * 등록된 직업을 가져다 붙이면 나중에 직업을 바꾼 사람은 각성 마크를 달고
-   * 주무기 수치가 굵게 표시되는 모순이 생긴다.
+   * 낼 때의 직업과 기준을 기록으로 남긴다. 화면은 지금 등록된 직업을 보여
+   * 주므로(getSpecSubmissions 참고) 이 두 칸은 나중에 "그때는 무슨 직업으로
+   * 냈나" 를 되짚을 때만 쓴다.
    */
   await ensureSpecColumn("spec_submission", "class_name", "varchar(50) NOT NULL DEFAULT ''");
   await ensureSpecColumn("spec_submission", "class_type", "varchar(20) NOT NULL DEFAULT ''");
@@ -152,26 +152,6 @@ async function backfillApBasis(): Promise<void> {
       if (!basis) continue;
       const score = (basis === "main" ? row.ap : row.aap) + row.dp;
       await pool.execute(`UPDATE ${table} SET ap_basis = ?, score = ? WHERE id = ?`, [basis, score, row.id]);
-    }
-    if (table !== "spec_submission") continue;
-    /*
-     * 기준을 이미 채운 줄에도 직업이 비어 있을 수 있다. 그때의 직업을 알 길이
-     * 없어 지금 등록된 직업으로 한 번만 채운다.
-     *
-     * 다만 지금 직업이 정하는 기준이 굳어 있는 기준과 어긋나면, 그 사람은 낸
-     * 뒤에 직업을 바꾼 것이다. 그 직업은 이 제출을 만든 직업이 아니므로 비워
-     * 둔다. 틀린 그림을 그리는 것보다 아무것도 안 그리는 편이 낫다.
-     */
-    const [missing] = await pool.query<RowDataPacket[]>(
-      "SELECT t.id, t.ap_basis, c.type, c.name FROM spec_submission t " +
-        "JOIN user_character_class_map m ON m.user_id = t.user_id " +
-        "JOIN character_class c ON c.id = m.character_class_id " +
-        "WHERE t.class_name = ''",
-    );
-    for (const row of missing) {
-      const basis = apBasisFor({ type: row.type as ClassType, name: row.name as string });
-      if (basis !== row.ap_basis) continue;
-      await pool.execute("UPDATE spec_submission SET class_name = ?, class_type = ? WHERE id = ?", [row.name, row.type, row.id]);
     }
   }
 }
@@ -359,7 +339,7 @@ export async function submitSpec(surveyId: string, userId: string, buildId: stri
 
 export interface SpecSubmissionListRow extends SpecBuildStats {
   apBasis: ApBasis | null;
-  /** 낼 때의 직업. 그 뒤에 바꾸어도 이 줄은 그대로다. */
+  /** 지금 등록된 직업. 낼 때의 직업이 아니라 마지막으로 고른 직업이다. */
   characterClass: UserCharacterClass | null;
   userId: string;
   nickname: string;
@@ -391,15 +371,21 @@ export async function getLatestSpecSurvey(): Promise<SpecSurveyRow | null> {
 /*
  * 공방합 내림차순. 같은 값이면 먼저 낸 사람이 앞이다.
  * 수치를 확인하지 못한 장비가 섞인 제출은 합계를 믿을 수 없으므로 맨 뒤로 보낸다.
+ *
+ * 어느 공격력을 보는지는 지금 등록된 직업이 정한다. 낼 때 오공이었더라도 지금
+ * 매구면 매구로 본다. 그래서 굳혀 둔 ap_basis 와 score 대신 여기서 다시
+ * 계산한다. 장비 수치(ap·aap·dp)는 낸 그대로이고 어느 쪽을 볼지만 달라진다.
  */
 export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissionListRow[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT s.user_id, u.user_nickname, g.name AS guild_name, s.build_name, s.gear, s.crystals, s.lightstones, " +
-      "s.ap, s.aap, s.dp, s.score, s.is_complete, s.ap_basis, s.class_name, s.class_type, s.summary_text, s.updated_at " +
+      "s.ap, s.aap, s.dp, s.is_complete, c.name AS class_name, c.type AS class_type, s.summary_text, s.updated_at " +
       "FROM spec_submission s LEFT JOIN user u ON u.id = s.user_id " +
       "LEFT JOIN guild g ON g.id = u.guild_id " +
+      "LEFT JOIN user_character_class_map m ON m.user_id = s.user_id " +
+      "LEFT JOIN character_class c ON c.id = m.character_class_id " +
       "WHERE s.spec_survey_id = ? " +
-      "ORDER BY s.is_complete DESC, s.score DESC, s.updated_at ASC",
+      "ORDER BY s.is_complete DESC, s.updated_at ASC",
     [surveyId],
   );
   return rows.map((row) => {
@@ -412,6 +398,10 @@ export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissi
     } catch {
       build = null;
     }
+    const characterClass: UserCharacterClass | null = row.class_name
+      ? { name: row.class_name as string, type: row.class_type as ClassType }
+      : null;
+    const apBasis = apBasisFor(characterClass);
     return {
       userId: String(row.user_id),
       nickname: row.user_nickname ?? "알 수 없음",
@@ -419,10 +409,12 @@ export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissi
       buildName: row.build_name,
       summaryText: row.summary_text,
       submittedAt: row.updated_at,
-      ap: row.ap, aap: row.aap, dp: row.dp, score: row.score,
-      isComplete: row.is_complete === 1,
-      apBasis: row.ap_basis === "main" || row.ap_basis === "awakening" ? row.ap_basis : null,
-      characterClass: row.class_name ? { name: row.class_name, type: row.class_type as ClassType } : null,
+      ap: row.ap, aap: row.aap, dp: row.dp,
+      score: apBasis === null ? 0 : (apBasis === "main" ? row.ap : row.aap) + row.dp,
+      // 기준을 정할 직업이 없으면 합계도 뜻이 없다.
+      isComplete: row.is_complete === 1 && apBasis !== null,
+      apBasis,
+      characterClass,
       build,
     };
   });
