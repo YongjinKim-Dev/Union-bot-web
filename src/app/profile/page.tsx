@@ -74,11 +74,11 @@ export default async function ProfilePage() {
             {/* 공방합에 어느 공격력을 더했는지는 직업이 정한다. 숫자만으로는 알 수 없으므로 쓰인 쪽에 표시를 남긴다. */}
             <dl className={styles.stats}>
               <div className={submission.apBasis === "main" ? styles.used : undefined}>
-                <dt>주무기 AP{submission.apBasis === "main" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
+                <dt>주무기{submission.apBasis === "main" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
                 <dd>{submission.isComplete ? submission.ap : "—"}</dd>
               </div>
               <div className={submission.apBasis === "awakening" ? styles.used : undefined}>
-                <dt>각성 AAP{submission.apBasis === "awakening" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
+                <dt>각성무기{submission.apBasis === "awakening" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
                 <dd>{submission.isComplete ? submission.aap : "—"}</dd>
               </div>
               <div><dt>방어력 DP</dt><dd>{submission.isComplete ? submission.dp : "—"}</dd></div>

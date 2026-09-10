@@ -76,7 +76,7 @@ export function SpecModeButtons({ mode, onChange }: { mode: EquipmentMode; onCha
 }
 
 const SHEET_ROWS = [
-  ["ap", "AP", "주무기 공격력"], ["aap", "AAP", "각성 공격력"],
+  ["ap", "주무기", "주무기 공격력"], ["aap", "각성무기", "각성무기 공격력"],
   ["dp", "DP", "방어력"], ["score", "SCORE", "공방합"],
 ] as const;
 
@@ -106,7 +106,7 @@ export function SpecSheet({ stats }: { stats: EquipmentSheetStats }) {
           );
         })}
       </dl>
-      <p className={styles.sheetNote}>{note}<br />레벨 60 이상 · 일지·영구 보상 완료 (AP·AAP·DP 각 +12)</p>
+      <p className={styles.sheetNote}>{note}<br />레벨 60 이상 · 일지·영구 보상 완료 (주무기·각성무기·DP 각 +12)</p>
     </>
   );
 }

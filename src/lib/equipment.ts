@@ -110,7 +110,7 @@ export function apBasisFor(characterClass: { type: ClassType; name: string } | n
 }
 export const AP_BASIS_LABEL: Record<ApBasis, string> = {
   main: "주무기 공격력",
-  awakening: "각성 공격력",
+  awakening: "각성무기 공격력",
 };
 
 export interface EquipmentSheetStats {
@@ -260,8 +260,8 @@ export function buildEquipmentText(build: EquipmentBuild, basis: ApBasis | null)
   const summary = !stats.complete
     ? "표기 공방: 수치 미확인 장비 포함"
     : stats.basis === null
-      ? `AP ${stats.ap} / AAP ${stats.aap} / DP ${stats.dp} · 공방합은 직업을 등록해야 나옵니다`
-      : `AP ${stats.ap} / AAP ${stats.aap} / DP ${stats.dp} / 공방합 ${stats.score} (${AP_BASIS_LABEL[stats.basis]} 기준)`;
+      ? `주무기 ${stats.ap} / 각성무기 ${stats.aap} / DP ${stats.dp} · 공방합은 직업을 등록해야 나옵니다`
+      : `주무기 ${stats.ap} / 각성무기 ${stats.aap} / DP ${stats.dp} / 공방합 ${stats.score} (${AP_BASIS_LABEL[stats.basis]} 기준)`;
   const gear = [`[${build.name}]`, summary, "내실 전체 완료 · 레벨 60 이상 기준", ...EQUIPMENT_SLOTS.flatMap(slot => {
     const selected = build.equipment[slot.id], item = selected && EQUIPMENT_BY_ID.get(selected.itemId);
     if (!selected || !item) return [];
