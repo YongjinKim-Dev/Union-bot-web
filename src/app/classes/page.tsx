@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SiteShell } from "@/components/SiteShell";
 import { getUserCharacterClass } from "@/lib/queries";
 import { ClassRegistration } from "./ClassRegistration";
 import styles from "./classes.module.css";
@@ -17,8 +17,7 @@ export default async function ClassesPage() {
   const classInfo = await getUserCharacterClass(session.user.dbUserId);
 
   return (
-    <main className={styles.main}>
-      <SiteHeader active="classes" kicker="CLASS" />
+    <SiteShell mainClassName={styles.main} active="classes" kicker="CLASS">
 
       <div className={styles.content}>
         <ClassRegistration
@@ -26,6 +25,6 @@ export default async function ClassesPage() {
           initialName={classInfo?.name ?? null}
         />
       </div>
-    </main>
+    </SiteShell>
   );
 }

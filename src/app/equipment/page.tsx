@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SiteShell } from "@/components/SiteShell";
 import { apBasisFor } from "@/lib/equipment";
 import { getUserCharacterClass } from "@/lib/queries";
 import { getOpenSpecSurvey, getSpecBuilds, getSpecSubmission } from "@/lib/specQueries";
@@ -23,8 +23,7 @@ export default async function EquipmentPage() {
   const submission = survey ? await getSpecSubmission(survey.id, userId) : null;
 
   return (
-    <main className={styles.main}>
-      <SiteHeader active="equipment" kicker="EQUIPMENT" />
+    <SiteShell mainClassName={styles.main} active="equipment" kicker="EQUIPMENT">
       <EquipmentBuilder
         key={userId}
         savedBuilds={saved.builds}
@@ -34,6 +33,6 @@ export default async function EquipmentPage() {
         basis={apBasisFor(characterClass)}
         className={characterClass?.name ?? null}
       />
-    </main>
+    </SiteShell>
   );
 }

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getScheduleOverview } from "@/lib/adminQueries";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SiteShell } from "@/components/SiteShell";
 import { AdminConsole } from "./AdminConsole";
 import styles from "./admin.module.css";
 
@@ -21,11 +21,10 @@ export default async function AdminPage() {
   const schedule = await getScheduleOverview();
 
   return (
-    <main className={styles.main}>
-      <SiteHeader active="admin" kicker="ADMIN" />
+    <SiteShell mainClassName={styles.main} active="admin" kicker="ADMIN">
       <div className={styles.body}>
         <AdminConsole current={schedule.current} queue={schedule.queue} />
       </div>
-    </main>
+    </SiteShell>
   );
 }

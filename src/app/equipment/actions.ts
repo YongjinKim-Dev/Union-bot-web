@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { apBasisFor, parseBuild } from "@/lib/equipment";
 import { getUserCharacterClass } from "@/lib/queries";
@@ -76,5 +77,6 @@ export async function submitSpecAction(buildId: string): Promise<SubmitSpecRespo
   }
   const result = await submitSpec(survey.id, session.user.dbUserId, buildId, basis);
   if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath("/profile");
   return { ok: true, surveyTitle: survey.title, submission: result.submission };
 }

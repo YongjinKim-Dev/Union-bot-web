@@ -1,8 +1,9 @@
 import Image from "next/image";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { ClassIcon } from "@/components/ClassIcon";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SiteShell } from "@/components/SiteShell";
 import { ReferenceSection } from "./ReferenceSection";
 // getVotesForUser is still exported for when "내 표" comes back.
 import { getSurveysInRange, getUserCharacterClass } from "@/lib/queries";
@@ -21,6 +22,7 @@ export default async function HomePage() {
   if (!session?.user?.dbUserId) {
     return (
       <main className={styles.loginMain}>
+        <ThemeToggle floating />
         <section className={styles.loginHero}>
           <h1 className={styles.loginBrand}>아시바당</h1>
           <p className={styles.loginTagline}>거점전 투표와 연맹 정보를 한 곳에서.</p>
@@ -52,8 +54,7 @@ export default async function HomePage() {
   // const todayVote = todaySurvey ? votes.get(todaySurvey.id) : undefined;
 
   return (
-    <main className={styles.main}>
-      <SiteHeader active="home" />
+    <SiteShell mainClassName={styles.main} active="home">
 
       <section className={styles.hero}>
         <Image
@@ -137,6 +138,6 @@ export default async function HomePage() {
 
         <ReferenceSection />
       </div>
-    </main>
+    </SiteShell>
   );
 }

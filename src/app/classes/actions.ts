@@ -24,4 +24,5 @@ export async function registerCharacterClass(characterClassId: string) {
   revalidatePath("/");
   revalidatePath("/vote");
   revalidatePath("/classes");
+  revalidatePath("/profile");
 }

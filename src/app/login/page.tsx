@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { signIn } from "@/auth";
 import styles from "./login.module.css";
 
@@ -31,6 +32,7 @@ export default async function LoginPage({
 
   return (
     <main className={styles.main}>
+      <ThemeToggle floating />
       <Image
         src="/login-bg.jpg"
         alt=""

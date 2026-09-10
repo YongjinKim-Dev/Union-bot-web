@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SiteShell } from "@/components/SiteShell";
 import styles from "./about.module.css";
 
 export const metadata = { title: "연맹 소개 · 아시바당" };
@@ -15,8 +15,7 @@ const STAFF_SLOTS = ["staff-1", "staff-2", "staff-3"];
 
 export default function AboutPage() {
   return (
-    <main className={styles.main}>
-      <SiteHeader active="about" />
+    <SiteShell mainClassName={styles.main} active="about">
 
       <section className={styles.hero}>
         {/* Above the fold, so preload it — lazy loading flashes the dark band first. */}
@@ -93,6 +92,6 @@ export default function AboutPage() {
           </div>
         </div>
       </div>
-    </main>
+    </SiteShell>
   );
 }

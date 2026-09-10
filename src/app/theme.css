@@ -3,9 +3,22 @@
    (--background/--foreground/…)을 여기에 다시 매핑하므로 기존 CSS 모듈도
    따라온다. 값 출처: docs/design_handoff_union_ledger/README.md > Design Tokens */
 :root {
+  color-scheme: light;
   /* 지면 */
   --color-paper: #f3f2f2;
   --color-surface: #eae9e9;
+  /* 기존 밝은 화면의 값은 그대로 보존한다. 어두운 화면만 아래에서 교체한다. */
+  --color-raised: #fffefd;
+  --color-input: #fff;
+  --color-card: #fbfaf9;
+  --color-panel: #f8f7f6;
+  --color-control: #f7f5f0;
+  --color-detail: #f4f2ef;
+  --color-sunken: #f1efeb;
+  --color-inset: #efede8;
+  --color-slot: #efebe5;
+  --color-slot-empty: #e7e4df;
+  --color-stripe: #e2e0dd;
 
   /* 글자 */
   --color-ink: #201f1d;
@@ -15,12 +28,50 @@
   /* 선 */
   --color-hairline: rgba(32, 31, 29, 0.16);
   --color-rule: rgba(32, 31, 29, 0.12);
+  --color-rule-subtle: rgba(32, 31, 29, 0.1);
+  --color-rule-medium: rgba(32, 31, 29, 0.22);
+  --color-rule-dashed: rgba(32, 31, 29, 0.26);
+  --color-rule-strong: rgba(32, 31, 29, 0.3);
+  --color-line-orbit: #d9d4cb;
+  --color-line-soft: #e1dcd4;
+  --color-watermark: #ded8ce;
+  --color-line-strong: #b9b3ab;
+  --color-line-slot: #b6a995;
+  --color-slot-placeholder: #b0a087;
+  --color-check-empty: #bbb1a0;
+  --color-text-muted: rgba(32, 31, 29, 0.7);
+  --color-text-caption: rgba(32, 31, 29, 0.72);
+  --color-text-list: rgba(32, 31, 29, 0.75);
+  --color-text-aside: rgba(32, 31, 29, 0.78);
+  --color-text-prose: rgba(32, 31, 29, 0.8);
 
   /* 강조(금색) */
   --color-accent: #b68235;
   --color-accent-deep: #7d5411;
   --color-accent-deeper: #5a3b0a;
   --color-accent-tint: #fff3e4;
+  --color-accent-wash: #faf1df;
+  --color-accent-hover: #fffaf0;
+  --color-accent-inset: #eae6dd;
+  --color-accent-line: #c5ab7e;
+  --color-accent-frame: #c3a873;
+  --color-accent-glow: #b6823530;
+  --color-accent-glow-soft: #b6823522;
+  --color-accent-halo: #eee7d9aa;
+  --color-accent-underline: rgba(182, 130, 53, 0.45);
+  --color-on-accent: #fff;
+  --color-danger: #b3261e;
+  --color-danger-deep: #9b201a;
+  --color-danger-tint: #fff0ed;
+  --color-danger-hover: #a22c24;
+  --color-warning: #8d492f;
+  --color-plate: #282622;
+  --color-plate-base: #252423;
+  --color-plate-gem: #292822;
+  --color-plate-recipe: #302b25;
+  --color-plate-dim: #665445;
+  --class-icon-filter: invert(1) sepia(0.4) brightness(0.78) contrast(1.05);
+  --class-icon-selected-filter: invert(1) sepia(0.75) saturate(1.6) brightness(0.52) contrast(1.1);
 
   /* 다크 지면 — 히어로 밴드처럼 이미지 위에 얹는 구간 */
   --color-dark: #1a1918;
@@ -29,6 +80,12 @@
   --color-dark-ink-dim: #bab6b6;
   --color-dark-accent: #e1ad66;
   --color-dark-accent-bright: #facb8d;
+  --color-dark-danger: #ff8a8a;
+  --color-dark-accent-tint: rgba(225, 173, 102, 0.16);
+  --color-dark-accent-hover: rgba(225, 173, 102, 0.28);
+  --color-item-label: #fff;
+  --color-item-caphras: #ffde98;
+  --color-item-shadow: #000;
 
   /* 계열 마크 테두리 */
   --color-mark-succession: #5b7fb5;
@@ -38,6 +95,12 @@
   /* 그림자 */
   --shadow-card: 0 3px 10px rgba(45, 43, 43, 0.12);
   --shadow-modal: 0 8px 28px rgba(45, 43, 43, 0.22);
+  --shadow-item: 0 2px 7px #37281008;
+  --color-scrim-soft: rgba(26, 25, 24, 0.3);
+  --color-scrim-mid: rgba(26, 25, 24, 0.5);
+  --color-scrim: rgba(26, 25, 24, 0.55);
+  --color-scrim-strong: rgba(26, 25, 24, 0.85);
+  --color-scrim-end: rgba(26, 25, 24, 0.95);
 
   /* 스크림 그라디언트 */
   --scrim-band: linear-gradient(180deg, transparent, rgba(26, 25, 24, 0.82));
@@ -47,4 +110,70 @@
     rgba(26, 25, 24, 0.5) 42%,
     rgba(26, 25, 24, 0.94)
   );
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: #1a1918;
+  --color-surface: #252423;
+  --color-raised: #302e2b;
+  --color-input: #302e2b;
+  --color-card: #2a2826;
+  --color-panel: #22211f;
+  --color-control: #302d28;
+  --color-detail: #242220;
+  --color-sunken: #272521;
+  --color-inset: #2b2823;
+  --color-slot: #302d28;
+  --color-slot-empty: #36322c;
+  --color-stripe: #302e2b;
+  --color-ink: #f3f2f2;
+  --color-ink-dim: #bab6b6;
+  --color-ink-faint: #a39e98;
+  --color-hairline: rgba(243, 242, 242, 0.2);
+  --color-rule: rgba(243, 242, 242, 0.14);
+  --color-rule-subtle: rgba(243, 242, 242, 0.1);
+  --color-rule-medium: rgba(243, 242, 242, 0.24);
+  --color-rule-dashed: rgba(243, 242, 242, 0.28);
+  --color-rule-strong: rgba(243, 242, 242, 0.32);
+  --color-line-orbit: #4c463e;
+  --color-line-soft: #3f3a34;
+  --color-watermark: #605646;
+  --color-line-strong: #817361;
+  --color-line-slot: #8e7b5c;
+  --color-slot-placeholder: #b4a083;
+  --color-check-empty: #a69a86;
+  --color-text-muted: rgba(243, 242, 242, 0.7);
+  --color-text-caption: rgba(243, 242, 242, 0.72);
+  --color-text-list: rgba(243, 242, 242, 0.75);
+  --color-text-aside: rgba(243, 242, 242, 0.78);
+  --color-text-prose: rgba(243, 242, 242, 0.8);
+  --color-accent: #e1ad66;
+  --color-accent-deep: #e1ad66;
+  --color-accent-deeper: #facb8d;
+  --color-accent-tint: #352b1f;
+  --color-accent-wash: #3c3020;
+  --color-accent-hover: #352d23;
+  --color-accent-inset: #403221;
+  --color-accent-line: #977346;
+  --color-accent-frame: #b48d52;
+  --color-accent-glow: #e1ad6630;
+  --color-accent-glow-soft: #e1ad6622;
+  --color-accent-halo: #6b503033;
+  --color-accent-underline: rgba(225, 173, 102, 0.45);
+  --color-on-accent: #201a12;
+  --color-danger: #ff9a8e;
+  --color-danger-deep: #ffb5aa;
+  --color-danger-tint: #3e2522;
+  --color-danger-hover: #ffb5aa;
+  --color-warning: #e8ae83;
+  --color-plate: #38332b;
+  --color-plate-base: #332e28;
+  --color-plate-gem: #38342c;
+  --color-plate-recipe: #3a332b;
+  --color-plate-dim: #786147;
+  --shadow-card: 0 3px 10px rgba(0, 0, 0, 0.24);
+  --shadow-modal: 0 8px 28px rgba(0, 0, 0, 0.5);
+  --class-icon-filter: brightness(1.06) saturate(0.9);
+  --class-icon-selected-filter: sepia(0.65) saturate(1.2) brightness(1.08);
 }

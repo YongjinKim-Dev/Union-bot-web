@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ClassIcon } from "@/components/ClassIcon";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SiteShell } from "@/components/SiteShell";
 import styles from "./docs.module.css";
 
 export const metadata = { title: "문서 · 아시바당" };
@@ -17,8 +17,7 @@ const VOTE_TYPES = [
 
 export default function DocsPage() {
   return (
-    <main className={styles.main}>
-      <SiteHeader active="docs" kicker="DOCS" />
+    <SiteShell mainClassName={styles.main} active="docs" kicker="DOCS">
 
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
@@ -85,6 +84,6 @@ export default function DocsPage() {
           <p className={styles.updated}>최종 수정 {LAST_UPDATED}</p>
         </article>
       </div>
-    </main>
+    </SiteShell>
   );
 }
