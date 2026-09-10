@@ -9,6 +9,7 @@ import { addVoteAction, removeVoteAction, saveRosterOrderAction } from "./roster
 import styles from "./admin.module.css";
 import { RosterTable } from "./RosterTable";
 import { type Member, type PresetControls, VOTES, type Vote, buildExportText, countsOf, ofVote, rosterOf, votersToMembers } from "./adminData";
+import { ClassStats } from "./ClassStats";
 
 const POLL_MS = 5000;
 
@@ -251,6 +252,9 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
         </div>
       </div>
 
+      {/* 정원을 바꾸면 실제로 나가는 사람이 달라지므로 분포도 함께 바뀐다. */}
+      <ClassStats members={members} cap={cap} />
+
       {!confirmed && (
         <p className={styles.hint}>
           투표가 마감되면 확정 명단이 만들어지고 순번 조정을 할 수 있습니다. 그때까지는 집계만
@@ -366,6 +370,7 @@ export function OperationTab({ presets, showToast, closed, waiting, current }: O
               guild: n.guildName,
               job: "-",
               line: "-",
+              classType: null,
               vote: "미참" as const,
               ord: i,
               origSeq: i + 1,

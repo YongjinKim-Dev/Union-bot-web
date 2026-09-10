@@ -3,6 +3,7 @@
 import { formatKstTimeWithMillis } from "@/lib/format";
 import type { VoterRow } from "@/lib/queries";
 import { CLASS_TYPE_LABEL, VOTING_TYPE_LABEL } from "@/lib/types";
+import type { ClassType } from "@/lib/types";
 import { formatDayDate } from "@/lib/week";
 
 export type Vote = "참여" | "부속" | "늦참" | "미참";
@@ -14,7 +15,10 @@ export interface Member {
   nick: string;
   guild: string;
   job: string;
+  /** 계열 이름표(전승·각성·기타). 표에 그대로 찍는다. */
   line: string;
+  /** 계열 원본값. 직업 마크를 그리려면 이름표가 아니라 이것이 필요하다. */
+  classType: ClassType | null;
   vote: Vote;
   ord: number;
   origSeq: number;
@@ -98,6 +102,51 @@ export function countsOf(list: Member[]): Record<Vote, number> {
 /* 순번 명단은 참여와 부속만 선다. 늦참과 미참은 순번이 없다. */
 export function rosterOf(list: Member[]) {
   return list.filter((m) => m.vote === "참여" || m.vote === "부속").sort((a, b) => a.ord - b.ord);
+}
+
+export interface ClassCount {
+  job: string;
+  classType: ClassType | null;
+  count: number;
+}
+export interface ClassStats {
+  total: number;
+  /** 계열별 인원. 직업을 등록하지 않은 사람은 unknown 으로 센다. */
+  byLine: { type: ClassType; count: number }[];
+  unknown: number;
+  byJob: ClassCount[];
+}
+
+/*
+ * 정원 안에 드는 사람들만 센다. 정원이 55 인지 100 인지에 따라 실제로 나가는
+ * 사람이 달라지므로 분포도 달라진다.
+ *
+ * 같은 직업 이름이라도 전승과 각성은 다른 직업으로 센다. 계열이 다르면 자리와
+ * 역할이 다르다.
+ */
+export function classStatsOf(roster: Member[]): ClassStats {
+  const lines = new Map<ClassType, number>();
+  const jobs = new Map<string, ClassCount>();
+  let unknown = 0;
+  for (const member of roster) {
+    if (!member.classType || member.job === "-") {
+      unknown += 1;
+      continue;
+    }
+    lines.set(member.classType, (lines.get(member.classType) ?? 0) + 1);
+    const key = `${member.classType}:${member.job}`;
+    const found = jobs.get(key);
+    if (found) found.count += 1;
+    else jobs.set(key, { job: member.job, classType: member.classType, count: 1 });
+  }
+  const ORDER: ClassType[] = ["Succession", "Awaken", "Else"];
+  return {
+    total: roster.length,
+    byLine: ORDER.map((type) => ({ type, count: lines.get(type) ?? 0 })),
+    unknown,
+    // 많은 직업부터. 같은 수면 이름순이라 순서가 흔들리지 않는다.
+    byJob: [...jobs.values()].sort((a, b) => b.count - a.count || a.job.localeCompare(b.job, "ko")),
+  };
 }
 
 export function ofVote(list: Member[], kind: Vote) {
@@ -199,6 +248,7 @@ export function votersToMembers(voters: VoterRow[]): Member[] {
       guild: v.guildName,
       job: v.className ?? "-",
       line: v.classType ? CLASS_TYPE_LABEL[v.classType] : "-",
+      classType: v.classType,
       vote,
       ord,
       origSeq: inRoster ? firstSeq.get(v.historyId)! : ord + 1,

@@ -78,6 +78,7 @@ export function PastVotesTab({ cap }: PastVotesTabProps) {
             guild: n.guildName,
             job: "-",
             line: "-",
+            classType: null,
             vote: "미참" as const,
             ord: i,
             origSeq: i + 1,
