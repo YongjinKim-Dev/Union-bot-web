@@ -29,6 +29,10 @@
 .stats dt { color: var(--color-ink-faint); font-size: 11px; }
 .stats dd { margin: 14px 0 0; font: 600 32px/1.2 var(--font-mono); letter-spacing: -.04em; }
 .score dd { color: var(--color-accent-deep); }
+/* 공방합에 실제로 더한 공격력이 어느 쪽인지 드러낸다. */
+.used { background: var(--color-accent-tint); }
+.usedMark { font-size: 8px; color: var(--color-accent); vertical-align: 2px; }
+.basisNote { margin: -6px 0 0; font-size: 11px; color: var(--color-ink-dim); }
 .submittedAt { margin-bottom: 16px; color: var(--color-ink-faint); font-size: 11px; }
 @media (max-width: 760px) {
   .main { padding: 28px 20px 48px; }

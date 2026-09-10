@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { ClassIcon } from "@/components/ClassIcon";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { SiteShell } from "@/components/SiteShell";
+import { AP_BASIS_LABEL } from "@/lib/equipment";
 import { formatKstDateTime } from "@/lib/format";
 import { getLatestProfileSubmission, getProfileMembership } from "@/lib/profileQueries";
 import { CLASS_TYPE_LABEL } from "@/lib/types";
@@ -70,12 +71,22 @@ export default async function ProfilePage() {
               <p className={styles.surveyTitle}>{submission.surveyTitle ?? "조사 정보 없음"}</p>
               <span className={styles.badge}>{submission.isComplete ? "제출 완료" : "수치 미확정"}</span>
             </div>
+            {/* 공방합에 어느 공격력을 더했는지는 직업이 정한다. 숫자만으로는 알 수 없으므로 쓰인 쪽에 표시를 남긴다. */}
             <dl className={styles.stats}>
-              <div><dt>주무기 AP</dt><dd>{submission.isComplete ? submission.ap : "—"}</dd></div>
-              <div><dt>각성 AAP</dt><dd>{submission.isComplete ? submission.aap : "—"}</dd></div>
+              <div className={submission.apBasis === "main" ? styles.used : undefined}>
+                <dt>주무기 AP{submission.apBasis === "main" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
+                <dd>{submission.isComplete ? submission.ap : "—"}</dd>
+              </div>
+              <div className={submission.apBasis === "awakening" ? styles.used : undefined}>
+                <dt>각성 AAP{submission.apBasis === "awakening" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
+                <dd>{submission.isComplete ? submission.aap : "—"}</dd>
+              </div>
               <div><dt>방어력 DP</dt><dd>{submission.isComplete ? submission.dp : "—"}</dd></div>
               <div className={styles.score}><dt>공방합</dt><dd>{submission.isComplete ? submission.score : "—"}</dd></div>
             </dl>
+            {submission.apBasis && (
+              <p className={styles.basisNote}>공방합 = {AP_BASIS_LABEL[submission.apBasis]} + DP · 낼 때의 직업이 정한 기준입니다</p>
+            )}
             <p className={styles.submittedAt}>제출일 <time dateTime={submission.submittedAt.toISOString()}>{formatKstDateTime(submission.submittedAt)}</time></p>
           </> : <p className={styles.empty}>아직 제출한 스펙이 없습니다.</p>}
         </section>
