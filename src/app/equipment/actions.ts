@@ -71,11 +71,13 @@ export async function submitSpecAction(buildId: string): Promise<SubmitSpecRespo
     return { ok: false, message: "지금은 받고 있는 스펙조사가 없습니다." };
   }
   // 직업을 모르면 공방합을 낼 수 없다. 낼 수 없는 값을 명단에 올리지 않는다.
-  const basis = apBasisFor(await getUserCharacterClass(session.user.dbUserId));
-  if (!basis) {
+  // 그 직업이 기준을 정했으므로 기준과 함께 굳혀 둔다.
+  const characterClass = await getUserCharacterClass(session.user.dbUserId);
+  const basis = apBasisFor(characterClass);
+  if (!basis || !characterClass) {
     return { ok: false, message: "직업을 먼저 등록해 주세요. 공방합 기준이 직업에 따라 달라집니다." };
   }
-  const result = await submitSpec(survey.id, session.user.dbUserId, buildId, basis);
+  const result = await submitSpec(survey.id, session.user.dbUserId, buildId, basis, characterClass);
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath("/profile");
   return { ok: true, surveyTitle: survey.title, submission: result.submission };

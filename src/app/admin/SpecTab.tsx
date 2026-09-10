@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { ClassIcon } from "@/components/ClassIcon";
 import { formatKstDateTime } from "@/lib/format";
 import { SpecViewer } from "@/app/equipment/SpecViewer";
 import type { SpecSubmissionListRow } from "@/lib/specQueries";
@@ -184,7 +185,7 @@ export function SpecTab() {
         {sorted.length > 0 && (
           <div className={styles.specHead}>
             <span>#</span>
-            <span>닉네임 · 길드</span>
+            <span>직업 · 닉네임 · 길드</span>
             <span>세팅</span>
             <span>공방합</span>
             <span>주무기 / 각성무기 / 방어력</span>
@@ -204,7 +205,16 @@ export function SpecTab() {
                   onClick={() => setOpenId(open ? null : row.userId)}
                 >
                   <span className={`${styles.specRank} ${styles.mono}`}>{index + 1}</span>
+                  {/* 낼 때의 직업이다. 마크가 계열(전승·각성·기타)을 함께 알려 준다. */}
                   <span className={styles.specName}>
+                    {row.characterClass ? (
+                      <ClassIcon
+                        name={row.characterClass.name}
+                        type={row.characterClass.type}
+                        size={24}
+                        markSize={12}
+                      />
+                    ) : <span className={styles.specNoClass} title="직업 정보 없음" aria-hidden="true" />}
                     <span className={styles.specNick}>{row.nickname}</span>
                     <span className={styles.specGuild}>{row.guildName}</span>
                   </span>

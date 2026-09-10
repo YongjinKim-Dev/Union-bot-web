@@ -2,7 +2,7 @@ import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
 import { MAX_BUILDS, apBasisFor, buildEquipmentText, calculateEquipmentStats, parseBuild } from "@/lib/equipment";
 import type { ApBasis, EquipmentBuild } from "@/lib/equipment";
-import type { ClassType } from "@/lib/types";
+import type { ClassType, UserCharacterClass } from "@/lib/types";
 
 /*
  * 스펙조사 저장 구조.
@@ -101,6 +101,13 @@ export async function ensureSpecTables(): Promise<void> {
    */
   await ensureSpecColumn("spec_build", "ap_basis", "varchar(12) NOT NULL DEFAULT ''");
   await ensureSpecColumn("spec_submission", "ap_basis", "varchar(12) NOT NULL DEFAULT ''");
+  /*
+   * 낼 때의 직업도 함께 굳힌다. 공방합 기준을 정한 것이 그 직업이므로, 지금
+   * 등록된 직업을 가져다 붙이면 나중에 직업을 바꾼 사람은 각성 마크를 달고
+   * 주무기 수치가 굵게 표시되는 모순이 생긴다.
+   */
+  await ensureSpecColumn("spec_submission", "class_name", "varchar(50) NOT NULL DEFAULT ''");
+  await ensureSpecColumn("spec_submission", "class_type", "varchar(20) NOT NULL DEFAULT ''");
   await backfillApBasis();
 
   // 회차를 나누기 전까지는 상시 접수 한 줄로 받는다. 나중에 회차제로 갈 때
@@ -145,6 +152,26 @@ async function backfillApBasis(): Promise<void> {
       if (!basis) continue;
       const score = (basis === "main" ? row.ap : row.aap) + row.dp;
       await pool.execute(`UPDATE ${table} SET ap_basis = ?, score = ? WHERE id = ?`, [basis, score, row.id]);
+    }
+    if (table !== "spec_submission") continue;
+    /*
+     * 기준을 이미 채운 줄에도 직업이 비어 있을 수 있다. 그때의 직업을 알 길이
+     * 없어 지금 등록된 직업으로 한 번만 채운다.
+     *
+     * 다만 지금 직업이 정하는 기준이 굳어 있는 기준과 어긋나면, 그 사람은 낸
+     * 뒤에 직업을 바꾼 것이다. 그 직업은 이 제출을 만든 직업이 아니므로 비워
+     * 둔다. 틀린 그림을 그리는 것보다 아무것도 안 그리는 편이 낫다.
+     */
+    const [missing] = await pool.query<RowDataPacket[]>(
+      "SELECT t.id, t.ap_basis, c.type, c.name FROM spec_submission t " +
+        "JOIN user_character_class_map m ON m.user_id = t.user_id " +
+        "JOIN character_class c ON c.id = m.character_class_id " +
+        "WHERE t.class_name = ''",
+    );
+    for (const row of missing) {
+      const basis = apBasisFor({ type: row.type as ClassType, name: row.name as string });
+      if (basis !== row.ap_basis) continue;
+      await pool.execute("UPDATE spec_submission SET class_name = ?, class_type = ? WHERE id = ?", [row.name, row.type, row.id]);
     }
   }
 }
@@ -291,7 +318,7 @@ export async function getSpecSubmission(surveyId: string, userId: string): Promi
  *
  * 낸 값은 그 자리에서 굳는다. 나중에 그 세팅을 고쳐도 이 줄은 그대로다.
  */
-export async function submitSpec(surveyId: string, userId: string, buildId: string, basis: ApBasis): Promise<SubmitSpecResult> {
+export async function submitSpec(surveyId: string, userId: string, buildId: string, basis: ApBasis, characterClass: UserCharacterClass): Promise<SubmitSpecResult> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT id, name, gear, crystals, lightstones FROM spec_build WHERE id = ? AND user_id = ?",
     [buildId, userId],
@@ -308,13 +335,14 @@ export async function submitSpec(surveyId: string, userId: string, buildId: stri
   const now = new Date();
   await pool.execute(
     "INSERT INTO spec_submission (spec_survey_id, user_id, source_build_id, build_name, gear, crystals, lightstones, " +
-      "ap, aap, dp, score, is_complete, ap_basis, summary_text, created_at, updated_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) AS new " +
+      "ap, aap, dp, score, is_complete, ap_basis, class_name, class_type, summary_text, created_at, updated_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) AS new " +
       "ON DUPLICATE KEY UPDATE source_build_id = new.source_build_id, build_name = new.build_name, " +
       "gear = new.gear, crystals = new.crystals, lightstones = new.lightstones, " +
       "ap = new.ap, aap = new.aap, dp = new.dp, score = new.score, is_complete = new.is_complete, " +
-      "ap_basis = new.ap_basis, summary_text = new.summary_text, updated_at = new.updated_at",
-    [surveyId, userId, buildId, ...values, buildEquipmentText(build, basis), now, now],
+      "ap_basis = new.ap_basis, class_name = new.class_name, class_type = new.class_type, " +
+      "summary_text = new.summary_text, updated_at = new.updated_at",
+    [surveyId, userId, buildId, ...values, characterClass.name, characterClass.type, buildEquipmentText(build, basis), now, now],
   );
   const stats = calculateEquipmentStats(build, basis);
   return {
@@ -331,6 +359,8 @@ export async function submitSpec(surveyId: string, userId: string, buildId: stri
 
 export interface SpecSubmissionListRow extends SpecBuildStats {
   apBasis: ApBasis | null;
+  /** 낼 때의 직업. 그 뒤에 바꾸어도 이 줄은 그대로다. */
+  characterClass: UserCharacterClass | null;
   userId: string;
   nickname: string;
   guildName: string;
@@ -365,7 +395,7 @@ export async function getLatestSpecSurvey(): Promise<SpecSurveyRow | null> {
 export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissionListRow[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT s.user_id, u.user_nickname, g.name AS guild_name, s.build_name, s.gear, s.crystals, s.lightstones, " +
-      "s.ap, s.aap, s.dp, s.score, s.is_complete, s.ap_basis, s.summary_text, s.updated_at " +
+      "s.ap, s.aap, s.dp, s.score, s.is_complete, s.ap_basis, s.class_name, s.class_type, s.summary_text, s.updated_at " +
       "FROM spec_submission s LEFT JOIN user u ON u.id = s.user_id " +
       "LEFT JOIN guild g ON g.id = u.guild_id " +
       "WHERE s.spec_survey_id = ? " +
@@ -392,6 +422,7 @@ export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissi
       ap: row.ap, aap: row.aap, dp: row.dp, score: row.score,
       isComplete: row.is_complete === 1,
       apBasis: row.ap_basis === "main" || row.ap_basis === "awakening" ? row.ap_basis : null,
+      characterClass: row.class_name ? { name: row.class_name, type: row.class_type as ClassType } : null,
       build,
     };
   });
