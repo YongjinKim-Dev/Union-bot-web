@@ -81,11 +81,11 @@ export default async function ProfilePage() {
                 <dt>각성무기{submission.apBasis === "awakening" && <span className={styles.usedMark} aria-hidden="true"> ●</span>}</dt>
                 <dd>{submission.isComplete ? submission.aap : "—"}</dd>
               </div>
-              <div><dt>방어력 DP</dt><dd>{submission.isComplete ? submission.dp : "—"}</dd></div>
+              <div><dt>방어력</dt><dd>{submission.isComplete ? submission.dp : "—"}</dd></div>
               <div className={styles.score}><dt>공방합</dt><dd>{submission.isComplete ? submission.score : "—"}</dd></div>
             </dl>
             {submission.apBasis && (
-              <p className={styles.basisNote}>공방합 = {AP_BASIS_LABEL[submission.apBasis]} + DP · 낼 때의 직업이 정한 기준입니다</p>
+              <p className={styles.basisNote}>공방합 = {AP_BASIS_LABEL[submission.apBasis]} + 방어력 · 낼 때의 직업이 정한 기준입니다</p>
             )}
             <p className={styles.submittedAt}>제출일 <time dateTime={submission.submittedAt.toISOString()}>{formatKstDateTime(submission.submittedAt)}</time></p>
           </> : <p className={styles.empty}>아직 제출한 스펙이 없습니다.</p>}

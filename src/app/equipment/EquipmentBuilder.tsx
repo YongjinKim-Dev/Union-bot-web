@@ -178,7 +178,7 @@ export function EquipmentBuilder({ savedBuilds, brokenBuilds, surveyTitle, submi
       <div className={styles.pageHeading}>
         <div><p className={styles.eyebrow}>SPEC SURVEY</p><h1>스펙조사</h1></div>
         <div className={styles.headingSide}>
-          {basis && className && <p className={styles.basisNote}>{className} · 공방합은 {basis === "main" ? "주무기" : "각성무기"} 공격력 + DP</p>}
+          {basis && className && <p className={styles.basisNote}>{className} · 공방합은 {basis === "main" ? "주무기" : "각성무기"} 공격력 + 방어력</p>}
           {submission
             ? <p className={styles.submitted}><strong>제출함</strong> · {submission.buildName} · 공방합 {submission.isComplete ? submission.score : "—"} · {formatKstDateTime(submission.updatedAt)}</p>
             : <p className={styles.submitted} data-empty="true">아직 낸 스펙이 없어요{surveyTitle ? ` · ${surveyTitle} 접수 중` : ""}</p>}

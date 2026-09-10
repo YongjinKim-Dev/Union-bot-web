@@ -18,13 +18,13 @@ const SORTS = [
   { key: "score", label: "공방합", desc: true },
   { key: "ap", label: "주무기", desc: true },
   { key: "aap", label: "각성무기", desc: true },
-  { key: "dp", label: "DP", desc: true },
+  { key: "dp", label: "방어력", desc: true },
   { key: "nickname", label: "닉네임", desc: false },
   { key: "guildName", label: "길드", desc: false },
   { key: "submittedAt", label: "제출 시각", desc: true },
 ] as const;
 type SortKey = (typeof SORTS)[number]["key"];
-/** 공방합·주무기·각성무기·DP 는 수치라 미확인 제출을 함께 줄 세울 수 없다. */
+/** 공방합·주무기·각성무기·방어력 은 수치라 미확인 제출을 함께 줄 세울 수 없다. */
 const NUMERIC: SortKey[] = ["score", "ap", "aap", "dp"];
 
 function at(row: SpecSubmissionListRow, key: SortKey): number | string {
@@ -106,7 +106,7 @@ export function SpecTab() {
   async function copyList() {
     const mixed = new Set(sorted.map(row => row.guildName)).size > 1;
     const text = sorted
-      .map((row, index) => `${index + 1}. ${row.nickname}${mixed ? `(${row.guildName})` : ""} · ${row.isComplete ? row.score : "?"} (주무기 ${row.ap} / 각성무기 ${row.aap} / DP ${row.dp}) · ${row.buildName}`)
+      .map((row, index) => `${index + 1}. ${row.nickname}${mixed ? `(${row.guildName})` : ""} · ${row.isComplete ? row.score : "?"} (주무기 ${row.ap} / 각성무기 ${row.aap} / 방어력 ${row.dp}) · ${row.buildName}`)
       .join("\n");
     try {
       await navigator.clipboard.writeText(text);
@@ -187,7 +187,7 @@ export function SpecTab() {
             <span>닉네임 · 길드</span>
             <span>세팅</span>
             <span>공방합</span>
-            <span>주무기 / 각성무기 / DP</span>
+            <span>주무기 / 각성무기 / 방어력</span>
             <span>제출</span>
             <span />
           </div>
@@ -215,7 +215,7 @@ export function SpecTab() {
                     <b className={row.apBasis === "main" ? styles.specUsed : undefined}>주무기 {row.ap}</b>
                     {" / "}
                     <b className={row.apBasis === "awakening" ? styles.specUsed : undefined}>각성무기 {row.aap}</b>
-                    {" / DP "}{row.dp}
+                    {" / 방어력 "}{row.dp}
                   </span>
                   <span className={`${styles.specTime} ${styles.mono}`}>{formatKstDateTime(new Date(row.submittedAt))}</span>
                   <span className={styles.specChevron} aria-hidden="true">{open ? "▴" : "▾"}</span>

@@ -77,7 +77,7 @@ export function SpecModeButtons({ mode, onChange }: { mode: EquipmentMode; onCha
 
 const SHEET_ROWS = [
   ["ap", "주무기", "주무기 공격력"], ["aap", "각성무기", "각성무기 공격력"],
-  ["dp", "DP", "방어력"], ["score", "SCORE", "공방합"],
+  ["dp", "방어력", "표기 방어력"], ["score", "공방합", "직업이 쓰는 공격력 + 방어력"],
 ] as const;
 
 export function SpecSheet({ stats }: { stats: EquipmentSheetStats }) {
@@ -87,7 +87,7 @@ export function SpecSheet({ stats }: { stats: EquipmentSheetStats }) {
     ? "수치를 확인하지 못한 장비가 있어 합계를 표시하지 않습니다."
     : stats.basis === null
       ? "직업을 등록하면 공방합이 나옵니다. 직업에 따라 주무기와 각성무기 중 어느 쪽을 보는지가 달라집니다."
-      : `공방합 = ${AP_BASIS_LABEL[stats.basis]} + DP`;
+      : `공방합 = ${AP_BASIS_LABEL[stats.basis]} + 방어력`;
   return (
     <>
       <div className={styles.sheetHeading}>
@@ -106,7 +106,7 @@ export function SpecSheet({ stats }: { stats: EquipmentSheetStats }) {
           );
         })}
       </dl>
-      <p className={styles.sheetNote}>{note}<br />레벨 60 이상 · 일지·영구 보상 완료 (주무기·각성무기·DP 각 +12)</p>
+      <p className={styles.sheetNote}>{note}<br />레벨 60 이상 · 일지·영구 보상 완료 (주무기·각성무기·방어력 각 +12)</p>
     </>
   );
 }
