@@ -3,10 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DrawEntry, Ladder } from "@/lib/draw";
 import { traceLadder } from "@/lib/draw";
-import styles from "./admin.module.css";
+import styles from "./draw.module.css";
 
-const COLUMN_WIDTH = 46;
-const ROW_HEIGHT = 16;
+/* 다 같이 보는 화면이라 크기를 밖에서 정한다. */
+export interface LadderScale {
+  columnWidth: number;
+  rowHeight: number;
+  nameSize: number;
+}
+export const STAGE_SCALE: LadderScale = { columnWidth: 64, rowHeight: 20, nameSize: 12 };
+export const COMPACT_SCALE: LadderScale = { columnWidth: 46, rowHeight: 16, nameSize: 9 };
 const TOP = 12;
 
 /*
@@ -21,6 +27,8 @@ export function LadderBoard({
   pickCount,
   running,
   onFinish,
+  scale = COMPACT_SCALE,
+  durationMs = 2200,
 }: {
   ladder: Ladder;
   /** 출발 순서(이름순)대로 늘어놓은 참여자. */
@@ -28,7 +36,12 @@ export function LadderBoard({
   pickCount: number;
   running: boolean;
   onFinish: () => void;
+  scale?: LadderScale;
+  durationMs?: number;
 }) {
+  const COLUMN_WIDTH = scale.columnWidth;
+  const ROW_HEIGHT = scale.rowHeight;
+  const x = (column: number) => column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
   const [progress, setProgress] = useState(running ? 0 : 1);
 
   /*
@@ -39,7 +52,7 @@ export function LadderBoard({
   useEffect(() => {
     if (!running) return;
     const started = performance.now();
-    const span = 2200;
+    const span = durationMs;
     let raf = 0;
     let done = false;
     const finish = () => {
@@ -62,7 +75,7 @@ export function LadderBoard({
      */
     const timer = setTimeout(finish, span + 120);
     return () => { cancelAnimationFrame(raf); clearTimeout(timer); };
-  }, [running, onFinish]);
+  }, [running, onFinish, durationMs]);
 
   const width = ladder.columns * COLUMN_WIDTH;
   const height = TOP + (ladder.rows + 1) * ROW_HEIGHT + TOP;
@@ -95,7 +108,9 @@ export function LadderBoard({
       points.push(`${x(column)},${TOP + (ladder.rows + 1) * ROW_HEIGHT}`);
       return points.join(" ");
     });
-  }, [ladder]);
+    // x 는 COLUMN_WIDTH 에서만 나오므로 그것만 따르면 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ladder, COLUMN_WIDTH, ROW_HEIGHT]);
 
   return (
     <div className={styles.ladderWrap}>
@@ -125,7 +140,7 @@ export function LadderBoard({
       <div className={styles.ladderLabels} style={{ width }}>
         {entries.map((entry, i) => (
           <span key={entry.nickname} className={styles.ladderName}
-            style={{ left: x(i), width: COLUMN_WIDTH }}
+            style={{ left: x(i), width: COLUMN_WIDTH, fontSize: scale.nameSize }}
             data-won={progress >= 1 && landedAt[i] < pickCount ? "true" : undefined}>
             {entry.nickname}
           </span>
@@ -135,6 +150,3 @@ export function LadderBoard({
   );
 }
 
-function x(column: number): number {
-  return column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
-}

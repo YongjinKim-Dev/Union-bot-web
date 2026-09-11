@@ -172,6 +172,8 @@ export interface DrawGroup {
   pick: number;
   /** 올라간 사람. 전체 섞기가 정한 순서에서 앞선 쪽이다. */
   advancing: DrawEntry[];
+  /** 이 조 안에서의 도착 순서. 앞에서부터 pick 명이 올라간다. */
+  resultOrder: DrawEntry[];
 }
 export interface DrawRound {
   groups: DrawGroup[];
@@ -224,8 +226,14 @@ export function planDraw(entries: DrawEntry[], pickCount: number, seed: string):
 
     // 한 판에 다 들어가면 여기서 끝낸다.
     if (sizes.length === 1) {
+      const resultOrder = [...current].sort(byRank);
       rounds.push({
-        groups: [{ entries: current, pick: Math.min(pickCount, current.length), advancing: [...outcome.winners] }],
+        groups: [{
+          entries: current,
+          pick: Math.min(pickCount, current.length),
+          advancing: [...outcome.winners],
+          resultOrder,
+        }],
       });
       break;
     }
@@ -244,7 +252,8 @@ export function planDraw(entries: DrawEntry[], pickCount: number, seed: string):
        */
       const mustAdvance = members.filter((m) => isWinner.has(m.nickname)).length;
       const pick = Math.min(members.length, Math.max(share[i] ?? 1, mustAdvance, 1));
-      return { entries: [...members], pick, advancing: [...members].sort(byRank).slice(0, pick) };
+      const resultOrder = [...members].sort(byRank);
+      return { entries: [...members], pick, advancing: resultOrder.slice(0, pick), resultOrder };
     });
     rounds.push({ groups });
 
@@ -255,7 +264,12 @@ export function planDraw(entries: DrawEntry[], pickCount: number, seed: string):
       rounds[rounds.length - 1] = {
         groups: cut(current, finalSizes).map((members) => {
           const winnersHere = members.filter((m) => isWinner.has(m.nickname));
-          return { entries: [...members], pick: winnersHere.length, advancing: winnersHere };
+          return {
+            entries: [...members],
+            pick: winnersHere.length,
+            advancing: winnersHere,
+            resultOrder: [...members].sort(byRank),
+          };
         }),
       };
       break;
@@ -263,4 +277,21 @@ export function planDraw(entries: DrawEntry[], pickCount: number, seed: string):
     current = next;
   }
   return { ...outcome, rounds };
+}
+
+/*
+ * 한 조의 사다리. 출발 줄은 이름순이고, 도착 자리는 그 조의 결과 순서다.
+ * 앞에서부터 pick 명이 올라가므로, 왼쪽 몇 자리에 닿은 사람이 올라간 사람이다.
+ */
+export interface GroupLadder {
+  start: DrawEntry[];
+  ladder: Ladder;
+}
+export function ladderForGroup(group: DrawGroup, seed: string, salt: string): GroupLadder {
+  const start = [...group.entries].sort((a, b) => a.nickname.localeCompare(b.nickname, "ko"));
+  const names = start.map((e) => e.nickname);
+  return {
+    start,
+    ladder: buildLadder(group.resultOrder.map((e) => names.indexOf(e.nickname)), `${salt}:${seed}`),
+  };
 }
