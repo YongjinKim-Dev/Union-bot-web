@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAdmin } from "@/lib/adminAuth";
-import { type DrawEntry, isValidSeed, randomSeed, runDraw } from "@/lib/draw";
+import { type DrawEntry, isValidSeed, randomSeed, replayDraw } from "@/lib/draw";
 import { type MemberSuggestion, searchMembers } from "@/lib/memberQueries";
 import { type DrawRow, getDrawEntries, getDraws, saveDraw } from "@/lib/drawQueries";
 
@@ -23,9 +23,8 @@ export async function fetchDrawEntriesAction(drawId: string) {
 export type SaveDrawResponse = { ok: true; id: string } | { ok: false; message: string };
 
 /*
- * 뽑는 일은 서버에서 한다. 화면이 결과를 만들어 보내면, 마음에 드는 결과가 나올
- * 때까지 다시 돌려 보고 그중 하나만 저장할 수 있다. 씨앗과 명단을 받아 여기서
- * 뽑고 그대로 남긴다.
+ * 씨앗과 자리 배치를 받아 서버가 직접 다시 돌린다. 화면이 보낸 당첨자를 그대로
+ * 믿으면, 마음에 드는 결과가 나올 때까지 돌려 보고 하나만 남길 수 있다.
  */
 export async function saveDrawAction(input: {
   title: string;
@@ -33,6 +32,8 @@ export async function saveDrawAction(input: {
   seed: string;
   pickCount: number;
   entries: DrawEntry[];
+  /** 라운드마다 조마다의 열 순서(닉네임). */
+  arrangements: string[][][];
 }): Promise<SaveDrawResponse> {
   const admin = await requireAdmin();
   const title = input.title.trim();
@@ -48,22 +49,25 @@ export async function saveDrawAction(input: {
     return { ok: false, message: "같은 사람이 두 번 들어 있습니다." };
   }
 
-  const outcome = runDraw(input.entries, input.pickCount, input.seed);
+  const replay = replayDraw(input.entries, input.pickCount, input.seed, input.arrangements);
+  if (!replay) return { ok: false, message: "추첨을 다시 돌려 보니 결과가 맞지 않습니다. 남기지 않았습니다." };
+  const wonNames = new Set(replay.winners.map((w) => w.nickname));
   const id = await saveDraw(
     {
       title,
       surveyId: input.surveyId,
       mode: "ladder",
-      seed: outcome.seed,
+      seed: input.seed,
       pickCount: input.pickCount,
       entryCount: input.entries.length,
       drawnBy: admin.dbUserId,
     },
-    outcome.order.map((entry, position) => ({
+    // 당첨자를 앞에 두고 나머지를 뒤에 둔다. 자리 번호는 그 순서다.
+    [...replay.winners, ...input.entries.filter((e) => !wonNames.has(e.nickname))].map((entry, position) => ({
       userId: entry.userId,
       nickname: entry.nickname,
       position,
-      isWinner: position < input.pickCount,
+      isWinner: wonNames.has(entry.nickname),
     })),
   );
   return { ok: true, id };

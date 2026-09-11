@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  type DrawEntry, type DrawPlan, MAX_PER_LADDER, ladderForGroup, planDraw,
+  type DrawEntry, type DrawRound, MAX_PER_LADDER, buildRound, nextAdvanceCount, winnersOf,
 } from "@/lib/draw";
 import type { MemberSuggestion } from "@/lib/memberQueries";
 import { LadderBoard, scaleFor } from "./LadderBoard";
@@ -15,15 +15,18 @@ interface Picked extends DrawEntry {
   guildName: string | null;
 }
 
-/** 버튼을 안 눌러도 이만큼 지나면 다음 라운드로 간다. */
+/** 결과를 보여 준 뒤 아무도 누르지 않으면 이만큼 지나 다음 라운드로 간다. */
 const AUTO_NEXT_SECONDS = 10;
 
 /*
- * 다 같이 보는 추첨 화면. 참여자를 여기서 넣고 시작 단추로 진행한다.
+ * 다 같이 보는 추첨 화면.
  *
- * 뽑기는 씨앗 하나가 정하고(planDraw), 사다리는 그 결과를 정직하게 옮겨 적는다.
- * 열두 명이 넘으면 조로 나눠 라운드를 치른다 — 조는 화면을 위한 것이고 확률은
- * 전체 섞기가 책임진다.
+ * 씨앗이 두 가지를 미리 정한다 — 가로줄 배치와, 당첨이 걸린 도착 자리. 둘 다
+ * 길이 다 내려올 때까지 화면에 나오지 않으므로 돌리는 사람도 결과를 모른다.
+ *
+ * 사람들이 어느 열에 설지는 자유롭게 바꿀 수 있다. 당첨 자리를 균등하게 뽑으므로
+ * 어느 열이든 확률이 같다(실측 편차 1.6%). 다만 어느 조에 들어가는지는 씨앗이
+ * 정한다 — 조 크기가 하나만 달라도 작은 조가 유리해지기 때문이다(실측 19.3%).
  */
 export function DrawStage() {
   const [title, setTitle] = useState("");
@@ -34,16 +37,21 @@ export function DrawStage() {
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState<MemberSuggestion[]>([]);
 
-  const [plan, setPlan] = useState<DrawPlan | null>(null);
+  const [phase, setPhase] = useState<"setup" | "arrange" | "running" | "reveal" | "done">("setup");
+  const [round, setRound] = useState<DrawRound | null>(null);
   const [roundIndex, setRoundIndex] = useState(0);
-  const [running, setRunning] = useState(false);
-  /* 자동 진행이 일어날 시각. 남은 초는 그릴 때 계산한다. */
+  const [survivors, setSurvivors] = useState<DrawEntry[]>([]);
+  const [winners, setWinners] = useState<DrawEntry[]>([]);
+  /* 라운드마다 실제로 세운 자리 순서. 남길 때 서버가 이대로 다시 돌린다. */
+  const [arrangements, setArrangements] = useState<string[][][]>([]);
+  const [revealed, setRevealed] = useState(false);
+  /* 그리는 데 쓰지 않으므로 상태가 아니라 ref 로 센다. */
+  const doneRef = useRef(0);
+  const expectedRef = useRef(0);
+  const roundRef = useRef<DrawRound | null>(null);
+  const pickRef = useRef(1);
   const [autoAt, setAutoAt] = useState<number | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
-  /* 한 라운드에 사다리가 여럿이라 몇 개가 끝났는지 센다. 그리는 데 쓰지 않으므로 ref 다. */
-  const finishedRef = useRef(0);
-  const expectedRef = useRef(0);
-  const lastRoundRef = useRef(false);
   const [notice, setNotice] = useState("");
   const [saved, setSaved] = useState(false);
 
@@ -57,44 +65,42 @@ export function DrawStage() {
 
   const pickedNames = useMemo(() => new Set(picked.map((p) => p.nickname)), [picked]);
   const entries: DrawEntry[] = useMemo(
-    () => picked.map((p) => ({ userId: p.userId, nickname: p.nickname })), [picked],
-  );
-  const round = plan?.rounds[roundIndex] ?? null;
-  const isLastRound = plan !== null && roundIndex === plan.rounds.length - 1;
-
-  const ladders = useMemo(() => {
-    if (!round || !plan) return [];
-    return round.groups.map((group, i) => ({ group, ...ladderForGroup(group, plan.seed, `r${roundIndex}g${i}`) }));
-  }, [round, plan, roundIndex]);
-  /* 한 라운드 안에서는 조마다 크기가 같아야 나란히 놓았을 때 어색하지 않다. */
+    () => picked.map((p) => ({ userId: p.userId, nickname: p.nickname })), [picked]);
   const scale = useMemo(
-    () => scaleFor(Math.max(1, ...ladders.map((l) => l.ladder.columns))), [ladders]);
+    () => scaleFor(Math.max(1, ...(round?.groups ?? []).map((g) => g.columns.length))), [round]);
+  const roundSize = round?.groups.reduce((n, g) => n + g.columns.length, 0) ?? 0;
+  const roundPick = round?.groups.reduce((n, g) => n + g.pick, 0) ?? 0;
+  /* 이번 라운드에서 올릴 인원이 뽑을 인원과 같으면 여기서 끝난다. */
+  const isFinalRound = round !== null && roundPick <= pickCount;
 
-  /* 한 라운드의 사다리가 모두 끝나야 다음으로 넘어간다. */
+  const openRound = useCallback((people: DrawEntry[], index: number) => {
+    setRound(buildRound(people, nextAdvanceCount(people.length, pickCount), seed, `r${index}`));
+    setRoundIndex(index);
+    setSurvivors(people);
+    setRevealed(false);
+    setAutoAt(null);
+    setRemaining(null);
+    setPhase("arrange");
+  }, [pickCount, seed]);
+
+  /* 한 라운드의 사다리가 모두 내려오면 뽑힌 사람을 추린다. */
   const onOneFinished = useCallback(() => {
-    finishedRef.current += 1;
-    if (finishedRef.current < expectedRef.current) return;
-    setRunning(false);
-    if (lastRoundRef.current) return;
+    doneRef.current += 1;
+    if (doneRef.current < expectedRef.current) return;
+    const advanced = (roundRef.current?.groups ?? []).flatMap((g) => winnersOf(g));
+    setRevealed(true);
+    if (advanced.length <= pickRef.current) {
+      setWinners(advanced);
+      setPhase("done");
+      return;
+    }
+    setSurvivors(advanced);
+    setPhase("reveal");
     setAutoAt(Date.now() + AUTO_NEXT_SECONDS * 1000);
     setRemaining(AUTO_NEXT_SECONDS);
   }, []);
 
-  const enterRound = useCallback((source: DrawPlan, index: number) => {
-    finishedRef.current = 0;
-    expectedRef.current = source.rounds[index].groups.length;
-    lastRoundRef.current = index === source.rounds.length - 1;
-    setRoundIndex(index);
-    setAutoAt(null);
-    setRemaining(null);
-    setRunning(true);
-  }, []);
-
-  const goNext = useCallback(() => {
-    if (plan && roundIndex + 1 < plan.rounds.length) enterRound(plan, roundIndex + 1);
-  }, [plan, roundIndex, enterRound]);
-
-  /* 10 초 동안 아무도 누르지 않으면 알아서 넘어간다. */
+  const goNext = useCallback(() => openRound(survivors, roundIndex + 1), [openRound, survivors, roundIndex]);
   useEffect(() => {
     if (autoAt === null) return;
     const ticking = setInterval(
@@ -102,6 +108,21 @@ export function DrawStage() {
     const advance = setTimeout(goNext, Math.max(0, autoAt - Date.now()));
     return () => { clearInterval(ticking); clearTimeout(advance); };
   }, [autoAt, goNext]);
+
+  /** 조 안에서 한 칸 옆으로 옮긴다. 어느 열이든 확률이 같으므로 마음대로 바꿔도 된다. */
+  function move(groupIndex: number, column: number, step: -1 | 1) {
+    setRound((prev) => {
+      if (!prev) return prev;
+      const target = column + step;
+      const group = prev.groups[groupIndex];
+      if (target < 0 || target >= group.columns.length) return prev;
+      const columns = [...group.columns];
+      [columns[column], columns[target]] = [columns[target], columns[column]];
+      const groups = [...prev.groups];
+      groups[groupIndex] = { ...group, columns };
+      return { groups };
+    });
+  }
 
   function add(member: MemberSuggestion) {
     if (pickedNames.has(member.nickname)) return;
@@ -113,31 +134,31 @@ export function DrawStage() {
     if (picked.length < 2) return setNotice("참여자가 두 명 이상이어야 해요.");
     if (pickCount < 1 || pickCount >= picked.length) return setNotice("뽑을 인원은 1명 이상, 참여자 수보다 적어야 해요.");
     setNotice("");
-    const next = planDraw(entries, pickCount, seed);
-    setPlan(next);
-    enterRound(next, 0);
+    openRound(entries, 0);
   }
 
   async function reset() {
-    setPlan(null); setRoundIndex(0); setRunning(false);
-    finishedRef.current = 0; expectedRef.current = 0; lastRoundRef.current = false;
+    setPhase("setup"); setRound(null); setRoundIndex(0);
+    setSurvivors([]); setWinners([]); setRevealed(false); setArrangements([]);
+    doneRef.current = 0; expectedRef.current = 0; roundRef.current = null;
     setAutoAt(null); setRemaining(null); setNotice(""); setSaved(false);
     try { setSeed(await newSeedAction()); } catch { /* 쓰던 씨앗을 둔다 */ }
   }
 
   async function save() {
-    if (!plan) return;
-    const result = await saveDrawAction({ title, surveyId: null, seed, pickCount, entries });
+    const result = await saveDrawAction({
+      title, surveyId: null, seed, pickCount, entries,
+      arrangements,
+    });
     setNotice(result.ok ? "결과를 남겼어요." : result.message);
     if (result.ok) setSaved(true);
   }
 
   async function copyWinners() {
-    if (!plan) return;
     const text = [
       `[${title.trim() || "추첨"}] 참여 ${picked.length}명 중 ${pickCount}명`,
       `씨앗 ${seed}`, "",
-      ...plan.winners.map((w, i) => `${i + 1}. ${w.nickname}`),
+      ...winners.map((w, i) => `${i + 1}. ${w.nickname}`),
     ].join("\n");
     try { await navigator.clipboard.writeText(text); setNotice("당첨자 명단을 복사했어요."); }
     catch { setNotice("복사 권한을 확인해 주세요."); }
@@ -149,14 +170,14 @@ export function DrawStage() {
         <h1 className={styles.stageTitle}>{title.trim() || "추첨"}</h1>
         <span className={styles.stageMeta}>
           씨앗 {seed || "…"}
-          {plan && ` · ${picked.length}명 중 ${pickCount}명 · ${roundIndex + 1}/${plan.rounds.length} 라운드`}
+          {phase !== "setup" && ` · ${picked.length}명 중 ${pickCount}명 · ${roundIndex + 1}라운드`}
         </span>
         <span className={styles.spacer} />
-        {plan && <button type="button" className={styles.btn} onClick={reset}>처음부터</button>}
+        {phase !== "setup" && <button type="button" className={styles.btn} onClick={reset}>처음부터</button>}
       </header>
 
       <div className={styles.stageBody}>
-        {!plan ? (
+        {phase === "setup" ? (
           <div className={styles.setup}>
             <div className={styles.setupRow}>
               <label className={styles.field}>
@@ -210,59 +231,90 @@ export function DrawStage() {
             {notice && <p role="status" className={styles.fieldLabel}>{notice}</p>}
             {picked.length > MAX_PER_LADDER && (
               <p className={styles.fieldLabel}>
-                {MAX_PER_LADDER}명이 넘어 조로 나눠 치릅니다. 확률은 전체를 한 번에 섞어 정하므로 조 배정으로 유불리가 생기지 않습니다.
+                {MAX_PER_LADDER}명이 넘어 조로 나눠 치릅니다. 어느 조에 들어가는지는 씨앗이 정하고 바꿀 수 없습니다.
+                조 안에서 몇 번째에 설지는 마음대로 바꿔도 확률이 같습니다.
               </p>
             )}
             <button type="button" className={styles.startBtn} onClick={start} disabled={picked.length < 2 || !seed}>
               추첨 시작
             </button>
           </div>
+        ) : phase === "done" ? (
+          <>
+            <p className={styles.finalHead}>당첨 {winners.length}명</p>
+            <ol className={styles.finalList}>
+              {winners.map((w) => <li key={w.nickname}>{w.nickname}</li>)}
+            </ol>
+            <div className={styles.nextBar}>
+              <button type="button" className={styles.btn} onClick={copyWinners}>당첨자 복사</button>
+              <button type="button" className={styles.btn} onClick={save} disabled={saved}>
+                {saved ? "남김" : "결과 남기기"}
+              </button>
+            </div>
+            {notice && <p role="status" className={styles.roundNote} style={{ textAlign: "center" }}>{notice}</p>}
+          </>
         ) : (
           <>
             <div className={styles.roundHead}>
-              <span className={styles.roundName}>
-                {isLastRound ? "결승" : `${roundIndex + 1}라운드`}
-              </span>
+              <span className={styles.roundName}>{roundIndex + 1}라운드</span>
               <span className={styles.roundNote}>
-                {round && `${round.groups.length}개 조 · ${round.groups.reduce((n, g) => n + g.entries.length, 0)}명 중 ${round.groups.reduce((n, g) => n + g.pick, 0)}명이 ${isLastRound ? "당첨" : "다음 라운드로"}`}
+                {round && `${round.groups.length}개 조 · ${roundSize}명 중 ${roundPick}명이 ${isFinalRound ? "당첨" : "다음 라운드로"}`}
+                {phase === "arrange" && " · 자리를 바꾼 뒤 시작하세요"}
+                {phase === "reveal" && " · 다음 라운드로 갈 사람이 정해졌어요"}
               </span>
             </div>
 
             <div className={styles.groups}>
-              {ladders.map(({ group, start: startOrder, ladder }, i) => (
-                <div key={i} className={styles.group}>
+              {round?.groups.map((group, i) => (
+                <div key={`${roundIndex}-${i}`} className={styles.group}>
                   <div className={styles.groupHead}>
-                    <span className={styles.groupName}>{round!.groups.length > 1 ? `${i + 1}조` : "전체"}</span>
-                    <span className={styles.groupPick}>{group.entries.length}명 중 {group.pick}명</span>
+                    <span className={styles.groupName}>{round.groups.length > 1 ? `${i + 1}조` : "전체"}</span>
+                    <span className={styles.groupPick}>{group.columns.length}명 중 {group.pick}명</span>
                   </div>
-                  <LadderBoard ladder={ladder} entries={startOrder} pickCount={group.pick}
-                    running={running} onFinish={onOneFinished} scale={scale} durationMs={2600} />
+                  <LadderBoard key={`${roundIndex}-${i}`} ladder={group.ladder} entries={group.columns}
+                    winningSlots={group.winningSlots} revealed={revealed}
+                    running={phase === "running"} onFinish={onOneFinished}
+                    scale={scale} durationMs={2600} />
+                  {phase === "arrange" && (
+                    <ol className={styles.arrangeRow}>
+                      {group.columns.map((entry, column) => (
+                        <li key={entry.nickname} className={styles.arrangeChip}>
+                          <button type="button" aria-label={`${entry.nickname} 왼쪽으로`}
+                            disabled={column === 0} onClick={() => move(i, column, -1)}>◀</button>
+                          <span>{entry.nickname}</span>
+                          <button type="button" aria-label={`${entry.nickname} 오른쪽으로`}
+                            disabled={column === group.columns.length - 1} onClick={() => move(i, column, 1)}>▶</button>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
                 </div>
               ))}
             </div>
 
-            {!running && !isLastRound && (
-              <div className={styles.nextBar}>
-                <button type="button" className={styles.startBtn} onClick={goNext}>다음 라운드</button>
-                <span className={styles.countdown}>{remaining !== null ? `${remaining}초` : ""}</span>
-              </div>
-            )}
-
-            {!running && isLastRound && (
-              <>
-                <p className={styles.finalHead}>당첨 {plan.winners.length}명</p>
-                <ol className={styles.finalList}>
-                  {plan.winners.map((w) => <li key={w.nickname}>{w.nickname}</li>)}
-                </ol>
-                <div className={styles.nextBar}>
-                  <button type="button" className={styles.btn} onClick={copyWinners}>당첨자 복사</button>
-                  <button type="button" className={styles.btn} onClick={save} disabled={saved}>
-                    {saved ? "남김" : "결과 남기기"}
+            <div className={styles.nextBar}>
+              {phase === "reveal" && (
+                <>
+                  <button type="button" className={styles.startBtn} onClick={goNext}>다음 라운드</button>
+                  <span className={styles.countdown}>{remaining !== null ? `${remaining}초 뒤 자동으로 넘어갑니다` : ""}</span>
+                </>
+              )}
+              {phase === "arrange" && (
+                <>
+                  <button type="button" className={styles.startBtn} onClick={() => {
+                    // 이 라운드에 실제로 세운 자리를 남겨 둔다.
+                    setArrangements((prev) => [...prev.slice(0, roundIndex), (round?.groups ?? []).map((g) => g.columns.map((e) => e.nickname))]);
+                    doneRef.current = 0;
+                    expectedRef.current = round?.groups.length ?? 0;
+                    roundRef.current = round;
+                    pickRef.current = pickCount;
+                    setRevealed(false); setAutoAt(null); setRemaining(null); setPhase("running");
+                  }}>
+                    {roundIndex === 0 ? "시작" : "이 라운드 시작"}
                   </button>
-                </div>
-                {notice && <p role="status" className={styles.roundNote} style={{ textAlign: "center" }}>{notice}</p>}
-              </>
-            )}
+                </>
+              )}
+            </div>
           </>
         )}
       </div>

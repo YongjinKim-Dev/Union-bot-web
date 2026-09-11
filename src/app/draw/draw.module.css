@@ -56,3 +56,9 @@
   .stageHead, .stageBody { padding-inline: 16px; }
   .setupRow { grid-template-columns: minmax(0, 1fr); }
 }
+.ladderSlot { fill: var(--color-accent); }
+.arrangeRow { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0 4px; padding: 0; list-style: none; }
+.arrangeChip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px; border: 1px solid var(--color-rule); border-radius: 5px; background: var(--color-raised); font-size: 11px; }
+.arrangeChip button { border: 0; background: transparent; color: var(--color-ink-faint); font-size: 10px; line-height: 1; padding: 3px 2px; cursor: pointer; }
+.arrangeChip button:hover:not(:disabled) { color: var(--color-accent-deep); }
+.arrangeChip button:disabled { opacity: .25; cursor: default; }

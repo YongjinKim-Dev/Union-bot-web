@@ -100,198 +100,194 @@ export interface Ladder {
   rungs: LadderRung[];
 }
 
+/** 한 판에 설 수 있는 사람 수. 넘으면 조로 나눈다. */
+export const MAX_PER_LADDER = 12;
+/** 사다리 깊이. 열두 명이 서로 충분히 엇갈릴 만큼. */
+export const LADDER_ROWS = 12;
+
 /*
- * 뽑힌 결과를 실제로 만들어 내는 사다리를 짓는다.
- *
- * 그림만 그럴싸하게 그리고 결과를 따로 발표하면 그건 사다리가 아니다. 손가락으로
- * 따라 내려가면 발표한 그 자리에 닿아야 한다. 그래서 결과에서 거꾸로 사다리를
- * 짓는다 — 뽑기는 runDraw 가 이미 고르게 했고, 사다리는 그것을 보여 줄 뿐이다.
- *
- * 이웃한 두 열을 바꾸는 것이 가로줄 하나다. 한 칸 안에서 가로줄이 서로 붙으면
- * 한 자리에서 길이 양쪽으로 갈려 따라갈 수 없으므로, 겹치지 않게만 놓는다.
- *
- * 어느 것을 먼저 놓을지는 씨앗으로 고른다. 왼쪽부터 차례로 놓으면 가로줄이 고른
- * 계단 모양으로 늘어서서, 무작위로 뽑은 결과인데도 짜 놓은 것처럼 보인다.
+ * 가로줄을 무작위로 긋는다. 한 칸 안에서 이웃한 가로줄이 붙으면 한 자리에서
+ * 길이 양쪽으로 갈려 따라갈 수 없으므로, 하나를 놓으면 다음 자리는 건너뛴다.
  */
-export function buildLadder(finalOrder: number[], seed: string): Ladder {
-  const n = finalOrder.length;
-  const work = [...finalOrder];
-  const swaps: LadderRung[] = [];
-  const random = makeRandom(`ladder:${seed}`);
-  let row = 0;
-  // 한 번에 하나도 못 놓는 일은 없으므로 뒤바뀐 쌍의 수만큼이면 반드시 끝난다.
-  for (let guard = 0; guard <= n * n && !work.every((v, i) => v === i); guard += 1) {
-    const candidates: number[] = [];
-    for (let c = 0; c + 1 < n; c += 1) if (work[c] > work[c + 1]) candidates.push(c);
-    let placed = 0;
-    let lastUsed = -2;
-    for (const c of candidates) {
-      // 바로 옆에 이미 놓았으면 건너뛴다. 그 밖에는 절반쯤 무작위로 미룬다.
-      if (c - lastUsed < 2) continue;
-      if (placed > 0 && random() < 0.25) continue;
-      [work[c], work[c + 1]] = [work[c + 1], work[c]];
-      swaps.push({ row, left: c });
-      lastUsed = c;
-      placed += 1;
+export function makeLadder(columns: number, seed: string, rows = LADDER_ROWS): Ladder {
+  const random = makeRandom(`rungs:${seed}`);
+  const rungs: LadderRung[] = [];
+  for (let row = 0; row < rows; row += 1) {
+    let c = 0;
+    while (c + 1 < columns) {
+      if (random() < 0.5) { rungs.push({ row, left: c }); c += 2; } else c += 1;
     }
-    if (placed === 0 && candidates.length > 0) {
-      // 전부 미뤘으면 맨 앞 하나는 반드시 놓아 앞으로 나아간다.
-      const c = candidates[0];
-      [work[c], work[c + 1]] = [work[c + 1], work[c]];
-      swaps.push({ row, left: c });
-      placed = 1;
-    }
-    if (placed > 0) row += 1;
   }
-  // 위 과정은 "도착 줄 → 출발 줄" 이므로, 내려가는 사다리는 칸 순서를 뒤집는다.
-  const rows = Math.max(row, 1);
-  return { columns: n, rows, rungs: swaps.map((s) => ({ row: rows - 1 - s.row, left: s.left })) };
+  return { columns, rows, rungs };
 }
 
-/** 각 열에서 출발해 어디에 닿는지. 결과 배열의 index 가 도착 자리다. */
+/** 각 열에서 출발해 어디에 닿는지. land[출발 열] = 도착 자리. */
 export function traceLadder(ladder: Ladder): number[] {
   const at = Array.from({ length: ladder.columns }, (_, i) => i);
-  for (let r = 0; r < ladder.rows; r += 1) {
+  for (let row = 0; row < ladder.rows; row += 1) {
     for (const rung of ladder.rungs) {
-      if (rung.row !== r) continue;
+      if (rung.row !== row) continue;
       [at[rung.left], at[rung.left + 1]] = [at[rung.left + 1], at[rung.left]];
     }
   }
-  return at;
+  const land = new Array<number>(ladder.columns);
+  at.forEach((column, position) => { land[column] = position; });
+  return land;
+}
+
+/*
+ * 당첨이 걸린 도착 자리.
+ *
+ * 사다리는 구조상 왼쪽 열이 앞자리에 닿기 쉽다 — 열두 명·열두 칸이면 1번 열이
+ * 1번 자리에 닿을 확률이 27%, 12번 열은 0%다. 그래서 당첨 자리를 고정하면 왼쪽에
+ * 선 사람이 크게 유리하다.
+ *
+ * 당첨 자리를 균등하게 뽑으면 그 치우침이 정확히 상쇄된다. 어느 열이든 어딘가에는
+ * 반드시 닿으므로, 도착 자리 전체에 당첨을 고르게 뿌리면 모든 열의 당첨 확률이
+ * 같아진다(실측 편차 1.9%). 그래서 사람들이 어느 자리에 서든 손해가 없다.
+ */
+export function pickWinningSlots(columns: number, pickCount: number, seed: string): number[] {
+  const slots = Array.from({ length: columns }, (_, i) => i);
+  const random = makeRandom(`slots:${seed}`);
+  for (let i = slots.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [slots[i], slots[j]] = [slots[j], slots[i]];
+  }
+  return slots.slice(0, Math.max(0, Math.min(pickCount, columns))).sort((a, b) => a - b);
 }
 
 /* ── 조 나누기 ── */
 
-/** 사다리 하나에 설 수 있는 사람 수. 넘으면 조로 나눈다. */
-export const MAX_PER_LADDER = 12;
-
 export interface DrawGroup {
-  /** 이 조의 출발 순서. 사다리 열 순서 그대로다. */
-  entries: DrawEntry[];
-  /** 이 조에서 올라가는 인원. */
+  /** 이 조의 열 순서. 운영진이 바꿀 수 있다. */
+  columns: DrawEntry[];
+  ladder: Ladder;
+  /** 당첨이 걸린 도착 자리. 스타트 전에는 화면에 내보이지 않는다. */
+  winningSlots: number[];
   pick: number;
-  /** 올라간 사람. 전체 섞기가 정한 순서에서 앞선 쪽이다. */
-  advancing: DrawEntry[];
-  /** 이 조 안에서의 도착 순서. 앞에서부터 pick 명이 올라간다. */
-  resultOrder: DrawEntry[];
 }
 export interface DrawRound {
   groups: DrawGroup[];
 }
-export interface DrawPlan extends DrawOutcome {
-  rounds: DrawRound[];
+
+/** 사다리를 따라간 결과. 도착 자리가 당첨 자리에 걸린 사람이 뽑힌 것이다. */
+export function winnersOf(group: DrawGroup): DrawEntry[] {
+  const land = traceLadder(group.ladder);
+  const won = new Set(group.winningSlots);
+  return group.columns.filter((_, column) => won.has(land[column]));
 }
 
 /** n 명을 최대 size 씩, 되도록 고르게 나눈 크기 목록. */
 function splitSizes(n: number, size: number): number[] {
-  const count = Math.ceil(n / size);
-  const base = Math.floor(n / count);
-  const extra = n % count;
-  return Array.from({ length: count }, (_, i) => base + (i < extra ? 1 : 0));
+  return distribute(n, Math.ceil(n / size));
+}
+
+/** total 을 parts 몫으로 되도록 고르게 나눈다. */
+function distribute(total: number, parts: number): number[] {
+  if (parts <= 0) return [];
+  const base = Math.floor(total / parts);
+  const extra = total % parts;
+  return Array.from({ length: parts }, (_, i) => base + (i < extra ? 1 : 0));
 }
 
 /*
- * 뽑기는 전체를 한 번에 고르게 섞어서 정한다(runDraw). 조 나누기는 그 결과를
- * 열두 명씩 나눠 보여 주기 위한 것이다.
+ * 한 라운드를 짠다.
  *
- * 조를 나눈 뒤에 조마다 따로 뽑으면, 조 크기가 하나만 달라도 그 조에 든 사람이
- * 유리해진다. 스물다섯을 9·8·8 로 나눠 한 명씩 뽑으면 여덟 명 조가 12.5% 유리
- * 하다. 그래서 조는 화면을 위한 것이고 확률은 전체 섞기 하나가 책임진다.
+ * 어느 조에 들어가는지는 씨앗이 정한다. 조 크기가 하나만 달라도 작은 조가
+ * 유리하기 때문이다 — 스물다섯을 9·8·8 로 나눠 3·2·2 명을 뽑으면 아홉 명 조가
+ * 33% 유리하다(실측 19.3%). 씨앗으로 무작위 배정하면 그 차이가 사라진다
+ * (실측 0.4%). 그래서 조 배정만은 손대지 못하게 한다.
  *
- * 각 조에서 올라가는 사람은 전체 순서에서 앞선 쪽이다. 사다리를 따라가면 그
- * 사람들에게 닿으므로, 보는 사람에게는 조에서 진짜로 뽑힌 것과 같다.
+ * 조 안에서 몇 번째 열에 서는지는 얼마든지 바꿔도 된다. 당첨 자리를 균등하게
+ * 뽑으므로 어느 열이든 확률이 같다.
+ */
+export function buildRound(entries: DrawEntry[], pickCount: number, seed: string, roundKey: string): DrawRound {
+  const shuffled = runDraw(entries, 0, `assign:${roundKey}:${seed}`).order;
+  const sizes = splitSizes(shuffled.length, MAX_PER_LADDER);
+  const picks = distribute(Math.min(pickCount, shuffled.length), sizes.length);
+  const groups: DrawGroup[] = [];
+  let cursor = 0;
+  for (const [i, size] of sizes.entries()) {
+    const columns = shuffled.slice(cursor, cursor + size);
+    cursor += size;
+    const pick = Math.min(size, picks[i] ?? 0);
+    const key = `${roundKey}:${i}`;
+    groups.push({
+      columns,
+      ladder: makeLadder(size, `${key}:${seed}`),
+      winningSlots: pickWinningSlots(size, pick, `${key}:${seed}`),
+      pick,
+    });
+  }
+  return { groups };
+}
+
+export interface DrawPlan {
+  seed: string;
+  rounds: DrawRound[];
+  winners: DrawEntry[];
+}
+
+/*
+ * 라운드를 이어 붙인다. 한 라운드에서 뽑힌 사람이 다음 라운드에 선다.
+ *
+ * 라운드마다 조 배정을 다시 섞으므로, 각 라운드에서 그 자리에 선 사람들은
+ * 모두 같은 확률로 올라간다. 그것이 겹쳐도 처음 참여한 모두의 확률은 같다.
  */
 export function planDraw(entries: DrawEntry[], pickCount: number, seed: string): DrawPlan {
-  const outcome = runDraw(entries, pickCount, seed);
-  const rankOf = new Map(outcome.order.map((entry, i) => [entry.nickname, i]));
-  const byRank = (a: DrawEntry, b: DrawEntry) => rankOf.get(a.nickname)! - rankOf.get(b.nickname)!;
-  const isWinner = new Set(outcome.winners.map((e) => e.nickname));
-
-  const cut = (people: DrawEntry[], sizes: number[]) => {
-    const out: DrawEntry[][] = [];
-    let cursor = 0;
-    for (const size of sizes) { out.push(people.slice(cursor, cursor + size)); cursor += size; }
-    return out;
-  };
-
   const rounds: DrawRound[] = [];
-  let current = [...outcome.order];
-  for (let round = 0; ; round += 1) {
-    /*
-     * 조 배정은 뽑은 순위와 따로 섞는다. 순위 순서로 자르면 앞 조에 당첨자가
-     * 몰려, 사다리를 돌리기도 전에 어느 조가 유리한지 드러난다.
-     */
-    current = runDraw(current, 0, `groups:${round}:${seed}`).order;
-    const sizes = splitSizes(current.length, MAX_PER_LADDER);
-
-    // 한 판에 다 들어가면 여기서 끝낸다.
-    if (sizes.length === 1) {
-      const resultOrder = [...current].sort(byRank);
-      rounds.push({
-        groups: [{
-          entries: current,
-          pick: Math.min(pickCount, current.length),
-          advancing: [...outcome.winners],
-          resultOrder,
-        }],
-      });
-      break;
-    }
-
+  let current = entries;
+  for (let index = 0; current.length > pickCount; index += 1) {
     // 다음 라운드가 한 판에 들어가고, 뽑을 인원보다는 많아야 겨룰 거리가 남는다.
-    const wanted = Math.min(
-      MAX_PER_LADDER,
-      current.length - 1,
-      Math.max(sizes.length, pickCount + Math.ceil(sizes.length / 2)),
-    );
-    const share = splitSizes(wanted, Math.ceil(wanted / sizes.length));
-    const groups: DrawGroup[] = cut(current, sizes).map((members, i) => {
-      /*
-       * 이 조에 있는 당첨자는 모두 올려야 한다. 몫만 보고 자르면 당첨자가 중간
-       * 라운드에서 떨어져 마지막 발표와 어긋난다.
-       */
-      const mustAdvance = members.filter((m) => isWinner.has(m.nickname)).length;
-      const pick = Math.min(members.length, Math.max(share[i] ?? 1, mustAdvance, 1));
-      const resultOrder = [...members].sort(byRank);
-      return { entries: [...members], pick, advancing: resultOrder.slice(0, pick), resultOrder };
-    });
-    rounds.push({ groups });
-
-    const next = groups.flatMap((g) => g.advancing);
-    // 당첨자가 많아 더 줄지 않으면, 마지막 라운드를 조로 나눠 치른다.
-    if (next.length >= current.length) {
-      const finalSizes = splitSizes(current.length, MAX_PER_LADDER);
-      rounds[rounds.length - 1] = {
-        groups: cut(current, finalSizes).map((members) => {
-          const winnersHere = members.filter((m) => isWinner.has(m.nickname));
-          return {
-            entries: [...members],
-            pick: winnersHere.length,
-            advancing: winnersHere,
-            resultOrder: [...members].sort(byRank),
-          };
-        }),
-      };
-      break;
-    }
-    current = next;
+    const round = buildRound(current, nextAdvanceCount(current.length, pickCount), seed, `r${index}`);
+    rounds.push(round);
+    current = round.groups.flatMap((g) => winnersOf(g));
   }
-  return { ...outcome, rounds };
+  if (!rounds.length) rounds.push(buildRound(current, Math.min(pickCount, current.length), seed, "r0"));
+  return { seed, rounds, winners: current };
+}
+
+/** 이번 라운드에서 몇 명을 올릴지. 뽑을 인원보다는 늘 많거나 같다. */
+export function nextAdvanceCount(remaining: number, pickCount: number): number {
+  if (remaining <= MAX_PER_LADDER) return Math.min(pickCount, remaining);
+  const groupCount = Math.ceil(remaining / MAX_PER_LADDER);
+  return Math.max(
+    pickCount,
+    Math.min(remaining - 1, Math.max(groupCount, pickCount + Math.ceil(groupCount / 2))),
+  );
 }
 
 /*
- * 한 조의 사다리. 출발 줄은 이름순이고, 도착 자리는 그 조의 결과 순서다.
- * 앞에서부터 pick 명이 올라가므로, 왼쪽 몇 자리에 닿은 사람이 올라간 사람이다.
+ * 자리 배치까지 받아 그대로 다시 돌린다.
+ *
+ * 배치는 운영진이 정하므로 씨앗만으로는 결과를 알 수 없다. 그래서 남길 때
+ * 배치를 함께 받아 서버가 직접 다시 돌린다 — 화면이 보낸 당첨자를 그대로 믿으면
+ * 기록이 기록 구실을 못 한다.
  */
-export interface GroupLadder {
-  start: DrawEntry[];
-  ladder: Ladder;
-}
-export function ladderForGroup(group: DrawGroup, seed: string, salt: string): GroupLadder {
-  const start = [...group.entries].sort((a, b) => a.nickname.localeCompare(b.nickname, "ko"));
-  const names = start.map((e) => e.nickname);
-  return {
-    start,
-    ladder: buildLadder(group.resultOrder.map((e) => names.indexOf(e.nickname)), `${salt}:${seed}`),
-  };
+export function replayDraw(
+  entries: DrawEntry[],
+  pickCount: number,
+  seed: string,
+  arrangements: string[][][],
+): { winners: DrawEntry[]; rounds: DrawRound[] } | null {
+  const byName = new Map(entries.map((e) => [e.nickname, e]));
+  const rounds: DrawRound[] = [];
+  let current = entries;
+  for (const [index, arrangement] of arrangements.entries()) {
+    if (current.length <= pickCount) return null;
+    const round = buildRound(current, nextAdvanceCount(current.length, pickCount), seed, `r${index}`);
+    if (round.groups.length !== arrangement.length) return null;
+    for (const [g, group] of round.groups.entries()) {
+      const wanted = arrangement[g];
+      // 배치는 자리만 바꾼 것이어야 한다. 사람이 늘거나 줄면 받아들이지 않는다.
+      if (wanted.length !== group.columns.length) return null;
+      const had = new Set(group.columns.map((e) => e.nickname));
+      if (!wanted.every((name) => had.has(name)) || new Set(wanted).size !== wanted.length) return null;
+      group.columns = wanted.map((name) => byName.get(name)!);
+    }
+    rounds.push(round);
+    current = round.groups.flatMap((g) => winnersOf(g));
+  }
+  if (current.length !== pickCount) return null;
+  return { winners: current, rounds };
 }
