@@ -159,3 +159,108 @@ export function traceLadder(ladder: Ladder): number[] {
   }
   return at;
 }
+
+/* ── 조 나누기 ── */
+
+/** 사다리 하나에 설 수 있는 사람 수. 넘으면 조로 나눈다. */
+export const MAX_PER_LADDER = 12;
+
+export interface DrawGroup {
+  /** 이 조의 출발 순서. 사다리 열 순서 그대로다. */
+  entries: DrawEntry[];
+  /** 이 조에서 올라가는 인원. */
+  pick: number;
+  /** 올라간 사람. 전체 섞기가 정한 순서에서 앞선 쪽이다. */
+  advancing: DrawEntry[];
+}
+export interface DrawRound {
+  groups: DrawGroup[];
+}
+export interface DrawPlan extends DrawOutcome {
+  rounds: DrawRound[];
+}
+
+/** n 명을 최대 size 씩, 되도록 고르게 나눈 크기 목록. */
+function splitSizes(n: number, size: number): number[] {
+  const count = Math.ceil(n / size);
+  const base = Math.floor(n / count);
+  const extra = n % count;
+  return Array.from({ length: count }, (_, i) => base + (i < extra ? 1 : 0));
+}
+
+/*
+ * 뽑기는 전체를 한 번에 고르게 섞어서 정한다(runDraw). 조 나누기는 그 결과를
+ * 열두 명씩 나눠 보여 주기 위한 것이다.
+ *
+ * 조를 나눈 뒤에 조마다 따로 뽑으면, 조 크기가 하나만 달라도 그 조에 든 사람이
+ * 유리해진다. 스물다섯을 9·8·8 로 나눠 한 명씩 뽑으면 여덟 명 조가 12.5% 유리
+ * 하다. 그래서 조는 화면을 위한 것이고 확률은 전체 섞기 하나가 책임진다.
+ *
+ * 각 조에서 올라가는 사람은 전체 순서에서 앞선 쪽이다. 사다리를 따라가면 그
+ * 사람들에게 닿으므로, 보는 사람에게는 조에서 진짜로 뽑힌 것과 같다.
+ */
+export function planDraw(entries: DrawEntry[], pickCount: number, seed: string): DrawPlan {
+  const outcome = runDraw(entries, pickCount, seed);
+  const rankOf = new Map(outcome.order.map((entry, i) => [entry.nickname, i]));
+  const byRank = (a: DrawEntry, b: DrawEntry) => rankOf.get(a.nickname)! - rankOf.get(b.nickname)!;
+  const isWinner = new Set(outcome.winners.map((e) => e.nickname));
+
+  const cut = (people: DrawEntry[], sizes: number[]) => {
+    const out: DrawEntry[][] = [];
+    let cursor = 0;
+    for (const size of sizes) { out.push(people.slice(cursor, cursor + size)); cursor += size; }
+    return out;
+  };
+
+  const rounds: DrawRound[] = [];
+  let current = [...outcome.order];
+  for (let round = 0; ; round += 1) {
+    /*
+     * 조 배정은 뽑은 순위와 따로 섞는다. 순위 순서로 자르면 앞 조에 당첨자가
+     * 몰려, 사다리를 돌리기도 전에 어느 조가 유리한지 드러난다.
+     */
+    current = runDraw(current, 0, `groups:${round}:${seed}`).order;
+    const sizes = splitSizes(current.length, MAX_PER_LADDER);
+
+    // 한 판에 다 들어가면 여기서 끝낸다.
+    if (sizes.length === 1) {
+      rounds.push({
+        groups: [{ entries: current, pick: Math.min(pickCount, current.length), advancing: [...outcome.winners] }],
+      });
+      break;
+    }
+
+    // 다음 라운드가 한 판에 들어가고, 뽑을 인원보다는 많아야 겨룰 거리가 남는다.
+    const wanted = Math.min(
+      MAX_PER_LADDER,
+      current.length - 1,
+      Math.max(sizes.length, pickCount + Math.ceil(sizes.length / 2)),
+    );
+    const share = splitSizes(wanted, Math.ceil(wanted / sizes.length));
+    const groups: DrawGroup[] = cut(current, sizes).map((members, i) => {
+      /*
+       * 이 조에 있는 당첨자는 모두 올려야 한다. 몫만 보고 자르면 당첨자가 중간
+       * 라운드에서 떨어져 마지막 발표와 어긋난다.
+       */
+      const mustAdvance = members.filter((m) => isWinner.has(m.nickname)).length;
+      const pick = Math.min(members.length, Math.max(share[i] ?? 1, mustAdvance, 1));
+      return { entries: [...members], pick, advancing: [...members].sort(byRank).slice(0, pick) };
+    });
+    rounds.push({ groups });
+
+    const next = groups.flatMap((g) => g.advancing);
+    // 당첨자가 많아 더 줄지 않으면, 마지막 라운드를 조로 나눠 치른다.
+    if (next.length >= current.length) {
+      const finalSizes = splitSizes(current.length, MAX_PER_LADDER);
+      rounds[rounds.length - 1] = {
+        groups: cut(current, finalSizes).map((members) => {
+          const winnersHere = members.filter((m) => isWinner.has(m.nickname));
+          return { entries: [...members], pick: winnersHere.length, advancing: winnersHere };
+        }),
+      };
+      break;
+    }
+    current = next;
+  }
+  return { ...outcome, rounds };
+}
