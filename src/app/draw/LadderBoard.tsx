@@ -13,6 +13,17 @@ export interface LadderScale {
 }
 export const STAGE_SCALE: LadderScale = { columnWidth: 64, rowHeight: 20, nameSize: 12 };
 export const COMPACT_SCALE: LadderScale = { columnWidth: 46, rowHeight: 16, nameSize: 9 };
+
+/*
+ * 라운드가 넘어갈수록 사람이 줄어 사다리가 홀쭉해진다. 다 같이 보는 화면인데
+ * 결승이 제일 작으면 김이 샌다. 남은 사람 수에 맞춰 키운다.
+ */
+export function scaleFor(columns: number): LadderScale {
+  if (columns <= 3) return { columnWidth: 168, rowHeight: 38, nameSize: 22 };
+  if (columns <= 5) return { columnWidth: 130, rowHeight: 32, nameSize: 18 };
+  if (columns <= 8) return { columnWidth: 96, rowHeight: 26, nameSize: 15 };
+  return STAGE_SCALE;
+}
 const TOP = 12;
 
 /*
@@ -137,7 +148,7 @@ export function LadderBoard({
           );
         })}
       </svg>
-      <div className={styles.ladderLabels} style={{ width }}>
+      <div className={styles.ladderLabels} style={{ width, height: Math.round(scale.nameSize * 2.8) }}>
         {entries.map((entry, i) => (
           <span key={entry.nickname} className={styles.ladderName}
             style={{ left: x(i), width: COLUMN_WIDTH, fontSize: scale.nameSize }}

@@ -6,7 +6,7 @@ import {
   type DrawEntry, type DrawPlan, MAX_PER_LADDER, ladderForGroup, planDraw,
 } from "@/lib/draw";
 import type { MemberSuggestion } from "@/lib/memberQueries";
-import { LadderBoard, STAGE_SCALE } from "./LadderBoard";
+import { LadderBoard, scaleFor } from "./LadderBoard";
 import styles from "./draw.module.css";
 import { newSeedAction, saveDrawAction, searchMembersAction } from "@/app/admin/drawActions";
 
@@ -66,6 +66,9 @@ export function DrawStage() {
     if (!round || !plan) return [];
     return round.groups.map((group, i) => ({ group, ...ladderForGroup(group, plan.seed, `r${roundIndex}g${i}`) }));
   }, [round, plan, roundIndex]);
+  /* 한 라운드 안에서는 조마다 크기가 같아야 나란히 놓았을 때 어색하지 않다. */
+  const scale = useMemo(
+    () => scaleFor(Math.max(1, ...ladders.map((l) => l.ladder.columns))), [ladders]);
 
   /* 한 라운드의 사다리가 모두 끝나야 다음으로 넘어간다. */
   const onOneFinished = useCallback(() => {
@@ -233,7 +236,7 @@ export function DrawStage() {
                     <span className={styles.groupPick}>{group.entries.length}명 중 {group.pick}명</span>
                   </div>
                   <LadderBoard ladder={ladder} entries={startOrder} pickCount={group.pick}
-                    running={running} onFinish={onOneFinished} scale={STAGE_SCALE} durationMs={2600} />
+                    running={running} onFinish={onOneFinished} scale={scale} durationMs={2600} />
                 </div>
               ))}
             </div>
