@@ -5,7 +5,11 @@ export async function register() {
   const { ensureFinalTable } = await import("@/lib/adminQueries");
   const { ensureVoteFailureTable } = await import("@/lib/voteLog");
   const { ensureSpecTables } = await import("@/lib/specQueries");
+  const { ensureMemberProfileColumn } = await import("@/lib/memberQueries");
   await ensureFinalTable();
   await ensureVoteFailureTable();
   await ensureSpecTables();
+  await ensureMemberProfileColumn();
+  const { ensureDrawTables } = await import("@/lib/drawQueries");
+  await ensureDrawTables();
 }
