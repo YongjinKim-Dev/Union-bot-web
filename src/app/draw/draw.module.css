@@ -1,0 +1,64 @@
+.ladderWrap { position: relative; overflow-x: auto; padding: 8px 0 4px; }
+.ladder { display: block; }
+.ladderLine { stroke: var(--color-rule); stroke-width: 1.5; }
+.ladderPath { fill: none; stroke: var(--color-ink-faint); stroke-width: 1.5; opacity: .45; }
+.ladderPathWin { stroke: var(--color-accent); stroke-width: 2.5; opacity: 1; }
+.ladderLabels { position: relative; height: 34px; }
+.ladderName { position: absolute; top: 0; transform: translateX(-50%); text-align: center; font-size: 9px; line-height: 1.2; color: var(--color-ink-faint); overflow-wrap: anywhere; }
+.ladderName[data-won="true"] { color: var(--color-accent-deep); font-weight: 700; }
+.winnerList { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; padding: 0 0 0 2px; list-style: none; counter-reset: win; }
+.winnerList li { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1px solid var(--color-accent); border-radius: 5px; background: var(--color-accent-tint); color: var(--color-accent-deep); font-weight: 700; font-size: 12px; }
+.winnerList li::before { counter-increment: win; content: counter(win); font: 600 10px var(--font-mono); opacity: .6; }
+/* 다 같이 보는 발표 화면 */
+.stage { min-height: 100dvh; display: flex; flex-direction: column; background: var(--color-paper); color: var(--color-ink); }
+.stageHead { display: flex; align-items: center; gap: 16px; padding: 18px 32px; border-bottom: 1px solid var(--color-hairline); }
+.stageTitle { margin: 0; font: 600 20px var(--font-heading); }
+.stageMeta { font: 11px var(--font-mono); color: var(--color-ink-faint); letter-spacing: .06em; }
+.spacer { flex: 1; }
+.stageBody { flex: 1; padding: 24px 32px 40px; }
+.setup { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.setupRow { display: grid; grid-template-columns: minmax(0, 2fr) 120px; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.fieldLabel { font-size: 11px; color: var(--color-ink-dim); }
+.input { padding: 11px 13px; border: 1px solid var(--color-hairline); border-radius: 5px; background: var(--color-raised); color: var(--color-ink); font: 14px var(--font-body); }
+.input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+.searchWrap { position: relative; }
+.suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin: 4px 0 0; padding: 4px; list-style: none; max-height: 300px; overflow-y: auto; border: 1px solid var(--color-hairline); border-radius: 6px; background: var(--color-raised); box-shadow: var(--shadow-modal); }
+.suggestItem { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 4px; background: transparent; color: var(--color-ink); text-align: left; font-size: 13px; cursor: pointer; }
+.suggestItem:hover:not(:disabled) { background: var(--color-accent-tint); }
+.suggestItem:disabled { opacity: .4; cursor: default; }
+.avatar { border-radius: 50%; object-fit: cover; flex: none; border: 1px solid var(--color-hairline); background: var(--color-surface); }
+.roster { display: flex; flex-wrap: wrap; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.rosterChip { display: inline-flex; align-items: center; gap: 8px; padding: 5px 8px 5px 6px; border: 1px solid var(--color-rule); border-radius: 999px; background: var(--color-panel); font-size: 12px; }
+.rosterRemove { border: 0; background: transparent; color: var(--color-ink-faint); font-size: 15px; line-height: 1; cursor: pointer; padding: 0 3px; }
+.rosterRemove:hover { color: var(--color-accent-deep); }
+.startBtn { align-self: center; min-width: 220px; padding: 16px 28px; border: 1px solid var(--color-accent-deep); border-radius: 6px; background: var(--color-accent-deep); color: var(--color-paper); font: 700 16px var(--font-body); cursor: pointer; }
+.startBtn:hover:not(:disabled) { background: var(--color-accent-deeper); }
+.startBtn:disabled { opacity: .4; cursor: not-allowed; }
+.btn { padding: 9px 16px; border: 1px solid var(--color-hairline); border-radius: 5px; background: transparent; color: var(--color-ink); font-size: 13px; cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--color-accent); background: var(--color-accent-tint); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.roundHead { display: flex; align-items: center; gap: 14px; padding-bottom: 14px; }
+.roundName { font: 600 17px var(--font-heading); }
+.roundNote { font-size: 12px; color: var(--color-ink-dim); }
+.groups { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+.group { border: 1px solid var(--color-hairline); border-radius: 8px; background: var(--color-panel); padding: 12px 14px 8px; }
+.groupHead { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; }
+.groupName { font: 600 13px var(--font-body); }
+.groupPick { font: 11px var(--font-mono); color: var(--color-accent-deep); }
+.nextBar { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 24px 0 8px; }
+.countdown { font: 700 15px var(--font-mono); color: var(--color-accent-deep); min-width: 42px; text-align: center; }
+.finalList { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 20px 0 0; padding: 0; list-style: none; counter-reset: w; }
+.finalList li { display: inline-flex; align-items: center; gap: 9px; padding: 12px 20px; border: 1px solid var(--color-accent); border-radius: 8px; background: var(--color-accent-tint); color: var(--color-accent-deep); font: 700 17px var(--font-body); }
+.finalList li::before { counter-increment: w; content: counter(w); font: 600 12px var(--font-mono); opacity: .55; }
+.finalHead { text-align: center; font: 600 22px var(--font-heading); padding-top: 10px; }
+@media (max-width: 760px) {
+  .stageHead, .stageBody { padding-inline: 16px; }
+  .setupRow { grid-template-columns: minmax(0, 1fr); }
+}
+.ladderSlot { fill: var(--color-accent); }
+.arrangeRow { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0 4px; padding: 0; list-style: none; }
+.arrangeChip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px; border: 1px solid var(--color-rule); border-radius: 5px; background: var(--color-raised); font-size: 11px; }
+.arrangeChip button { border: 0; background: transparent; color: var(--color-ink-faint); font-size: 10px; line-height: 1; padding: 3px 2px; cursor: pointer; }
+.arrangeChip button:hover:not(:disabled) { color: var(--color-accent-deep); }
+.arrangeChip button:disabled { opacity: .25; cursor: default; }

@@ -3,10 +3,27 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DrawEntry, Ladder } from "@/lib/draw";
 import { traceLadder } from "@/lib/draw";
-import styles from "./admin.module.css";
+import styles from "./draw.module.css";
 
-const COLUMN_WIDTH = 46;
-const ROW_HEIGHT = 16;
+/* 다 같이 보는 화면이라 크기를 밖에서 정한다. */
+export interface LadderScale {
+  columnWidth: number;
+  rowHeight: number;
+  nameSize: number;
+}
+export const STAGE_SCALE: LadderScale = { columnWidth: 64, rowHeight: 20, nameSize: 12 };
+export const COMPACT_SCALE: LadderScale = { columnWidth: 46, rowHeight: 16, nameSize: 9 };
+
+/*
+ * 라운드가 넘어갈수록 사람이 줄어 사다리가 홀쭉해진다. 다 같이 보는 화면인데
+ * 결승이 제일 작으면 김이 샌다. 남은 사람 수에 맞춰 키운다.
+ */
+export function scaleFor(columns: number): LadderScale {
+  if (columns <= 3) return { columnWidth: 168, rowHeight: 38, nameSize: 22 };
+  if (columns <= 5) return { columnWidth: 130, rowHeight: 32, nameSize: 18 };
+  if (columns <= 8) return { columnWidth: 96, rowHeight: 26, nameSize: 15 };
+  return STAGE_SCALE;
+}
 const TOP = 12;
 
 /*
@@ -18,18 +35,30 @@ const TOP = 12;
 export function LadderBoard({
   ladder,
   entries,
-  pickCount,
+  winningSlots,
+  revealed,
   running,
   onFinish,
+  scale = COMPACT_SCALE,
+  durationMs = 2200,
 }: {
   ladder: Ladder;
   /** 출발 순서(이름순)대로 늘어놓은 참여자. */
   entries: DrawEntry[];
-  pickCount: number;
+  /** 당첨이 걸린 도착 자리. 스타트 전에는 그리지 않는다. */
+  winningSlots: number[];
+  /** 길이 다 내려온 뒤에만 당첨을 드러낸다. */
+  revealed: boolean;
   running: boolean;
   onFinish: () => void;
+  scale?: LadderScale;
+  durationMs?: number;
 }) {
-  const [progress, setProgress] = useState(running ? 0 : 1);
+  const COLUMN_WIDTH = scale.columnWidth;
+  const ROW_HEIGHT = scale.rowHeight;
+  const x = (column: number) => column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+  /* 스타트 전에는 길을 그리지 않는다 — 미리 눈으로 좇을 거리를 주지 않는다. */
+  const [progress, setProgress] = useState(0);
 
   /*
    * 진행값은 처음 값으로만 정한다(위 useState). 효과 안에서 곧바로 setState 하면
@@ -39,7 +68,7 @@ export function LadderBoard({
   useEffect(() => {
     if (!running) return;
     const started = performance.now();
-    const span = 2200;
+    const span = durationMs;
     let raf = 0;
     let done = false;
     const finish = () => {
@@ -62,17 +91,14 @@ export function LadderBoard({
      */
     const timer = setTimeout(finish, span + 120);
     return () => { cancelAnimationFrame(raf); clearTimeout(timer); };
-  }, [running, onFinish]);
+  }, [running, onFinish, durationMs]);
 
   const width = ladder.columns * COLUMN_WIDTH;
   const height = TOP + (ladder.rows + 1) * ROW_HEIGHT + TOP;
-  const arrival = useMemo(() => traceLadder(ladder), [ladder]);
-  // arrival[자리] = 출발 열. 뒤집으면 "이 사람이 몇 번째 자리에 닿는가" 가 된다.
-  const landedAt = useMemo(() => {
-    const map = new Array<number>(ladder.columns);
-    arrival.forEach((column, position) => { map[column] = position; });
-    return map;
-  }, [arrival, ladder.columns]);
+  /* land[출발 열] = 도착 자리. */
+  const land = useMemo(() => traceLadder(ladder), [ladder]);
+  const won = useMemo(() => new Set(winningSlots), [winningSlots]);
+  const didWin = (column: number) => revealed && won.has(land[column]);
 
   const paths = useMemo(() => {
     const rungsByRow = new Map<number, number[]>();
@@ -95,7 +121,9 @@ export function LadderBoard({
       points.push(`${x(column)},${TOP + (ladder.rows + 1) * ROW_HEIGHT}`);
       return points.join(" ");
     });
-  }, [ladder]);
+    // x 는 COLUMN_WIDTH 에서만 나오므로 그것만 따르면 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ladder, COLUMN_WIDTH, ROW_HEIGHT]);
 
   return (
     <div className={styles.ladderWrap}>
@@ -113,20 +141,22 @@ export function LadderBoard({
             className={styles.ladderLine} />
         ))}
         {/* 길 — 당첨된 사람만 금색으로 남긴다 */}
-        {paths.map((points, start) => {
-          const won = landedAt[start] < pickCount;
-          return (
-            <polyline key={`p${start}`} points={points}
-              className={`${styles.ladderPath} ${won ? styles.ladderPathWin : ""}`}
-              style={{ strokeDasharray: 4000, strokeDashoffset: 4000 * (1 - progress) }} />
-          );
-        })}
+        {paths.map((points, start) => (
+          <polyline key={`p${start}`} points={points}
+            className={`${styles.ladderPath} ${didWin(start) ? styles.ladderPathWin : ""}`}
+            style={{ strokeDasharray: 4000, strokeDashoffset: 4000 * (1 - progress) }} />
+        ))}
+        {/* 당첨이 걸린 자리. 길이 다 내려온 뒤에 드러난다. */}
+        {revealed && winningSlots.map((slot) => (
+          <circle key={`w${slot}`} cx={x(slot)} cy={height - TOP} r={Math.max(4, scale.nameSize / 3)}
+            className={styles.ladderSlot} />
+        ))}
       </svg>
-      <div className={styles.ladderLabels} style={{ width }}>
+      <div className={styles.ladderLabels} style={{ width, height: Math.round(scale.nameSize * 2.8) }}>
         {entries.map((entry, i) => (
           <span key={entry.nickname} className={styles.ladderName}
-            style={{ left: x(i), width: COLUMN_WIDTH }}
-            data-won={progress >= 1 && landedAt[i] < pickCount ? "true" : undefined}>
+            style={{ left: x(i), width: COLUMN_WIDTH, fontSize: scale.nameSize }}
+            data-won={didWin(i) ? "true" : undefined}>
             {entry.nickname}
           </span>
         ))}
@@ -135,6 +165,3 @@ export function LadderBoard({
   );
 }
 
-function x(column: number): number {
-  return column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
-}
