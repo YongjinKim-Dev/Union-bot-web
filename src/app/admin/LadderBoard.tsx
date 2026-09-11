@@ -6,7 +6,7 @@ import { traceLadder } from "@/lib/draw";
 import styles from "./admin.module.css";
 
 const COLUMN_WIDTH = 46;
-const ROW_HEIGHT = 22;
+const ROW_HEIGHT = 16;
 const TOP = 12;
 
 /*

@@ -29,6 +29,8 @@ export function DrawTab() {
   const [picked, setPicked] = useState<Picked[]>([]);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<MemberSuggestion[]>([]);
+  /* 찾는 칸에 손이 가 있을 때만 목록을 편다. 늘 펴 두면 아래를 가린다. */
+  const [searching, setSearching] = useState(false);
   const [outcome, setOutcome] = useState<DrawOutcome | null>(null);
   const [running, setRunning] = useState(false);
   /* 새로 뽑을 때마다 사다리를 통째로 다시 세우려고 센다. */
@@ -74,7 +76,7 @@ export function DrawTab() {
   const ladder = useMemo(() => {
     if (!outcome) return null;
     const names = startOrder.map((p) => p.nickname);
-    return buildLadder(outcome.order.map((e) => names.indexOf(e.nickname)));
+    return buildLadder(outcome.order.map((e) => names.indexOf(e.nickname)), outcome.seed);
   }, [outcome, startOrder]);
 
   function add(member: MemberSuggestion) {
@@ -168,9 +170,13 @@ export function DrawTab() {
         <div className={styles.drawSearch}>
           <label className={styles.label} htmlFor="draw-search">참여자 추가</label>
           <input id="draw-search" className={styles.input} value={query} placeholder="닉네임으로 찾기"
-            onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
-          {suggestions.length > 0 && (
-            <ul className={styles.suggestList}>
+            onChange={(e) => setQuery(e.target.value)} autoComplete="off"
+            onFocus={() => setSearching(true)}
+            onBlur={() => setSearching(false)}
+            onKeyDown={(e) => { if (e.key === "Escape") { setSearching(false); e.currentTarget.blur(); } }} />
+          {searching && suggestions.length > 0 && (
+            // 누르기 전에 칸에서 손이 떠나면 목록이 먼저 닫혀 눌리지 않는다.
+            <ul className={styles.suggestList} onMouseDown={(e) => e.preventDefault()}>
               {suggestions.map((s) => (
                 <li key={s.id}>
                   <button type="button" className={styles.suggestItem} disabled={pickedNames.has(s.nickname)}

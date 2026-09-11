@@ -107,24 +107,41 @@ export interface Ladder {
  * 따라 내려가면 발표한 그 자리에 닿아야 한다. 그래서 결과에서 거꾸로 사다리를
  * 짓는다 — 뽑기는 runDraw 가 이미 고르게 했고, 사다리는 그것을 보여 줄 뿐이다.
  *
- * 이웃한 두 열을 바꾸는 것이 가로줄 하나다. 홀짝 번갈아 훑으면 한 칸 안에서
- * 가로줄이 서로 겹치지 않는다 — 한 자리에서 양쪽으로 길이 갈리면 따라갈 수 없다.
+ * 이웃한 두 열을 바꾸는 것이 가로줄 하나다. 한 칸 안에서 가로줄이 서로 붙으면
+ * 한 자리에서 길이 양쪽으로 갈려 따라갈 수 없으므로, 겹치지 않게만 놓는다.
+ *
+ * 어느 것을 먼저 놓을지는 씨앗으로 고른다. 왼쪽부터 차례로 놓으면 가로줄이 고른
+ * 계단 모양으로 늘어서서, 무작위로 뽑은 결과인데도 짜 놓은 것처럼 보인다.
  */
-export function buildLadder(finalOrder: number[]): Ladder {
+export function buildLadder(finalOrder: number[], seed: string): Ladder {
   const n = finalOrder.length;
   const work = [...finalOrder];
   const swaps: LadderRung[] = [];
+  const random = makeRandom(`ladder:${seed}`);
   let row = 0;
-  for (let pass = 0; pass < n && !work.every((v, i) => v === i); pass += 1) {
-    let moved = false;
-    for (let c = pass % 2; c + 1 < n; c += 2) {
-      if (work[c] > work[c + 1]) {
-        [work[c], work[c + 1]] = [work[c + 1], work[c]];
-        swaps.push({ row, left: c });
-        moved = true;
-      }
+  // 한 번에 하나도 못 놓는 일은 없으므로 뒤바뀐 쌍의 수만큼이면 반드시 끝난다.
+  for (let guard = 0; guard <= n * n && !work.every((v, i) => v === i); guard += 1) {
+    const candidates: number[] = [];
+    for (let c = 0; c + 1 < n; c += 1) if (work[c] > work[c + 1]) candidates.push(c);
+    let placed = 0;
+    let lastUsed = -2;
+    for (const c of candidates) {
+      // 바로 옆에 이미 놓았으면 건너뛴다. 그 밖에는 절반쯤 무작위로 미룬다.
+      if (c - lastUsed < 2) continue;
+      if (placed > 0 && random() < 0.25) continue;
+      [work[c], work[c + 1]] = [work[c + 1], work[c]];
+      swaps.push({ row, left: c });
+      lastUsed = c;
+      placed += 1;
     }
-    if (moved) row += 1;
+    if (placed === 0 && candidates.length > 0) {
+      // 전부 미뤘으면 맨 앞 하나는 반드시 놓아 앞으로 나아간다.
+      const c = candidates[0];
+      [work[c], work[c + 1]] = [work[c + 1], work[c]];
+      swaps.push({ row, left: c });
+      placed = 1;
+    }
+    if (placed > 0) row += 1;
   }
   // 위 과정은 "도착 줄 → 출발 줄" 이므로, 내려가는 사다리는 칸 순서를 뒤집는다.
   const rows = Math.max(row, 1);
