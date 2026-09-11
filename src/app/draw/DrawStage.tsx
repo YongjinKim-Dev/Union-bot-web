@@ -6,7 +6,7 @@ import {
   type DrawEntry, type DrawRound, MAX_PER_LADDER, buildRound, nextAdvanceCount, winnersOf,
 } from "@/lib/draw";
 import type { MemberSuggestion } from "@/lib/memberQueries";
-import { LadderBoard, scaleFor } from "./LadderBoard";
+import { LadderBoard } from "./LadderBoard";
 import styles from "./draw.module.css";
 import { newSeedAction, saveDrawAction, searchMembersAction } from "@/app/admin/drawActions";
 
@@ -36,6 +36,7 @@ export function DrawStage() {
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState<MemberSuggestion[]>([]);
+  const [capped, setCapped] = useState(false);
 
   const [phase, setPhase] = useState<"setup" | "arrange" | "running" | "reveal" | "done">("setup");
   const [round, setRound] = useState<DrawRound | null>(null);
@@ -58,7 +59,11 @@ export function DrawStage() {
   useEffect(() => { newSeedAction().then(setSeed).catch(() => {}); }, []);
   useEffect(() => {
     const timer = setTimeout(async () => {
-      try { setSuggestions(await searchMembersAction(query)); } catch { setSuggestions([]); }
+      try {
+        const found = await searchMembersAction(query);
+        setSuggestions(found.members);
+        setCapped(found.capped);
+      } catch { setSuggestions([]); setCapped(false); }
     }, 180);
     return () => clearTimeout(timer);
   }, [query]);
@@ -66,8 +71,6 @@ export function DrawStage() {
   const pickedNames = useMemo(() => new Set(picked.map((p) => p.nickname)), [picked]);
   const entries: DrawEntry[] = useMemo(
     () => picked.map((p) => ({ userId: p.userId, nickname: p.nickname })), [picked]);
-  const scale = useMemo(
-    () => scaleFor(Math.max(1, ...(round?.groups ?? []).map((g) => g.columns.length))), [round]);
   const roundSize = round?.groups.reduce((n, g) => n + g.columns.length, 0) ?? 0;
   const roundPick = round?.groups.reduce((n, g) => n + g.pick, 0) ?? 0;
   /* 이번 라운드에서 올릴 인원이 뽑을 인원과 같으면 여기서 끝난다. */
@@ -211,6 +214,7 @@ export function DrawStage() {
                       </button>
                     </li>
                   ))}
+                  {capped && <li className={styles.suggestMore}>너무 많아 일부만 보여 줍니다. 이름을 더 적어 주세요.</li>}
                 </ul>
               )}
             </div>
@@ -264,7 +268,9 @@ export function DrawStage() {
               </span>
             </div>
 
-            <div className={styles.groups}>
+            {/* 사다리가 몇 개든 화면을 가로로 나눠 다 채운다. */}
+            <div className={styles.groups}
+              style={{ "--group-count": round?.groups.length ?? 1 } as React.CSSProperties}>
               {round?.groups.map((group, i) => (
                 <div key={`${roundIndex}-${i}`} className={styles.group}>
                   <div className={styles.groupHead}>
@@ -273,8 +279,7 @@ export function DrawStage() {
                   </div>
                   <LadderBoard key={`${roundIndex}-${i}`} ladder={group.ladder} entries={group.columns}
                     winningSlots={group.winningSlots} revealed={revealed}
-                    running={phase === "running"} onFinish={onOneFinished}
-                    scale={scale} durationMs={2600} />
+                    running={phase === "running"} onFinish={onOneFinished} />
                   {phase === "arrange" && (
                     <ol className={styles.arrangeRow}>
                       {group.columns.map((entry, column) => (

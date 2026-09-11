@@ -5,9 +5,19 @@ import { type DrawEntry, isValidSeed, randomSeed, replayDraw } from "@/lib/draw"
 import { type MemberSuggestion, searchMembers } from "@/lib/memberQueries";
 import { type DrawRow, getDrawEntries, getDraws, saveDraw } from "@/lib/drawQueries";
 
-export async function searchMembersAction(query: string): Promise<MemberSuggestion[]> {
+/*
+ * 미리보기에 한 번에 내보내는 최대 인원. 40 분 안에 명단을 넣어야 하므로 이름을
+ * 다 치지 않고 목록에서 고르는 일이 잦다 — 넉넉히 보내고, 넘치면 화면이 알린다.
+ * "use server" 파일은 함수만 내보낼 수 있어 이 값은 밖으로 내지 않는다.
+ */
+const SUGGEST_LIMIT = 100;
+
+export async function searchMembersAction(
+  query: string,
+): Promise<{ members: MemberSuggestion[]; capped: boolean }> {
   await requireAdmin();
-  return searchMembers(query, 12);
+  const rows = await searchMembers(query, SUGGEST_LIMIT + 1);
+  return { members: rows.slice(0, SUGGEST_LIMIT), capped: rows.length > SUGGEST_LIMIT };
 }
 
 export async function fetchDrawsAction(): Promise<DrawRow[]> {
