@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Discord from "next-auth/providers/discord";
 import { getUserByDiscordId } from "@/lib/queries";
+import { rememberDiscordAvatar } from "@/lib/memberQueries";
 import { fetchIsGuildAdmin } from "@/lib/discordRoles";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -34,6 +35,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // 이후 요청에서는 DB 조회 없이 그 값을 쓴다.
       if (account?.access_token) {
         token.isAdmin = await fetchIsGuildAdmin(account.access_token);
+      }
+
+      /*
+       * 프로필 사진은 로그인할 때만 디스코드가 알려 준다. 추첨 화면에서 이름
+       * 옆에 얼굴을 보여주려면 어딘가 적어 두어야 하므로 이때 한 번 적는다.
+       * 웹 앱에는 봇 토큰이 없어 나중에 따로 물어볼 방법이 없다.
+       */
+      if (profile?.id) {
+        const avatar = (profile as { avatar?: string | null }).avatar ?? null;
+        await rememberDiscordAvatar(profile.id as string, avatar);
       }
 
       const discordId = (profile?.id as string | undefined) ?? (token.discordId as string | undefined);

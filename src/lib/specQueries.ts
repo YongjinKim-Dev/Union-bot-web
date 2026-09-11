@@ -1,5 +1,6 @@
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
+import { ensureColumn } from "@/lib/schema";
 import { MAX_BUILDS, apBasisFor, buildEquipmentText, calculateEquipmentStats, parseBuild } from "@/lib/equipment";
 import type { ApBasis, EquipmentBuild } from "@/lib/equipment";
 import type { ClassType, UserCharacterClass } from "@/lib/types";
@@ -99,15 +100,15 @@ export async function ensureSpecTables(): Promise<void> {
    * 공방합 기준은 나중에 붙였다. 처음에는 AP·AAP 중 큰 쪽을 썼는데, 직업이
    * 정하는 값이라 그 판단 근거를 함께 남겨야 나중에도 같은 수를 설명할 수 있다.
    */
-  await ensureSpecColumn("spec_build", "ap_basis", "varchar(12) NOT NULL DEFAULT ''");
-  await ensureSpecColumn("spec_submission", "ap_basis", "varchar(12) NOT NULL DEFAULT ''");
+  await ensureColumn("spec_build", "ap_basis", "varchar(12) NOT NULL DEFAULT ''");
+  await ensureColumn("spec_submission", "ap_basis", "varchar(12) NOT NULL DEFAULT ''");
   /*
    * 낼 때의 직업과 기준을 기록으로 남긴다. 화면은 지금 등록된 직업을 보여
    * 주므로(getSpecSubmissions 참고) 이 두 칸은 나중에 "그때는 무슨 직업으로
    * 냈나" 를 되짚을 때만 쓴다.
    */
-  await ensureSpecColumn("spec_submission", "class_name", "varchar(50) NOT NULL DEFAULT ''");
-  await ensureSpecColumn("spec_submission", "class_type", "varchar(20) NOT NULL DEFAULT ''");
+  await ensureColumn("spec_submission", "class_name", "varchar(50) NOT NULL DEFAULT ''");
+  await ensureColumn("spec_submission", "class_type", "varchar(20) NOT NULL DEFAULT ''");
   await backfillApBasis();
 
   // 회차를 나누기 전까지는 상시 접수 한 줄로 받는다. 나중에 회차제로 갈 때
@@ -120,17 +121,6 @@ export async function ensureSpecTables(): Promise<void> {
     "INSERT INTO spec_survey (title, opened_at, closed_at, created_at, updated_at) " +
       "VALUES ('상시 스펙조사', NOW(6), NULL, NOW(6), NOW(6))",
   );
-}
-
-/* 이름은 모두 우리 코드가 적은 문자열이라 바깥에서 들어올 자리가 없다. */
-async function ensureSpecColumn(table: string, column: string, definition: string): Promise<void> {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT COUNT(*) AS found FROM information_schema.columns " +
-      "WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
-    [table, column],
-  );
-  if (Number(rows[0].found) > 0) return;
-  await pool.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 
 /*
