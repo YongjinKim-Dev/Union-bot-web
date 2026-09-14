@@ -4,6 +4,16 @@ import { getUserByDiscordId } from "@/lib/queries";
 import { rememberDiscordAvatar } from "@/lib/memberQueries";
 import { fetchIsGuildAdmin } from "@/lib/discordRoles";
 
+/*
+ * 세션 판. 올리면 그 전에 발급된 세션은 다음 요청에서 풀려 로그인 화면으로 간다.
+ * 세션이 들어올 때마다 연장돼 자주 오는 사람은 로그아웃될 일이 없으므로, 로그인
+ * 때만 받을 수 있는 정보를 모두에게서 새로 받아야 할 때 쓴다.
+ *
+ * 2 — 프로필 사진을 로그인할 때 적게 되면서, 그 전부터 로그인해 둔 사람들의 사진을
+ *     채우려고 한 번 다시 로그인하게 했다.
+ */
+const SESSION_VERSION = 2;
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Discord({
@@ -31,6 +41,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
     async jwt({ token, profile, account }) {
+      // 로그인할 때 판을 찍는다. 판이 다른 세션은 null 을 돌려주면 쿠키가 지워진다.
+      if (profile?.id) token.sessionVersion = SESSION_VERSION;
+      else if (token.sessionVersion !== SESSION_VERSION) return null;
+
       // account 는 최초 로그인 때만 온다. 역할은 그때 한 번 확인해 토큰에 담고,
       // 이후 요청에서는 DB 조회 없이 그 값을 쓴다.
       if (account?.access_token) {
