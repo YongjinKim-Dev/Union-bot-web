@@ -60,7 +60,7 @@ export function WinnerDialog({
         {children}
         {/* 닫힘 이벤트를 기다리지 않고 바로 알린다. 브라우저가 이벤트를 늦게 보내면 부르는
             쪽은 아직 열려 있다고 믿어 "당첨자 보기"를 눌러도 다시 열리지 않는다. */}
-        <button type="button" className={styles.btn} onClick={onClose}>사다리 보기</button>
+        <button type="button" className={styles.btn} onClick={onClose}>닫기</button>
       </div>
       {notice && <p role="status" className={styles.winnerNotice}>{notice}</p>}
     </dialog>
