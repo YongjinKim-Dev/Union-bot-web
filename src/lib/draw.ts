@@ -102,26 +102,59 @@ export interface Ladder {
 
 /** 한 판에 설 수 있는 사람 수. 넘으면 조로 나눈다. */
 export const MAX_PER_LADDER = 12;
-/** 사다리 깊이. 열두 명이 서로 충분히 엇갈릴 만큼. */
-export const LADDER_ROWS = 12;
+/** 가로줄이 앉을 수 있는 높이의 가짓수. 가로줄 개수가 아니다. */
+export const LADDER_ROWS = 36;
+
+/* 사다리마다 한 칸 사이에 긋는 가로줄 수의 범위. 사다리마다 하나를 고른다. */
+const DENSITY_STYLES: [number, number][] = [[2, 4], [3, 5], [3, 7], [4, 6], [5, 8]];
 
 /*
- * 가로줄을 무작위로 긋는다. 한 칸 안에서 이웃한 가로줄이 붙으면 한 자리에서
- * 길이 양쪽으로 갈려 따라갈 수 없으므로, 하나를 놓으면 다음 자리는 건너뛴다.
+ * 가로줄을 긋는다. 사다리마다 촘촘함을 따로 고르고, 가로줄 높이도 칸마다 따로
+ * 뽑아 층층이 맞춰지지 않게 한다. 매번 같은 격자 무늬로 보이지 않게 하려는 것이다.
+ *
+ * 지키는 것은 세 가지다.
+ * - 한 칸 사이에 가로줄이 하나도 없으면 사다리가 둘로 쪼개져 보인다. 칸마다 두 줄 이상.
+ * - 같은 칸 사이의 가로줄은 세 높이 이상 떨어뜨린다. 붙으면 한 줄로 보인다.
+ * - 한 세로줄 양쪽의 가로줄은 같은 높이에 둘 수 없고(길이 갈린다), 바로 옆 높이도
+ *   피한다(눈으로 따라가기 어렵다).
+ *
+ * 누가 뽑히는지는 도착 자리를 균등하게 뽑아 정하므로 생김새는 확률에 영향이 없다.
  */
 export function makeLadder(columns: number, seed: string, rows = LADDER_ROWS): Ladder {
   const random = makeRandom(`rungs:${seed}`);
+  const [least, most] = DENSITY_STYLES[Math.floor(random() * DENSITY_STYLES.length)];
   const rungs: LadderRung[] = [];
-  for (let row = 0; row < rows; row += 1) {
-    let c = 0;
-    while (c + 1 < columns) {
-      if (random() < 0.5) { rungs.push({ row, left: c }); c += 2; } else c += 1;
+  let previous: number[] = [];
+  for (let left = 0; left + 1 < columns; left += 1) {
+    const want = least + Math.floor(random() * (most - least + 1));
+    const heights = Array.from({ length: rows - 2 }, (_, i) => i + 1);
+    for (let i = heights.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(random() * (i + 1));
+      [heights[i], heights[j]] = [heights[j], heights[i]];
     }
+    const chosen: number[] = [];
+    for (const row of heights) {
+      if (chosen.length >= want) break;
+      if (chosen.some((r) => Math.abs(r - row) < 3)) continue;
+      if (previous.some((r) => Math.abs(r - row) < 2)) continue;
+      chosen.push(row);
+    }
+    for (const row of chosen) rungs.push({ row, left });
+    previous = chosen;
   }
+  rungs.sort((a, b) => a.row - b.row || a.left - b.left);
   return { columns, rows, rungs };
 }
 
-/** 한 사람이 지나가는 길. 좌표는 칸 단위이고, 거리는 가로 한 칸과 세로 한 줄을 같게 친다. */
+/*
+ * 걷는 거리를 재는 방법. 세로로 끝까지 내려가는 거리는 사다리 깊이와 상관없이
+ * DESCENT 로 치고, 옆 칸으로 한 번 건너가는 거리는 CROSSING 으로 친다. 가로줄이
+ * 많은 사다리에서도 한 판이 지나치게 길어지지 않게 건너가기를 조금 가볍게 둔다.
+ */
+const DESCENT = 13;
+const CROSSING = 0.6;
+
+/** 한 사람이 지나가는 길. 좌표는 칸 단위다. */
 export interface LadderRoute {
   points: [number, number][];
   /** points[i] 까지 온 거리. */
@@ -154,11 +187,12 @@ export function routesOf(ladder: Ladder): LadderRoute[] {
       column = next;
     }
     points.push([column + 0.5, ladder.rows + 1.5]);
+    const rowWeight = DESCENT / (ladder.rows + 1);
     const distances = [0];
     for (let i = 1; i < points.length; i += 1) {
       const [x0, y0] = points[i - 1];
       const [x1, y1] = points[i];
-      distances.push(distances[i - 1] + Math.abs(x1 - x0) + Math.abs(y1 - y0));
+      distances.push(distances[i - 1] + Math.abs(x1 - x0) * CROSSING + Math.abs(y1 - y0) * rowWeight);
     }
     return { points, distances, total: distances[distances.length - 1], land: column };
   });

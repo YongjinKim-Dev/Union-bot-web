@@ -181,10 +181,10 @@ export function DrawStage() {
     <div className={styles.stage}>
       <header className={styles.stageHead}>
         <h1 className={styles.stageTitle}>{title.trim() || "추첨"}</h1>
-        <span className={styles.stageMeta}>
-          씨앗 {seed || "…"}
-          {phase !== "setup" && ` · ${picked.length}명 중 ${pickCount}명 · ${roundIndex + 1}라운드`}
-        </span>
+        {/* 씨앗은 보는 사람에게 뜻이 없어 내보이지 않는다. 결과를 남길 때만 쓴다. */}
+        {phase !== "setup" && (
+          <span className={styles.stageMeta}>{picked.length}명 중 {pickCount}명 · {roundIndex + 1}라운드</span>
+        )}
         <span className={styles.spacer} />
         {phase !== "setup" && <button type="button" className={styles.btn} onClick={reset}>처음부터</button>}
       </header>
@@ -245,7 +245,7 @@ export function DrawStage() {
             {notice && <p role="status" className={styles.fieldLabel}>{notice}</p>}
             {picked.length > MAX_PER_LADDER && (
               <p className={styles.fieldLabel}>
-                {MAX_PER_LADDER}명이 넘어 조로 나눠 치릅니다. 어느 조에 들어가는지는 씨앗이 정하고 바꿀 수 없습니다.
+                {MAX_PER_LADDER}명이 넘어 조로 나눠 치릅니다. 어느 조에 들어가는지는 무작위로 정해지고 바꿀 수 없습니다.
                 조 안에서 몇 번째에 설지는 마음대로 바꿔도 확률이 같습니다.
               </p>
             )}
