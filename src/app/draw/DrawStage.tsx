@@ -7,6 +7,7 @@ import {
 } from "@/lib/draw";
 import type { MemberSuggestion } from "@/lib/memberQueries";
 import { LadderBoard } from "./LadderBoard";
+import { WinnerDialog } from "./WinnerDialog";
 import styles from "./draw.module.css";
 import { newSeedAction, saveDrawAction, searchMembersAction } from "@/app/admin/drawActions";
 
@@ -55,6 +56,7 @@ export function DrawStage() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [notice, setNotice] = useState("");
   const [saved, setSaved] = useState(false);
+  const [winnersOpen, setWinnersOpen] = useState(false);
 
   useEffect(() => { newSeedAction().then(setSeed).catch(() => {}); }, []);
   useEffect(() => {
@@ -112,6 +114,13 @@ export function DrawStage() {
     return () => { clearInterval(ticking); clearTimeout(advance); };
   }, [autoAt, goNext]);
 
+  /* 마지막 칸이 열리는 것까지 보고 난 뒤에 당첨자를 띄운다. */
+  useEffect(() => {
+    if (phase !== "done") return;
+    const timer = setTimeout(() => setWinnersOpen(true), 1200);
+    return () => clearTimeout(timer);
+  }, [phase]);
+
   /** 조 안에서 한 칸 옆으로 옮긴다. 어느 열이든 확률이 같으므로 마음대로 바꿔도 된다. */
   function move(groupIndex: number, column: number, step: -1 | 1) {
     setRound((prev) => {
@@ -144,7 +153,7 @@ export function DrawStage() {
     setPhase("setup"); setRound(null); setRoundIndex(0);
     setSurvivors([]); setWinners([]); setRevealed(false); setArrangements([]);
     doneRef.current = 0; expectedRef.current = 0; roundRef.current = null;
-    setAutoAt(null); setRemaining(null); setNotice(""); setSaved(false);
+    setAutoAt(null); setRemaining(null); setNotice(""); setSaved(false); setWinnersOpen(false);
     try { setSeed(await newSeedAction()); } catch { /* 쓰던 씨앗을 둔다 */ }
   }
 
@@ -243,20 +252,6 @@ export function DrawStage() {
               추첨 시작
             </button>
           </div>
-        ) : phase === "done" ? (
-          <>
-            <p className={styles.finalHead}>당첨 {winners.length}명</p>
-            <ol className={styles.finalList}>
-              {winners.map((w) => <li key={w.nickname}>{w.nickname}</li>)}
-            </ol>
-            <div className={styles.nextBar}>
-              <button type="button" className={styles.btn} onClick={copyWinners}>당첨자 복사</button>
-              <button type="button" className={styles.btn} onClick={save} disabled={saved}>
-                {saved ? "남김" : "결과 남기기"}
-              </button>
-            </div>
-            {notice && <p role="status" className={styles.roundNote} style={{ textAlign: "center" }}>{notice}</p>}
-          </>
         ) : (
           <>
             <div className={styles.roundHead}>
@@ -265,6 +260,7 @@ export function DrawStage() {
                 {round && `${round.groups.length}개 조 · ${roundSize}명 중 ${roundPick}명이 ${isFinalRound ? "당첨" : "다음 라운드로"}`}
                 {phase === "arrange" && " · 자리를 바꾼 뒤 시작하세요"}
                 {phase === "reveal" && " · 다음 라운드로 갈 사람이 정해졌어요"}
+                {phase === "done" && " · 추첨이 끝났어요"}
               </span>
             </div>
 
@@ -299,6 +295,9 @@ export function DrawStage() {
             </div>
 
             <div className={styles.nextBar}>
+              {phase === "done" && (
+                <button type="button" className={styles.startBtn} onClick={() => setWinnersOpen(true)}>당첨자 보기</button>
+              )}
               {phase === "reveal" && (
                 <>
                   <button type="button" className={styles.startBtn} onClick={goNext}>다음 라운드</button>
@@ -321,6 +320,18 @@ export function DrawStage() {
                 </>
               )}
             </div>
+
+            <WinnerDialog open={winnersOpen} onClose={() => setWinnersOpen(false)}
+              title={title.trim() || "추첨"} notice={notice}
+              winners={winners.map((w) => ({
+                nickname: w.nickname,
+                avatarUrl: picked.find((p) => p.nickname === w.nickname)?.avatarUrl,
+              }))}>
+              <button type="button" className={styles.btn} onClick={copyWinners}>당첨자 복사</button>
+              <button type="button" className={styles.btn} onClick={save} disabled={saved}>
+                {saved ? "남김" : "결과 남기기"}
+              </button>
+            </WinnerDialog>
           </>
         )}
       </div>
