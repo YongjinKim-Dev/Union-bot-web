@@ -123,6 +123,11 @@ export const MAX_PER_LADDER = 12;
 /** 가로줄이 앉을 수 있는 높이의 가짓수. 가로줄 개수가 아니다. */
 /* 층을 고르게 펴고 사이사이에 장식을 넣을 만큼 넉넉히 잡는다. */
 export const LADDER_ROWS = 72;
+/*
+ * 맨 위·맨 아래에서 비워 두는 줄 수. 출발할 때와 도착한 뒤 프로필 사진이 세로줄 끝에
+ * 서므로, 그 근처에 가로줄이나 반원이 있으면 사진에 가려지거나 사진을 뚫고 지나간다.
+ */
+export const EDGE_ROWS = 6;
 
 
 /* 칸마다 상자(곧바로 되돌아오는 가로줄 한 쌍)를 몇 개 둘지. 사다리마다 하나를 고른다. */
@@ -209,7 +214,9 @@ export function ladderPlan(columns: number, seed: string, rows = LADDER_ROWS): {
    */
   const at = Array.from({ length: columns }, (_, i) => i);
   const layers: number[][] = [];
-  const maxLayers = Math.floor((rows - 4) / 3);
+  // 쓸 수 있는 높이는 EDGE_ROWS 부터 rows - 1 - EDGE_ROWS 까지다.
+  const usable = rows - 2 * EDGE_ROWS;
+  const maxLayers = Math.floor((usable - 2) / 3) + 1;
   const randomLayers = Math.max(0, maxLayers - columns);
   const outOfOrder = (p: number) => target[at[p]] > target[at[p + 1]];
   for (let k = 0; at.some((column, position) => target[column] !== position); k += 1) {
@@ -230,10 +237,11 @@ export function ladderPlan(columns: number, seed: string, rows = LADDER_ROWS): {
   }
 
   // 3. 층을 높이 전체에 고르게 펴고, 층 안에서는 한 줄씩 흔들어 가지런하지 않게 한다.
-  const pitch = layers.length ? Math.max(3, Math.floor((rows - 4) / layers.length)) : 3;
+  const pitch = layers.length > 1 ? Math.max(3, Math.floor((usable - 2) / (layers.length - 1))) : 3;
+  const firstRow = EDGE_ROWS + (layers.length > 1 ? 0 : Math.floor((usable - 2) / 2));
   layers.forEach((layer, k) => {
     for (const p of layer) {
-      const row = 2 + k * pitch + (pitch >= 4 ? Math.floor(random() * 2) : 0);
+      const row = firstRow + k * pitch + (pitch >= 4 ? Math.floor(random() * 2) : 0);
       put(p, row, row, shapeOf());
     }
   });
@@ -253,7 +261,7 @@ export function ladderPlan(columns: number, seed: string, rows = LADDER_ROWS): {
       const side: -1 | 1 = column === 0 ? 1 : column === columns - 1 ? -1 : random() < 0.5 ? -1 : 1;
       const gap = side < 0 ? column - 1 : column;
       const length = 6 + Math.floor(random() * 4);
-      const from = 2 + Math.floor(random() * Math.max(1, rows - length - 5));
+      const from = EDGE_ROWS + Math.floor(random() * Math.max(1, usable - length));
       const to = from + length;
       if (!free(endBusy[column], from - 1, to + 1) || !free(bandBusy[gap], from - 1, to + 1)) continue;
       addLoop({ column, from, to, side });
@@ -263,7 +271,7 @@ export function ladderPlan(columns: number, seed: string, rows = LADDER_ROWS): {
       for (const side of [-1, 1] as const) {
         const gap = side < 0 ? column - 1 : column;
         if (gap < 0 || gap >= gaps || loops.length) continue;
-        for (let from = 2; from + 6 <= rows - 3 && !loops.length; from += 1) {
+        for (let from = EDGE_ROWS; from + 6 <= rows - 1 - EDGE_ROWS && !loops.length; from += 1) {
           if (free(endBusy[column], from - 1, from + 7) && free(bandBusy[gap], from - 1, from + 7)) {
             addLoop({ column, from, to: from + 6, side });
           }
@@ -280,13 +288,13 @@ export function ladderPlan(columns: number, seed: string, rows = LADDER_ROWS): {
   for (let left = 0; left < gaps; left += 1) {
     let boxes = least + Math.floor(random() * (most - least + 1));
     for (let tries = 0; tries < 80 && (boxes > 0 || perGap[left] < 2); tries += 1) {
-      const a1 = 1 + Math.floor(random() * (rows - 12));
+      const a1 = EDGE_ROWS + Math.floor(random() * Math.max(1, usable - 8));
       const b1 = a1 + slant();
       const a2 = a1 + 4 + Math.floor(random() * 5);
       const b2 = a2 + slant();
       const lo = Math.min(a1, b1);
       const hi = Math.max(a2, b2);
-      if (lo < 1 || hi > rows - 2 || a2 - a1 < 4 || b2 - b1 < 4) continue;
+      if (lo < EDGE_ROWS || hi > rows - 1 - EDGE_ROWS || a2 - a1 < 4 || b2 - b1 < 4) continue;
       if (!free(bandBusy[left], lo, hi)) continue;
       if (endBusy[left][a1] || endBusy[left][a2] || endBusy[left + 1][b1] || endBusy[left + 1][b2]) continue;
       // 상자 안쪽 높이에 양쪽 세로줄 모두 다른 가로줄 끝이 없어야 곧바로 되돌아온다.
@@ -307,7 +315,7 @@ export function ladderPlan(columns: number, seed: string, rows = LADDER_ROWS): {
      * 곧은 상자 하나가 들어갈 자리를 찾는다. 이때는 결과에 꼭 필요한 간격만 지킨다.
      */
     for (const height of [3, 2]) {
-      for (let top = 1; perGap[left] < 2 && top + height <= rows - 2; top += 1) {
+      for (let top = EDGE_ROWS; perGap[left] < 2 && top + height <= rows - 1 - EDGE_ROWS; top += 1) {
         const bottom = top + height;
         if (!free(sealed[left], top, bottom) || !free(sealed[left + 1], top, bottom) || !free(bandAt[left], top, bottom)) continue;
         put(left, top, top, "straight");
