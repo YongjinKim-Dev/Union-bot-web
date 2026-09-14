@@ -73,6 +73,7 @@ export function DrawStage() {
   const pickedNames = useMemo(() => new Set(picked.map((p) => p.nickname)), [picked]);
   const entries: DrawEntry[] = useMemo(
     () => picked.map((p) => ({ userId: p.userId, nickname: p.nickname })), [picked]);
+  const faces = useMemo(() => new Map(picked.map((p) => [p.nickname, p.avatarUrl])), [picked]);
   const roundSize = round?.groups.reduce((n, g) => n + g.columns.length, 0) ?? 0;
   const roundPick = round?.groups.reduce((n, g) => n + g.pick, 0) ?? 0;
   /* 이번 라운드에서 올릴 인원이 뽑을 인원과 같으면 여기서 끝난다. */
@@ -276,7 +277,7 @@ export function DrawStage() {
                   <LadderBoard key={`${roundIndex}-${i}`} ladder={group.ladder} entries={group.columns}
                     winningSlots={group.winningSlots} revealed={revealed}
                     running={phase === "running"} onFinish={onOneFinished}
-                    winLabel={isFinalRound ? "당첨" : "진출"} />
+                    winLabel={isFinalRound ? "당첨" : "진출"} faces={faces} />
                   {phase === "arrange" && (
                     <ol className={styles.arrangeRow}>
                       {group.columns.map((entry, column) => (

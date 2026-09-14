@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { DrawEntry, Ladder, LadderRoute } from "@/lib/draw";
 import { routesOf, traceLadder } from "@/lib/draw";
@@ -44,6 +45,7 @@ export function LadderBoard({
   running,
   onFinish,
   winLabel = "당첨",
+  faces,
 }: {
   ladder: Ladder;
   /** 출발 순서대로 늘어놓은 참여자. */
@@ -56,6 +58,8 @@ export function LadderBoard({
   onFinish: () => void;
   /** 뽑힌 자리에 붙일 말. 결승이 아니면 "진출". */
   winLabel?: string;
+  /** 닉네임별 프로필 사진. 없으면 점으로 걷는다. */
+  faces?: ReadonlyMap<string, string>;
 }) {
   const routes = useMemo(() => routesOf(ladder), [ladder]);
   const span = useMemo(() => Math.max(...routes.map((r) => r.total)) * MS_PER_STEP, [routes]);
@@ -146,10 +150,19 @@ export function LadderBoard({
                   className={`${styles.ladderPath} ${result === "win" ? styles.ladderPathWin : result === "lose" ? styles.ladderPathLose : ""}`} />
               ))}
           </svg>
-          {/* 아직 걷는 사람. */}
-          {distance > 0 && walks.map((w, column) => !arrived(column) && (
-            <span key={`h${column}`} className={styles.walker} style={{ left: pctX(w.head[0]), top: pctY(w.head[1]) }} />
-          ))}
+          {/*
+            * 사람마다 프로필 사진이 자기 길을 따라 걷는다. 스타트 전에는 자기 줄 맨 위에
+            * 서 있어 누가 어디 섰는지 보이고, 닿은 뒤에는 도착 칸 바로 위에 남는다.
+            */}
+          {walks.map((w, column) => {
+            const face = faces?.get(entries[column]?.nickname ?? "");
+            return (
+              <span key={`h${column}`} className={styles.walker} data-result={resultOf(column)}
+                data-face={face ? undefined : "none"} style={{ left: pctX(w.head[0]), top: pctY(w.head[1]) }}>
+                {face && <Image src={face} alt="" width={48} height={48} className={styles.walkerFace} unoptimized />}
+              </span>
+            );
+          })}
         </div>
 
         {/* 도착 자리. 누군가 닿기 전에는 ? 로 덮어 둔다. */}
