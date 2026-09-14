@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { DrawEntry, Ladder, LadderRoute } from "@/lib/draw";
 import { routesOf, traceLadder } from "@/lib/draw";
+import { type LadderVariant, drawnRoute, rungPoints } from "./ladderStyle";
 import styles from "./draw.module.css";
 
 /* 가로줄 한 줄이나 옆 칸 하나를 지나는 시간. 모든 조가 같은 빠르기로 걷는다. */
@@ -51,6 +52,7 @@ export function LadderBoard({
   winLabel = "당첨",
   faces,
   covered = false,
+  variant = "straight",
 }: {
   ladder: Ladder;
   /** 출발 순서대로 늘어놓은 참여자. */
@@ -67,8 +69,12 @@ export function LadderBoard({
   faces?: ReadonlyMap<string, string>;
   /** 가로줄을 가린다. 자리를 바꾸는 동안 켠다. */
   covered?: boolean;
+  /** 선을 긋는 모양. 결과와 상관없다. */
+  variant?: LadderVariant;
 }) {
   const routes = useMemo(() => routesOf(ladder), [ladder]);
+  /* 걷는 모습은 변형에 맞춘 길을 따른다. 거리와 도착 시각은 원래 길과 같다. */
+  const drawn = useMemo(() => routes.map((route) => drawnRoute(route, variant)), [routes, variant]);
   const span = useMemo(() => Math.max(...routes.map((r) => r.total)) * MS_PER_STEP, [routes]);
   /* 스타트 전에는 길을 그리지 않는다 — 미리 눈으로 좇을 거리를 주지 않는다. */
   const [elapsed, setElapsed] = useState(0);
@@ -121,7 +127,7 @@ export function LadderBoard({
   const won = useMemo(() => new Set(winningSlots), [winningSlots]);
   const arrived = (column: number) => revealed || (distance > 0 && distance >= routes[column].total);
   const resultOf = (column: number) => (arrived(column) ? (won.has(land[column]) ? "win" : "lose") : undefined);
-  const walks = routes.map((route) => walk(route, distance));
+  const walks = drawn.map((route) => walk(route, distance));
 
   return (
     <div className={styles.ladderWrap}>
@@ -143,11 +149,17 @@ export function LadderBoard({
               <line key={`v${i}`} x1={x(i)} y1={0.5} x2={x(i)} y2={bottom}
                 className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
             ))}
-            {!covered && ladder.rungs.map((rung) => (
-              <line key={`r${rung.row}-${rung.left}`}
-                x1={x(rung.left)} y1={y(rung.row + 1)} x2={x(rung.left + 1)} y2={y(rung.row + 1)}
-                className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
-            ))}
+            {!covered && ladder.rungs.map((rung) => {
+              const curved = rungPoints(variant, rung.left, y(rung.row + 1));
+              return curved ? (
+                <polyline key={`r${rung.row}-${rung.left}`} points={curved}
+                  className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
+              ) : (
+                <line key={`r${rung.row}-${rung.left}`}
+                  x1={x(rung.left)} y1={y(rung.row + 1)} x2={x(rung.left + 1)} y2={y(rung.row + 1)}
+                  className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
+              );
+            })}
             {/* 떨어진 길을 먼저, 뽑힌 길을 나중에 그려 겹친 곳에서 금색이 위로 온다. */}
             {distance > 0 && walks
               .map((w, column) => ({ w, column, result: resultOf(column) }))
