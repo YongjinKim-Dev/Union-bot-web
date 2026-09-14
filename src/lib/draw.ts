@@ -103,10 +103,12 @@ export interface Ladder {
 /** 한 판에 설 수 있는 사람 수. 넘으면 조로 나눈다. */
 export const MAX_PER_LADDER = 12;
 /** 가로줄이 앉을 수 있는 높이의 가짓수. 가로줄 개수가 아니다. */
-export const LADDER_ROWS = 36;
+export const LADDER_ROWS = 48;
 
 /* 사다리마다 한 칸 사이에 긋는 가로줄 수의 범위. 사다리마다 하나를 고른다. */
-const DENSITY_STYLES: [number, number][] = [[2, 4], [3, 5], [3, 7], [4, 6], [5, 8]];
+/* 가장 많아도 12줄이다. 이웃 칸이 12줄이면 막히는 높이가 36개라, 남은 10개 가운데서
+   세 높이 떨어진 두 자리는 늘 나온다 — 칸마다 두 줄 이상이 보장된다. */
+const DENSITY_STYLES: [number, number][] = [[5, 8], [6, 9], [7, 10], [6, 12], [8, 12]];
 
 /*
  * 가로줄을 긋는다. 사다리마다 촘촘함을 따로 고르고, 가로줄 높이도 칸마다 따로
@@ -152,7 +154,7 @@ export function makeLadder(columns: number, seed: string, rows = LADDER_ROWS): L
  * 많은 사다리에서도 한 판이 지나치게 길어지지 않게 건너가기를 조금 가볍게 둔다.
  */
 const DESCENT = 13;
-const CROSSING = 0.6;
+const CROSSING = 0.4;
 
 /** 한 사람이 지나가는 길. 좌표는 칸 단위다. */
 export interface LadderRoute {

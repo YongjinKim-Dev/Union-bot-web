@@ -22,8 +22,9 @@ const AUTO_NEXT_SECONDS = 10;
 /*
  * 다 같이 보는 추첨 화면.
  *
- * 씨앗이 두 가지를 미리 정한다 — 가로줄 배치와, 당첨이 걸린 도착 자리. 둘 다
- * 길이 다 내려올 때까지 화면에 나오지 않으므로 돌리는 사람도 결과를 모른다.
+ * 씨앗이 두 가지를 미리 정한다 — 가로줄 배치와, 당첨이 걸린 도착 자리. 당첨 자리는
+ * 처음부터 보여 주되 가로줄은 시작할 때까지 가려 두므로, 돌리는 사람도 누가 뽑힐지
+ * 모른 채 자리를 바꾼다.
  *
  * 사람들이 어느 열에 설지는 자유롭게 바꿀 수 있다. 당첨 자리를 균등하게 뽑으므로
  * 어느 열이든 확률이 같다(실측 편차 1.6%). 다만 어느 조에 들어가는지는 씨앗이
@@ -57,6 +58,10 @@ export function DrawStage() {
   const [notice, setNotice] = useState("");
   const [saved, setSaved] = useState(false);
   const [winnersOpen, setWinnersOpen] = useState(false);
+  /* 끝난 라운드를 다시 틀어 보는 중인지. 결과는 바뀌지 않고 걷는 모습만 다시 보여 준다. */
+  const [replaying, setReplaying] = useState(false);
+  const [replayCount, setReplayCount] = useState(0);
+  const replayRef = useRef<"reveal" | "done" | null>(null);
 
   useEffect(() => { newSeedAction().then(setSeed).catch(() => {}); }, []);
   useEffect(() => {
@@ -93,6 +98,18 @@ export function DrawStage() {
   const onOneFinished = useCallback(() => {
     doneRef.current += 1;
     if (doneRef.current < expectedRef.current) return;
+    // 다시 재생이 끝난 것이면 라운드는 이미 정리됐다. 멈춰 둔 것만 되돌린다.
+    const replayed = replayRef.current;
+    if (replayed) {
+      replayRef.current = null;
+      setRevealed(true);
+      setReplaying(false);
+      if (replayed === "reveal") {
+        setAutoAt(Date.now() + AUTO_NEXT_SECONDS * 1000);
+        setRemaining(AUTO_NEXT_SECONDS);
+      }
+      return;
+    }
     const advanced = (roundRef.current?.groups ?? []).flatMap((g) => winnersOf(g));
     setRevealed(true);
     if (advanced.length <= pickRef.current) {
@@ -117,10 +134,24 @@ export function DrawStage() {
 
   /* 마지막 칸이 열리는 것까지 보고 난 뒤에 당첨자를 띄운다. */
   useEffect(() => {
-    if (phase !== "done") return;
+    if (phase !== "done" || replaying) return;
     const timer = setTimeout(() => setWinnersOpen(true), 1200);
     return () => clearTimeout(timer);
-  }, [phase]);
+  }, [phase, replaying]);
+
+  /** 끝난 라운드를 처음부터 다시 걷게 한다. 넘어가기 카운트다운은 그동안 멈춘다. */
+  function replay() {
+    if (phase !== "reveal" && phase !== "done") return;
+    replayRef.current = phase;
+    doneRef.current = 0;
+    expectedRef.current = round?.groups.length ?? 0;
+    setWinnersOpen(false);
+    setAutoAt(null);
+    setRemaining(null);
+    setRevealed(false);
+    setReplayCount((n) => n + 1);
+    setReplaying(true);
+  }
 
   /** 조 안에서 한 칸 옆으로 옮긴다. 어느 열이든 확률이 같으므로 마음대로 바꿔도 된다. */
   function move(groupIndex: number, column: number, step: -1 | 1) {
@@ -155,6 +186,7 @@ export function DrawStage() {
     setSurvivors([]); setWinners([]); setRevealed(false); setArrangements([]);
     doneRef.current = 0; expectedRef.current = 0; roundRef.current = null;
     setAutoAt(null); setRemaining(null); setNotice(""); setSaved(false); setWinnersOpen(false);
+    replayRef.current = null; setReplaying(false); setReplayCount(0);
     try { setSeed(await newSeedAction()); } catch { /* 쓰던 씨앗을 둔다 */ }
   }
 
@@ -260,8 +292,12 @@ export function DrawStage() {
               <span className={styles.roundNote}>
                 {round && `${round.groups.length}개 조 · ${roundSize}명 중 ${roundPick}명이 ${isFinalRound ? "당첨" : "다음 라운드로"}`}
                 {phase === "arrange" && " · 자리를 바꾼 뒤 시작하세요"}
-                {phase === "reveal" && " · 다음 라운드로 갈 사람이 정해졌어요"}
-                {phase === "done" && " · 추첨이 끝났어요"}
+                {replaying ? " · 다시 재생 중" : (
+                  <>
+                    {phase === "reveal" && " · 다음 라운드로 갈 사람이 정해졌어요"}
+                    {phase === "done" && " · 추첨이 끝났어요"}
+                  </>
+                )}
               </span>
             </div>
 
@@ -274,10 +310,10 @@ export function DrawStage() {
                     <span className={styles.groupName}>{round.groups.length > 1 ? `${i + 1}조` : "전체"}</span>
                     <span className={styles.groupPick}>{group.columns.length}명 중 {group.pick}명</span>
                   </div>
-                  <LadderBoard key={`${roundIndex}-${i}`} ladder={group.ladder} entries={group.columns}
+                  <LadderBoard key={`${roundIndex}-${i}-${replayCount}`} ladder={group.ladder} entries={group.columns}
                     winningSlots={group.winningSlots} revealed={revealed}
-                    running={phase === "running"} onFinish={onOneFinished}
-                    winLabel={isFinalRound ? "당첨" : "진출"} faces={faces} />
+                    running={phase === "running" || replaying} onFinish={onOneFinished}
+                    winLabel={isFinalRound ? "당첨" : "진출"} faces={faces} covered={phase === "arrange"} />
                   {phase === "arrange" && (
                     <ol className={styles.arrangeRow}>
                       {group.columns.map((entry, column) => (
@@ -296,10 +332,13 @@ export function DrawStage() {
             </div>
 
             <div className={styles.nextBar}>
-              {phase === "done" && (
+              {phase === "done" && !replaying && (
                 <button type="button" className={styles.startBtn} onClick={() => setWinnersOpen(true)}>당첨자 보기</button>
               )}
-              {phase === "reveal" && (
+              {(phase === "reveal" || phase === "done") && !replaying && (
+                <button type="button" className={styles.btn} onClick={replay}>다시 재생</button>
+              )}
+              {phase === "reveal" && !replaying && (
                 <>
                   <button type="button" className={styles.startBtn} onClick={goNext}>다음 라운드</button>
                   <span className={styles.countdown}>{remaining !== null ? `${remaining}초 뒤 자동으로 넘어갑니다` : ""}</span>
@@ -332,6 +371,7 @@ export function DrawStage() {
               <button type="button" className={styles.btn} onClick={save} disabled={saved}>
                 {saved ? "남김" : "결과 남기기"}
               </button>
+              <button type="button" className={styles.btn} onClick={replay}>다시 재생</button>
             </WinnerDialog>
           </>
         )}

@@ -74,8 +74,15 @@
 .walker[data-result="lose"] { opacity: .45; filter: grayscale(1); box-shadow: 0 0 0 2px var(--color-panel); }
 .slotRow { position: relative; height: clamp(26px, calc(var(--slot) * .42), 48px); flex: none; margin-top: clamp(8px, calc(var(--slot) * .2), 24px); }
 .slotCard { position: absolute; top: 0; left: 0; width: clamp(26px, calc(var(--slot) * .82), 120px); height: 100%; transform: translateX(-50%); display: grid; place-items: center; border: 1px dashed var(--color-rule-dashed); border-radius: 6px; background: var(--color-raised); color: var(--color-ink-faint); font: 700 clamp(10px, calc(var(--slot) * .2), 19px) var(--font-body); white-space: nowrap; }
-.slotCard[data-result="win"] { border: 1px solid var(--color-accent-deep); background: var(--color-accent-deep); color: var(--color-paper); animation: slotOpen .35s ease-out; }
-.slotCard[data-result="lose"] { border: 1px solid var(--color-rule-medium); background: var(--color-surface); color: var(--color-ink-faint); animation: slotOpen .35s ease-out; }
+/* 당첨 자리는 처음부터 금색 테두리로 보이고, 누가 닿으면 채워진다. */
+.slotCard[data-win="true"] { border: 1.5px solid var(--color-accent-deep); background: var(--color-accent-tint); color: var(--color-accent-deep); }
+.slotCard[data-arrived="true"] { animation: slotOpen .35s ease-out; }
+.slotCard[data-win="true"][data-arrived="true"] { background: var(--color-accent-deep); color: var(--color-paper); }
+.slotCard:not([data-win])[data-arrived="true"] { border: 1px solid var(--color-rule-medium); background: var(--color-surface); }
+/* 시작 전에 가로줄을 가리는 덮개. 걷는 사람 사진은 덮개 위에 선다. */
+.ladderCover { position: absolute; inset: 5% 0; display: grid; place-items: center; padding: 8px; border-radius: 8px; text-align: center;
+  background: repeating-linear-gradient(135deg, var(--color-sunken) 0 10px, var(--color-inset) 10px 20px); color: var(--color-ink-faint);
+  font: 600 clamp(11px, calc(var(--slot) * .18), 16px) var(--font-body); }
 @keyframes slotOpen { from { transform: translateX(-50%) scale(.6); opacity: .2; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .slotCard { animation: none !important; } }
 

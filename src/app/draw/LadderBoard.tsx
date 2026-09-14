@@ -30,8 +30,12 @@ function walk(route: LadderRoute, distance: number): { trail: string; head: [num
  * 길은 실제로 결과에 닿는 길이다. 손가락으로 따라가면 발표한 자리에 도착한다.
  * 그림과 결과가 따로 놀면 그건 추첨이 아니라 연출이다.
  *
+ * 당첨 자리는 처음부터 보여 주고, 대신 시작 전에는 가로줄을 가려 둔다. 사다리 게임을
+ * 종이에 할 때 아래 상품은 적어 두고 가운데를 접어 가리는 것과 같다. 둘 다 보이면
+ * 길을 눈으로 따라가 원하는 사람을 당첨 자리로 옮길 수 있기 때문이다.
+ *
  * 모두 같은 빠르기로 걷기 때문에 건너는 가로줄이 적은 사람이 먼저 닿는다. 닿는
- * 순간 그 자리의 당첨·꽝 이 열린다 — 결과는 한꺼번에가 아니라 한 명씩 나온다.
+ * 순간 그 사람과 도착 칸에 불이 들어온다 — 결과는 한꺼번에가 아니라 한 명씩 나온다.
  *
  * 크기는 칸으로만 그리고 실제 픽셀은 CSS 에 맡긴다. 가로세로 비율을 맞추지
  * 않으므로(preserveAspectRatio="none") 선 굵기는 vector-effect 로 붙잡고, 원이
@@ -46,11 +50,12 @@ export function LadderBoard({
   onFinish,
   winLabel = "당첨",
   faces,
+  covered = false,
 }: {
   ladder: Ladder;
   /** 출발 순서대로 늘어놓은 참여자. */
   entries: DrawEntry[];
-  /** 당첨이 걸린 도착 자리. 누가 닿기 전에는 드러내지 않는다. */
+  /** 당첨이 걸린 도착 자리. 처음부터 보여 준다. */
   winningSlots: number[];
   /** 모두 드러낸다. 걷기가 끝난 뒤 부르는 쪽이 켠다. */
   revealed: boolean;
@@ -60,6 +65,8 @@ export function LadderBoard({
   winLabel?: string;
   /** 닉네임별 프로필 사진. 없으면 점으로 걷는다. */
   faces?: ReadonlyMap<string, string>;
+  /** 가로줄을 가린다. 자리를 바꾸는 동안 켠다. */
+  covered?: boolean;
 }) {
   const routes = useMemo(() => routesOf(ladder), [ladder]);
   const span = useMemo(() => Math.max(...routes.map((r) => r.total)) * MS_PER_STEP, [routes]);
@@ -136,7 +143,7 @@ export function LadderBoard({
               <line key={`v${i}`} x1={x(i)} y1={0.5} x2={x(i)} y2={bottom}
                 className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
             ))}
-            {ladder.rungs.map((rung) => (
+            {!covered && ladder.rungs.map((rung) => (
               <line key={`r${rung.row}-${rung.left}`}
                 x1={x(rung.left)} y1={y(rung.row + 1)} x2={x(rung.left + 1)} y2={y(rung.row + 1)}
                 className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
@@ -154,6 +161,11 @@ export function LadderBoard({
             * 사람마다 프로필 사진이 자기 길을 따라 걷는다. 스타트 전에는 자기 줄 맨 위에
             * 서 있어 누가 어디 섰는지 보이고, 닿은 뒤에는 도착 칸 바로 위에 남는다.
             */}
+          {covered && (
+            <div className={styles.ladderCover} aria-hidden="true">
+              <span>시작하면 가로줄이 나타나요</span>
+            </div>
+          )}
           {walks.map((w, column) => {
             const face = faces?.get(entries[column]?.nickname ?? "");
             return (
@@ -165,16 +177,15 @@ export function LadderBoard({
           })}
         </div>
 
-        {/* 도착 자리. 누군가 닿기 전에는 ? 로 덮어 둔다. */}
+        {/* 도착 자리. 당첨·꽝 은 처음부터 적혀 있고, 누가 닿으면 채워진다. */}
         <div className={styles.slotRow}>
-          {Array.from({ length: ladder.columns }, (_, slot) => {
-            const result = resultOf(startOf[slot]);
-            return (
-              <span key={`s${slot}`} className={styles.slotCard} style={{ left: pctX(x(slot)) }} data-result={result}>
-                {result === "win" ? winLabel : result === "lose" ? "꽝" : "?"}
-              </span>
-            );
-          })}
+          {Array.from({ length: ladder.columns }, (_, slot) => (
+            <span key={`s${slot}`} className={styles.slotCard} style={{ left: pctX(x(slot)) }}
+              data-win={won.has(slot) ? "true" : undefined}
+              data-arrived={arrived(startOf[slot]) ? "true" : undefined}>
+              {won.has(slot) ? winLabel : "꽝"}
+            </span>
+          ))}
         </div>
       </div>
     </div>
