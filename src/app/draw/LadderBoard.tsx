@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { DrawEntry, Ladder, LadderRoute } from "@/lib/draw";
 import { routesOf, traceLadder } from "@/lib/draw";
-import { type LadderVariant, drawnRoute, rungPoints } from "./ladderStyle";
+import { drawnRoute, loopPoints, rungPoints, verticalSegments } from "./ladderShapes";
 import styles from "./draw.module.css";
 
 /* 가로줄 한 줄이나 옆 칸 하나를 지나는 시간. 모든 조가 같은 빠르기로 걷는다. */
@@ -40,7 +40,7 @@ function walk(route: LadderRoute, distance: number): { trail: string; head: [num
  *
  * 크기는 칸으로만 그리고 실제 픽셀은 CSS 에 맡긴다. 가로세로 비율을 맞추지
  * 않으므로(preserveAspectRatio="none") 선 굵기는 vector-effect 로 붙잡고, 원이
- * 찌그러지지 않게 걷는 점과 결과 칸은 그림 위에 HTML 로 얹는다.
+ * 찌그러지지 않게 걷는 사진과 결과 칸은 그림 위에 HTML 로 얹는다.
  */
 export function LadderBoard({
   ladder,
@@ -52,7 +52,6 @@ export function LadderBoard({
   winLabel = "당첨",
   faces,
   covered = false,
-  variant = "straight",
 }: {
   ladder: Ladder;
   /** 출발 순서대로 늘어놓은 참여자. */
@@ -69,12 +68,10 @@ export function LadderBoard({
   faces?: ReadonlyMap<string, string>;
   /** 가로줄을 가린다. 자리를 바꾸는 동안 켠다. */
   covered?: boolean;
-  /** 선을 긋는 모양. 결과와 상관없다. */
-  variant?: LadderVariant;
 }) {
   const routes = useMemo(() => routesOf(ladder), [ladder]);
-  /* 걷는 모습은 변형에 맞춘 길을 따른다. 거리와 도착 시각은 원래 길과 같다. */
-  const drawn = useMemo(() => routes.map((route) => drawnRoute(route, variant)), [routes, variant]);
+  /* 걷는 모습은 휘는 가로줄과 반원을 따라 다시 짠 길을 따른다. 거리와 도착 시각은 같다. */
+  const drawn = useMemo(() => routes.map((route) => drawnRoute(route, ladder)), [routes, ladder]);
   const span = useMemo(() => Math.max(...routes.map((r) => r.total)) * MS_PER_STEP, [routes]);
   /* 스타트 전에는 길을 그리지 않는다 — 미리 눈으로 좇을 거리를 주지 않는다. */
   const [elapsed, setElapsed] = useState(0);
@@ -112,8 +109,6 @@ export function LadderBoard({
 
   const distance = elapsed / MS_PER_STEP;
   const x = (column: number) => column + 0.5;
-  const y = (row: number) => row + 0.5;
-  const bottom = y(ladder.rows + 1);
   const pctX = (value: number) => `${(value / ladder.columns) * 100}%`;
   const pctY = (value: number) => `${(value / (ladder.rows + 2)) * 100}%`;
 
@@ -145,21 +140,20 @@ export function LadderBoard({
         <div className={styles.ladderCanvas}>
           <svg className={styles.ladder} viewBox={`0 0 ${ladder.columns} ${ladder.rows + 2}`}
             preserveAspectRatio="none" role="img" aria-label={`참여자 ${ladder.columns}명의 사다리`}>
-            {Array.from({ length: ladder.columns }, (_, i) => (
-              <line key={`v${i}`} x1={x(i)} y1={0.5} x2={x(i)} y2={bottom}
+            {/* 가려 둔 동안에는 반원 자리도 드러내지 않게 곧은 세로줄만 긋는다. */}
+            {Array.from({ length: ladder.columns }, (_, i) =>
+              (covered ? [[0.5, ladder.rows + 1.5] as [number, number]] : verticalSegments(ladder, i)).map(([from, to]) => (
+                <line key={`v${i}-${from}`} x1={x(i)} y1={from} x2={x(i)} y2={to}
+                  className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
+              )))}
+            {!covered && ladder.rungs.map((rung) => (
+              <polyline key={`r${rung.row}-${rung.left}`} points={rungPoints(rung)}
                 className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
             ))}
-            {!covered && ladder.rungs.map((rung) => {
-              const curved = rungPoints(variant, rung.left, y(rung.row + 1));
-              return curved ? (
-                <polyline key={`r${rung.row}-${rung.left}`} points={curved}
-                  className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
-              ) : (
-                <line key={`r${rung.row}-${rung.left}`}
-                  x1={x(rung.left)} y1={y(rung.row + 1)} x2={x(rung.left + 1)} y2={y(rung.row + 1)}
-                  className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
-              );
-            })}
+            {!covered && ladder.loops.map((loop) => (
+              <polyline key={`o${loop.column}-${loop.from}`} points={loopPoints(loop)}
+                className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
+            ))}
             {/* 떨어진 길을 먼저, 뽑힌 길을 나중에 그려 겹친 곳에서 금색이 위로 온다. */}
             {distance > 0 && walks
               .map((w, column) => ({ w, column, result: resultOf(column) }))
@@ -169,15 +163,15 @@ export function LadderBoard({
                   className={`${styles.ladderPath} ${result === "win" ? styles.ladderPathWin : result === "lose" ? styles.ladderPathLose : ""}`} />
               ))}
           </svg>
-          {/*
-            * 사람마다 프로필 사진이 자기 길을 따라 걷는다. 스타트 전에는 자기 줄 맨 위에
-            * 서 있어 누가 어디 섰는지 보이고, 닿은 뒤에는 도착 칸 바로 위에 남는다.
-            */}
           {covered && (
             <div className={styles.ladderCover} aria-hidden="true">
               <span>시작하면 가로줄이 나타나요</span>
             </div>
           )}
+          {/*
+            * 사람마다 프로필 사진이 자기 길을 따라 걷는다. 스타트 전에는 자기 줄 맨 위에
+            * 서 있어 누가 어디 섰는지 보이고, 닿은 뒤에는 도착 칸 바로 위에 남는다.
+            */}
           {walks.map((w, column) => {
             const face = faces?.get(entries[column]?.nickname ?? "");
             return (

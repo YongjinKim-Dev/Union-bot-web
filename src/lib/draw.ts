@@ -90,14 +90,32 @@ export function runDraw(entries: DrawEntry[], pickCount: number, seed: string): 
 /* ── 사다리 ── */
 
 /** 가로줄 하나. row 번째 칸에서 left 열과 left+1 열을 잇는다. */
+/** 가로줄을 긋는 모양. 결과와 상관없고 그리는 모습만 다르다. */
+export type RungShape = "straight" | "curve" | "wave";
+
 export interface LadderRung {
+  /** 왼쪽 세로줄에 닿는 높이. */
   row: number;
   left: number;
+  /** 오른쪽 세로줄에 닿는 높이. 왼쪽과 다르면 비스듬한 가로줄이다. */
+  rightRow: number;
+  /** 높이가 같은 가로줄만 휘거나 출렁인다. */
+  shape: RungShape;
+}
+
+/** 세로줄 한 토막이 반원으로 돌아가는 곳. 옆 줄로 건너가지 않으니 결과를 바꾸지 않는다. */
+export interface LadderLoop {
+  column: number;
+  from: number;
+  to: number;
+  /** -1 이면 왼쪽으로, 1 이면 오른쪽으로 부푼다. */
+  side: -1 | 1;
 }
 export interface Ladder {
   columns: number;
   rows: number;
   rungs: LadderRung[];
+  loops: LadderLoop[];
 }
 
 /** 한 판에 설 수 있는 사람 수. 넘으면 조로 나눈다. */
@@ -106,46 +124,118 @@ export const MAX_PER_LADDER = 12;
 export const LADDER_ROWS = 48;
 
 /* 사다리마다 한 칸 사이에 긋는 가로줄 수의 범위. 사다리마다 하나를 고른다. */
-/* 가장 많아도 12줄이다. 이웃 칸이 12줄이면 막히는 높이가 36개라, 남은 10개 가운데서
-   세 높이 떨어진 두 자리는 늘 나온다 — 칸마다 두 줄 이상이 보장된다. */
 const DENSITY_STYLES: [number, number][] = [[5, 8], [6, 9], [7, 10], [6, 12], [8, 12]];
+
+/* 곧은 가로줄 사이에 섞는 것들. 대부분은 곧게 두고 가끔만 섞어야 사다리로 읽힌다. */
+const DIAGONAL_CHANCE = 0.15;
+const CURVE_CHANCE = 0.1;
+const WAVE_CHANCE = 0.06;
 
 /*
  * 가로줄을 긋는다. 사다리마다 촘촘함을 따로 고르고, 가로줄 높이도 칸마다 따로
- * 뽑아 층층이 맞춰지지 않게 한다. 매번 같은 격자 무늬로 보이지 않게 하려는 것이다.
- *
- * 지키는 것은 세 가지다.
- * - 한 칸 사이에 가로줄이 하나도 없으면 사다리가 둘로 쪼개져 보인다. 칸마다 두 줄 이상.
- * - 같은 칸 사이의 가로줄은 세 높이 이상 떨어뜨린다. 붙으면 한 줄로 보인다.
- * - 한 세로줄 양쪽의 가로줄은 같은 높이에 둘 수 없고(길이 갈린다), 바로 옆 높이도
- *   피한다(눈으로 따라가기 어렵다).
+ * 뽑아 층층이 맞춰지지 않게 한다. 곧은 가로줄 사이에 비스듬한 가로줄, 휘거나
+ * 출렁이는 가로줄을 가끔 섞고, 세로줄 몇 곳은 반원으로 돌아가게 한다.
  *
  * 누가 뽑히는지는 도착 자리를 균등하게 뽑아 정하므로 생김새는 확률에 영향이 없다.
+ * 대신 길이 헷갈리지 않게 다음을 지킨다.
+ * - 한 세로줄에 가로줄 끝이 같은 높이로 둘 닿지 않는다(길이 갈린다). 바로 옆 높이도 피한다.
+ * - 같은 칸의 가로줄은 세 높이 이상 떨어뜨린다. 비스듬한 가로줄은 차지하는 높이 전체로 잰다.
+ * - 비스듬한 가로줄이 걸친 높이에는 양쪽 세로줄 모두 다른 가로줄 끝이 오지 않는다.
+ *   오르막으로 건너가도 사이에 건너뛰는 갈림길이 없어 곧은 가로줄과 똑같이 따라갈 수 있다.
+ * - 반원이 도는 높이에는 그 세로줄에 가로줄 끝이 오지 않고, 부푸는 쪽 칸에는 가로줄이 없다.
+ * - 칸마다 가로줄을 두 개 이상 둔다. 모자라면 곧은 가로줄만으로 간격을 줄여 한 번 더 채운다.
  */
 export function makeLadder(columns: number, seed: string, rows = LADDER_ROWS): Ladder {
   const random = makeRandom(`rungs:${seed}`);
   const [least, most] = DENSITY_STYLES[Math.floor(random() * DENSITY_STYLES.length)];
+  const gaps = Math.max(0, columns - 1);
+  const grid = (count: number) => Array.from({ length: count }, () => new Array<boolean>(rows).fill(false));
+  /* 가로줄 끝이 실제로 닿은 곳. */
+  const endAt = grid(columns);
+  /* 끝을 둘 수 없는 곳. hard 는 길이 갈리지 않는 데 꼭 필요한 만큼, busy 는 보기 좋게 한 칸 더. */
+  const endHard = grid(columns);
+  const endBusy = grid(columns);
+  /* 칸 안에서 가로줄이 걸칠 수 없는 높이. */
+  const bandHard = grid(gaps);
+  const bandBusy = grid(gaps);
+  const mark = (line: boolean[], from: number, to: number) => {
+    for (let r = Math.max(0, from); r <= Math.min(rows - 1, to); r += 1) line[r] = true;
+  };
+  const free = (line: boolean[], from: number, to: number) => {
+    for (let r = Math.max(0, from); r <= Math.min(rows - 1, to); r += 1) if (line[r]) return false;
+    return true;
+  };
+
+  // 반원이 먼저 자리를 잡는다. 가로줄이 그 높이를 피해 간다.
+  const loops: LadderLoop[] = [];
+  if (columns >= 2) {
+    const count = 1 + Math.floor(random() * Math.ceil(columns / 4));
+    for (let tries = 0; loops.length < count && tries < count * 10; tries += 1) {
+      const column = Math.floor(random() * columns);
+      const side: -1 | 1 = column === 0 ? 1 : column === columns - 1 ? -1 : random() < 0.5 ? -1 : 1;
+      const gap = side < 0 ? column - 1 : column;
+      const length = 4 + Math.floor(random() * 3);
+      const from = 2 + Math.floor(random() * Math.max(1, rows - length - 5));
+      const to = from + length;
+      if (!free(endBusy[column], from - 1, to + 1) || !free(bandBusy[gap], from - 1, to + 1)) continue;
+      loops.push({ column, from, to, side });
+      for (const line of [endHard[column], endBusy[column], bandHard[gap], bandBusy[gap]]) mark(line, from - 1, to + 1);
+    }
+  }
+
   const rungs: LadderRung[] = [];
-  let previous: number[] = [];
-  for (let left = 0; left + 1 < columns; left += 1) {
+  const place = (left: number, row: number, rightRow: number, shape: RungShape) => {
+    const lo = Math.min(row, rightRow);
+    const hi = Math.max(row, rightRow);
+    rungs.push({ row, left, rightRow, shape });
+    endAt[left][row] = true;
+    endAt[left + 1][rightRow] = true;
+    for (const column of [left, left + 1]) {
+      if (lo === hi) endHard[column][row] = true;
+      else mark(endHard[column], lo - 1, hi + 1);
+      mark(endBusy[column], lo - 1, hi + 1);
+    }
+    mark(bandHard[left], lo, hi);
+    mark(bandBusy[left], lo - 2, hi + 2);
+  };
+
+  for (let left = 0; left < gaps; left += 1) {
     const want = least + Math.floor(random() * (most - least + 1));
     const heights = Array.from({ length: rows - 2 }, (_, i) => i + 1);
     for (let i = heights.length - 1; i > 0; i -= 1) {
       const j = Math.floor(random() * (i + 1));
       [heights[i], heights[j]] = [heights[j], heights[i]];
     }
-    const chosen: number[] = [];
+    let placed = 0;
     for (const row of heights) {
-      if (chosen.length >= want) break;
-      if (chosen.some((r) => Math.abs(r - row) < 3)) continue;
-      if (previous.some((r) => Math.abs(r - row) < 2)) continue;
-      chosen.push(row);
+      if (placed >= want) break;
+      const kind = random();
+      let rightRow = row;
+      if (kind < DIAGONAL_CHANCE) {
+        const span = 3 + Math.floor(random() * 3);
+        const other = row + (random() < 0.5 ? -span : span);
+        if (other >= 1 && other <= rows - 2) rightRow = other;
+      }
+      const lo = Math.min(row, rightRow);
+      const hi = Math.max(row, rightRow);
+      if (!free(bandBusy[left], lo, hi) || endBusy[left][row] || endBusy[left + 1][rightRow]) continue;
+      if (lo !== hi && (!free(endAt[left], lo - 1, hi + 1) || !free(endAt[left + 1], lo - 1, hi + 1))) continue;
+      const shape: RungShape = lo !== hi ? "straight"
+        : kind < DIAGONAL_CHANCE + CURVE_CHANCE ? "curve"
+        : kind < DIAGONAL_CHANCE + CURVE_CHANCE + WAVE_CHANCE ? "wave" : "straight";
+      place(left, row, rightRow, shape);
+      placed += 1;
     }
-    for (const row of chosen) rungs.push({ row, left });
-    previous = chosen;
+    // 두 줄을 못 채웠으면 곧은 가로줄만으로, 꼭 필요한 간격만 지키며 한 번 더 채운다.
+    for (const row of heights) {
+      if (placed >= 2) break;
+      if (endHard[left][row] || endHard[left + 1][row] || bandHard[left][row]) continue;
+      place(left, row, row, "straight");
+      placed += 1;
+    }
   }
   rungs.sort((a, b) => a.row - b.row || a.left - b.left);
-  return { columns, rows, rungs };
+  return { columns, rows, rungs, loops };
 }
 
 /*
@@ -172,24 +262,16 @@ export interface LadderRoute {
  * 세로줄 가운데가 x = 열 + 0.5, 가로줄 한 줄이 y = 줄 + 1.5 이다.
  */
 export function routesOf(ladder: Ladder): LadderRoute[] {
-  const rungsByRow = new Map<number, Set<number>>();
-  for (const rung of ladder.rungs) {
-    const set = rungsByRow.get(rung.row) ?? new Set<number>();
-    set.add(rung.left);
-    rungsByRow.set(rung.row, set);
-  }
+  const ends = endsByColumn(ladder);
+  const rowWeight = DESCENT / (ladder.rows + 1);
   return Array.from({ length: ladder.columns }, (_, start) => {
     let column = start;
     const points: [number, number][] = [[column + 0.5, 0.5]];
-    for (let row = 0; row < ladder.rows; row += 1) {
-      const lefts = rungsByRow.get(row);
-      const next = lefts?.has(column) ? column + 1 : lefts?.has(column - 1) ? column - 1 : column;
-      if (next === column) continue;
-      points.push([column + 0.5, row + 1.5], [next + 0.5, row + 1.5]);
-      column = next;
+    for (const step of crossingsOf(ends, start)) {
+      points.push([step.column + 0.5, step.row + 1.5], [step.toColumn + 0.5, step.toRow + 1.5]);
+      column = step.toColumn;
     }
     points.push([column + 0.5, ladder.rows + 1.5]);
-    const rowWeight = DESCENT / (ladder.rows + 1);
     const distances = [0];
     for (let i = 1; i < points.length; i += 1) {
       const [x0, y0] = points[i - 1];
@@ -200,18 +282,51 @@ export function routesOf(ladder: Ladder): LadderRoute[] {
   });
 }
 
+/** 세로줄 하나에 닿은 가로줄 끝. 여기서 올라타면 toColumn 의 toRow 로 내린다. */
+interface RungEnd {
+  row: number;
+  toColumn: number;
+  toRow: number;
+}
+
+function endsByColumn(ladder: Ladder): RungEnd[][] {
+  const ends = Array.from({ length: ladder.columns }, () => [] as RungEnd[]);
+  for (const rung of ladder.rungs) {
+    ends[rung.left].push({ row: rung.row, toColumn: rung.left + 1, toRow: rung.rightRow });
+    ends[rung.left + 1].push({ row: rung.rightRow, toColumn: rung.left, toRow: rung.row });
+  }
+  for (const list of ends) list.sort((a, b) => a.row - b.row);
+  return ends;
+}
+
+/*
+ * 한 사람이 건너는 가로줄을 차례로 돌려준다. 세로줄을 따라 내려가다 가로줄 끝을 만나면
+ * 반대쪽 끝으로 옮겨 가 거기서부터 다시 내려간다. 비스듬한 가로줄은 오르막일 수도 있다.
+ *
+ * 가로줄 끝 하나에서 나가는 길은 하나뿐이고 들어오는 길도 하나뿐이라, 같은 끝을 두 번
+ * 밟거나 두 사람이 한 자리에 닿는 일은 없다. 상한은 만일에 대비한 것이다.
+ */
+function crossingsOf(ends: RungEnd[][], start: number) {
+  const steps: { column: number; row: number; toColumn: number; toRow: number }[] = [];
+  let column = start;
+  let row = -1;
+  for (let guard = 0; guard < 100000; guard += 1) {
+    const next = ends[column].find((end) => end.row > row);
+    if (!next) break;
+    steps.push({ column, row: next.row, toColumn: next.toColumn, toRow: next.toRow });
+    column = next.toColumn;
+    row = next.toRow;
+  }
+  return steps;
+}
+
 /** 각 열에서 출발해 어디에 닿는지. land[출발 열] = 도착 자리. */
 export function traceLadder(ladder: Ladder): number[] {
-  const at = Array.from({ length: ladder.columns }, (_, i) => i);
-  for (let row = 0; row < ladder.rows; row += 1) {
-    for (const rung of ladder.rungs) {
-      if (rung.row !== row) continue;
-      [at[rung.left], at[rung.left + 1]] = [at[rung.left + 1], at[rung.left]];
-    }
-  }
-  const land = new Array<number>(ladder.columns);
-  at.forEach((column, position) => { land[column] = position; });
-  return land;
+  const ends = endsByColumn(ladder);
+  return Array.from({ length: ladder.columns }, (_, start) => {
+    const steps = crossingsOf(ends, start);
+    return steps.length ? steps[steps.length - 1].toColumn : start;
+  });
 }
 
 /*

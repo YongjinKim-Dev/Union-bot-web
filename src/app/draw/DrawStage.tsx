@@ -8,7 +8,6 @@ import {
 import type { MemberSuggestion } from "@/lib/memberQueries";
 import { LadderBoard } from "./LadderBoard";
 import { WinnerDialog } from "./WinnerDialog";
-import { type LadderVariant, randomVariant } from "./ladderStyle";
 import styles from "./draw.module.css";
 import { newSeedAction, saveDrawAction, searchMembersAction } from "@/app/admin/drawActions";
 
@@ -62,8 +61,6 @@ export function DrawStage() {
   /* 끝난 라운드를 다시 틀어 보는 중인지. 결과는 바뀌지 않고 걷는 모습만 다시 보여 준다. */
   const [replaying, setReplaying] = useState(false);
   const [replayCount, setReplayCount] = useState(0);
-  /* 라운드마다 고르는 사다리 모양. 다시 재생해도 같은 모양이다. */
-  const [variant, setVariant] = useState<LadderVariant>("curve");
   const replayRef = useRef<"reveal" | "done" | null>(null);
 
   useEffect(() => { newSeedAction().then(setSeed).catch(() => {}); }, []);
@@ -90,7 +87,6 @@ export function DrawStage() {
   const openRound = useCallback((people: DrawEntry[], index: number) => {
     setRound(buildRound(people, nextAdvanceCount(people.length, pickCount), seed, `r${index}`));
     setRoundIndex(index);
-    setVariant(randomVariant());
     setSurvivors(people);
     setRevealed(false);
     setAutoAt(null);
@@ -317,7 +313,7 @@ export function DrawStage() {
                   <LadderBoard key={`${roundIndex}-${i}-${replayCount}`} ladder={group.ladder} entries={group.columns}
                     winningSlots={group.winningSlots} revealed={revealed}
                     running={phase === "running" || replaying} onFinish={onOneFinished}
-                    winLabel={isFinalRound ? "당첨" : "진출"} faces={faces} covered={phase === "arrange"} variant={variant} />
+                    winLabel={isFinalRound ? "당첨" : "진출"} faces={faces} covered={phase === "arrange"} />
                   {phase === "arrange" && (
                     <ol className={styles.arrangeRow}>
                       {group.columns.map((entry, column) => (
