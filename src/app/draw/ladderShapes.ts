@@ -9,8 +9,8 @@ import type { Ladder, LadderLoop, LadderRoute, LadderRung } from "@/lib/draw";
 type Point = [number, number];
 
 /* 휘는 가로줄이 아래로 처지는 깊이와 물결 높이(줄), 반원이 옆으로 부푸는 폭(칸). */
-const CURVE_SAG = 1.4;
-const WAVE_HEIGHT = 1.0;
+const CURVE_SAG = 2.0;
+const WAVE_HEIGHT = 1.4;
 const LOOP_WIDTH = 0.32;
 const PIECES = 12;
 

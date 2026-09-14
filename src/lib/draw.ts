@@ -121,43 +121,51 @@ export interface Ladder {
 /** 한 판에 설 수 있는 사람 수. 넘으면 조로 나눈다. */
 export const MAX_PER_LADDER = 12;
 /** 가로줄이 앉을 수 있는 높이의 가짓수. 가로줄 개수가 아니다. */
-export const LADDER_ROWS = 48;
+/* 층을 고르게 펴고 사이사이에 장식을 넣을 만큼 넉넉히 잡는다. */
+export const LADDER_ROWS = 72;
 
-/* 사다리마다 한 칸 사이에 긋는 가로줄 수의 범위. 사다리마다 하나를 고른다. */
-const DENSITY_STYLES: [number, number][] = [[5, 8], [6, 9], [7, 10], [6, 12], [8, 12]];
 
-/* 곧은 가로줄 사이에 섞는 것들. 대부분은 곧게 두고 가끔만 섞어야 사다리로 읽힌다. */
-const DIAGONAL_CHANCE = 0.15;
-const CURVE_CHANCE = 0.1;
-const WAVE_CHANCE = 0.06;
+/* 칸마다 상자(곧바로 되돌아오는 가로줄 한 쌍)를 몇 개 둘지. 사다리마다 하나를 고른다. */
+const BOX_STYLES: [number, number][] = [[2, 4], [3, 5], [3, 6], [4, 6]];
+const SLANT_CHANCE = 0.35;
+const CURVE_CHANCE = 0.12;
+const WAVE_CHANCE = 0.08;
 
 /*
- * 가로줄을 긋는다. 사다리마다 촘촘함을 따로 고르고, 가로줄 높이도 칸마다 따로
- * 뽑아 층층이 맞춰지지 않게 한다. 곧은 가로줄 사이에 비스듬한 가로줄, 휘거나
- * 출렁이는 가로줄을 가끔 섞고, 세로줄 몇 곳은 반원으로 돌아가게 한다.
+ * 사다리를 짠다.
  *
- * 누가 뽑히는지는 도착 자리를 균등하게 뽑아 정하므로 생김새는 확률에 영향이 없다.
- * 대신 길이 헷갈리지 않게 다음을 지킨다.
- * - 한 세로줄에 가로줄 끝이 같은 높이로 둘 닿지 않는다(길이 갈린다). 바로 옆 높이도 피한다.
- * - 같은 칸의 가로줄은 세 높이 이상 떨어뜨린다. 비스듬한 가로줄은 차지하는 높이 전체로 잰다.
- * - 비스듬한 가로줄이 걸친 높이에는 양쪽 세로줄 모두 다른 가로줄 끝이 오지 않는다.
- *   오르막으로 건너가도 사이에 건너뛰는 갈림길이 없어 곧은 가로줄과 똑같이 따라갈 수 있다.
- * - 반원이 도는 높이에는 그 세로줄에 가로줄 끝이 오지 않고, 부푸는 쪽 칸에는 가로줄이 없다.
- * - 칸마다 가로줄을 두 개 이상 둔다. 모자라면 곧은 가로줄만으로 간격을 줄여 한 번 더 채운다.
+ * 가로줄을 무작위로 긋기만 하면 사람은 대개 출발한 자리 근처에 떨어진다. 가로줄 하나가
+ * 옆 칸으로 한 칸씩만 옮기기 때문이다. 당첨 자리를 미리 보여 주면 "나는 멀어서 안 되겠다"가
+ * 읽히고, 자리를 바꾸는 쪽은 당첨 자리 바로 위에 사람을 세워 확률을 올릴 수 있다.
+ *
+ * 그래서 거꾸로 짠다. 누가 어느 자리에 닿을지를 먼저 뽑는데, 모든 순서가 같은 확률이
+ * 되게 뽑는다. 그 순서를 만드는 자리 바꾸기를 층층이 긋는다. 그러면 어느 열에서
+ * 출발하든 어느 자리에나 같은 확률로 닿는다. 그 위에 결과를 바꾸지 않는 장식을 얹는다.
+ * - 상자: 같은 칸에 가로줄 두 개를 두고, 그 사이 높이에는 양쪽 세로줄 모두 다른 가로줄
+ *   끝을 두지 않는다. 건너갔다 곧바로 되돌아오므로 순서가 바뀌지 않는다. 비스듬하거나
+ *   휘거나 출렁일 수 있다.
+ * - 반원: 세로줄 한 토막이 옆으로 부풀어 돌아간다. 옆 줄로 건너가지 않는다.
+ *
+ * 길이 헷갈리지 않게, 한 세로줄에 가로줄 끝이 같은 높이나 바로 옆 높이로 오지 않고
+ * 같은 칸의 가로줄은 떨어뜨리며 반원이 도는 높이에는 가로줄 끝을 두지 않는다.
  */
-export function makeLadder(columns: number, seed: string, rows = LADDER_ROWS): Ladder {
+export function ladderPlan(columns: number, seed: string, rows = LADDER_ROWS): { ladder: Ladder; target: number[] } {
   const random = makeRandom(`rungs:${seed}`);
-  const [least, most] = DENSITY_STYLES[Math.floor(random() * DENSITY_STYLES.length)];
   const gaps = Math.max(0, columns - 1);
   const grid = (count: number) => Array.from({ length: count }, () => new Array<boolean>(rows).fill(false));
-  /* 가로줄 끝이 실제로 닿은 곳. */
+  /* 가로줄 끝이 실제로 닿은 곳과, 새 끝을 둘 수 없는 곳. */
   const endAt = grid(columns);
-  /* 끝을 둘 수 없는 곳. hard 는 길이 갈리지 않는 데 꼭 필요한 만큼, busy 는 보기 좋게 한 칸 더. */
-  const endHard = grid(columns);
   const endBusy = grid(columns);
-  /* 칸 안에서 가로줄이 걸칠 수 없는 높이. */
-  const bandHard = grid(gaps);
+  /* 칸 안에서 새 가로줄이 걸칠 수 없는 높이. */
   const bandBusy = grid(gaps);
+  /*
+   * busy 는 보기 좋게 한 칸씩 더 띄운 것이고, 아래 둘은 결과가 틀리지 않는 데 꼭 필요한
+   * 것만 적는다. 무작위로 자리를 못 찾은 칸을 채울 때는 이것만 지킨다.
+   * sealed: 새 가로줄 끝을 둘 수 없는 곳(이미 있는 끝, 상자 안쪽, 반원 토막).
+   * bandAt: 칸 안에서 가로줄이나 반원이 이미 걸친 높이.
+   */
+  const sealed = grid(columns);
+  const bandAt = grid(gaps);
   const mark = (line: boolean[], from: number, to: number) => {
     for (let r = Math.max(0, from); r <= Math.min(rows - 1, to); r += 1) line[r] = true;
   };
@@ -165,77 +173,158 @@ export function makeLadder(columns: number, seed: string, rows = LADDER_ROWS): L
     for (let r = Math.max(0, from); r <= Math.min(rows - 1, to); r += 1) if (line[r]) return false;
     return true;
   };
-
-  // 반원이 먼저 자리를 잡는다. 가로줄이 그 높이를 피해 간다.
-  const loops: LadderLoop[] = [];
-  if (columns >= 2) {
-    const count = 1 + Math.floor(random() * Math.ceil(columns / 4));
-    for (let tries = 0; loops.length < count && tries < count * 10; tries += 1) {
-      const column = Math.floor(random() * columns);
-      const side: -1 | 1 = column === 0 ? 1 : column === columns - 1 ? -1 : random() < 0.5 ? -1 : 1;
-      const gap = side < 0 ? column - 1 : column;
-      const length = 4 + Math.floor(random() * 3);
-      const from = 2 + Math.floor(random() * Math.max(1, rows - length - 5));
-      const to = from + length;
-      if (!free(endBusy[column], from - 1, to + 1) || !free(bandBusy[gap], from - 1, to + 1)) continue;
-      loops.push({ column, from, to, side });
-      for (const line of [endHard[column], endBusy[column], bandHard[gap], bandBusy[gap]]) mark(line, from - 1, to + 1);
+  const shuffle = <T,>(list: T[]) => {
+    for (let i = list.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
     }
-  }
-
+    return list;
+  };
+  const shapeOf = (): RungShape => {
+    const roll = random();
+    return roll < CURVE_CHANCE ? "curve" : roll < CURVE_CHANCE + WAVE_CHANCE ? "wave" : "straight";
+  };
   const rungs: LadderRung[] = [];
-  const place = (left: number, row: number, rightRow: number, shape: RungShape) => {
+  const put = (left: number, row: number, rightRow: number, shape: RungShape) => {
     const lo = Math.min(row, rightRow);
     const hi = Math.max(row, rightRow);
     rungs.push({ row, left, rightRow, shape });
     endAt[left][row] = true;
     endAt[left + 1][rightRow] = true;
-    for (const column of [left, left + 1]) {
-      if (lo === hi) endHard[column][row] = true;
-      else mark(endHard[column], lo - 1, hi + 1);
-      mark(endBusy[column], lo - 1, hi + 1);
-    }
-    mark(bandHard[left], lo, hi);
+    sealed[left][row] = true;
+    sealed[left + 1][rightRow] = true;
+    mark(bandAt[left], lo, hi);
+    mark(endBusy[left], lo - 1, hi + 1);
+    mark(endBusy[left + 1], lo - 1, hi + 1);
     mark(bandBusy[left], lo - 2, hi + 2);
   };
 
-  for (let left = 0; left < gaps; left += 1) {
-    const want = least + Math.floor(random() * (most - least + 1));
-    const heights = Array.from({ length: rows - 2 }, (_, i) => i + 1);
-    for (let i = heights.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(random() * (i + 1));
-      [heights[i], heights[j]] = [heights[j], heights[i]];
-    }
-    let placed = 0;
-    for (const row of heights) {
-      if (placed >= want) break;
-      const kind = random();
-      let rightRow = row;
-      if (kind < DIAGONAL_CHANCE) {
-        const span = 3 + Math.floor(random() * 3);
-        const other = row + (random() < 0.5 ? -span : span);
-        if (other >= 1 && other <= rows - 2) rightRow = other;
+  // 1. 누가 어느 자리에 닿을지. target[출발 열] = 도착 자리. 모든 순서가 같은 확률이다.
+  const target = shuffle(Array.from({ length: columns }, (_, i) => i));
+
+  /*
+   * 2. 그 순서를 만드는 자리 바꾸기를 층으로 나눈다. 한 층의 바꾸기끼리는 세로줄을 겹쳐
+   *    쓰지 않는다. 앞쪽 층은 뒤바뀐 이웃 가운데 무작위로 고르고, 남은 층이 사람 수만큼
+   *    되면 홀짝을 번갈아 정렬한다 — 홀짝 정렬은 사람 수만큼의 층이면 반드시 끝난다.
+   */
+  const at = Array.from({ length: columns }, (_, i) => i);
+  const layers: number[][] = [];
+  const maxLayers = Math.floor((rows - 4) / 3);
+  const randomLayers = Math.max(0, maxLayers - columns);
+  const outOfOrder = (p: number) => target[at[p]] > target[at[p + 1]];
+  for (let k = 0; at.some((column, position) => target[column] !== position); k += 1) {
+    const layer: number[] = [];
+    if (k < randomLayers) {
+      const taken = new Set<number>();
+      for (const p of shuffle(Array.from({ length: gaps }, (_, i) => i).filter(outOfOrder))) {
+        if (taken.has(p) || taken.has(p + 1)) continue;
+        layer.push(p);
+        taken.add(p);
+        taken.add(p + 1);
       }
-      const lo = Math.min(row, rightRow);
-      const hi = Math.max(row, rightRow);
-      if (!free(bandBusy[left], lo, hi) || endBusy[left][row] || endBusy[left + 1][rightRow]) continue;
-      if (lo !== hi && (!free(endAt[left], lo - 1, hi + 1) || !free(endAt[left + 1], lo - 1, hi + 1))) continue;
-      const shape: RungShape = lo !== hi ? "straight"
-        : kind < DIAGONAL_CHANCE + CURVE_CHANCE ? "curve"
-        : kind < DIAGONAL_CHANCE + CURVE_CHANCE + WAVE_CHANCE ? "wave" : "straight";
-      place(left, row, rightRow, shape);
-      placed += 1;
+    } else {
+      for (let p = (k - randomLayers) % 2; p + 1 < columns; p += 2) if (outOfOrder(p)) layer.push(p);
     }
-    // 두 줄을 못 채웠으면 곧은 가로줄만으로, 꼭 필요한 간격만 지키며 한 번 더 채운다.
-    for (const row of heights) {
-      if (placed >= 2) break;
-      if (endHard[left][row] || endHard[left + 1][row] || bandHard[left][row]) continue;
-      place(left, row, row, "straight");
-      placed += 1;
+    for (const p of layer) [at[p], at[p + 1]] = [at[p + 1], at[p]];
+    if (layer.length) layers.push(layer);
+  }
+
+  // 3. 층을 높이 전체에 고르게 펴고, 층 안에서는 한 줄씩 흔들어 가지런하지 않게 한다.
+  const pitch = layers.length ? Math.max(3, Math.floor((rows - 4) / layers.length)) : 3;
+  layers.forEach((layer, k) => {
+    for (const p of layer) {
+      const row = 2 + k * pitch + (pitch >= 4 ? Math.floor(random() * 2) : 0);
+      put(p, row, row, shapeOf());
+    }
+  });
+
+  // 4. 반원. 가로줄 끝이 없는 토막에만 둔다.
+  const loops: LadderLoop[] = [];
+  const addLoop = (loop: LadderLoop) => {
+    const gap = loop.side < 0 ? loop.column - 1 : loop.column;
+    loops.push(loop);
+    for (const line of [endBusy[loop.column], sealed[loop.column]]) mark(line, loop.from - 1, loop.to + 1);
+    for (const line of [bandBusy[gap], bandAt[gap]]) mark(line, loop.from - 1, loop.to + 1);
+  };
+  if (columns >= 2) {
+    const count = 1 + Math.floor(random() * Math.ceil(columns / 4));
+    for (let tries = 0; loops.length < count && tries < count * 20; tries += 1) {
+      const column = Math.floor(random() * columns);
+      const side: -1 | 1 = column === 0 ? 1 : column === columns - 1 ? -1 : random() < 0.5 ? -1 : 1;
+      const gap = side < 0 ? column - 1 : column;
+      const length = 6 + Math.floor(random() * 4);
+      const from = 2 + Math.floor(random() * Math.max(1, rows - length - 5));
+      const to = from + length;
+      if (!free(endBusy[column], from - 1, to + 1) || !free(bandBusy[gap], from - 1, to + 1)) continue;
+      addLoop({ column, from, to, side });
+    }
+    // 무작위로 하나도 못 놓았으면 위에서부터 훑어 들어갈 자리 하나를 찾는다.
+    for (let column = 0; !loops.length && column < columns; column += 1) {
+      for (const side of [-1, 1] as const) {
+        const gap = side < 0 ? column - 1 : column;
+        if (gap < 0 || gap >= gaps || loops.length) continue;
+        for (let from = 2; from + 6 <= rows - 3 && !loops.length; from += 1) {
+          if (free(endBusy[column], from - 1, from + 7) && free(bandBusy[gap], from - 1, from + 7)) {
+            addLoop({ column, from, to: from + 6, side });
+          }
+        }
+      }
     }
   }
+
+  // 5. 상자. 사다리 성격만큼 칸마다 두고, 가로줄이 두 개가 안 되는 칸에는 더 둔다.
+  const [least, most] = BOX_STYLES[Math.floor(random() * BOX_STYLES.length)];
+  const perGap = new Array<number>(gaps).fill(0);
+  for (const rung of rungs) perGap[rung.left] += 1;
+  const slant = () => (random() < SLANT_CHANCE ? (random() < 0.5 ? -1 : 1) * (2 + Math.floor(random() * 2)) : 0);
+  for (let left = 0; left < gaps; left += 1) {
+    let boxes = least + Math.floor(random() * (most - least + 1));
+    for (let tries = 0; tries < 80 && (boxes > 0 || perGap[left] < 2); tries += 1) {
+      const a1 = 1 + Math.floor(random() * (rows - 12));
+      const b1 = a1 + slant();
+      const a2 = a1 + 4 + Math.floor(random() * 5);
+      const b2 = a2 + slant();
+      const lo = Math.min(a1, b1);
+      const hi = Math.max(a2, b2);
+      if (lo < 1 || hi > rows - 2 || a2 - a1 < 4 || b2 - b1 < 4) continue;
+      if (!free(bandBusy[left], lo, hi)) continue;
+      if (endBusy[left][a1] || endBusy[left][a2] || endBusy[left + 1][b1] || endBusy[left + 1][b2]) continue;
+      // 상자 안쪽 높이에 양쪽 세로줄 모두 다른 가로줄 끝이 없어야 곧바로 되돌아온다.
+      if (!free(endAt[left], lo - 1, hi + 1) || !free(endAt[left + 1], lo - 1, hi + 1)) continue;
+      put(left, a1, b1, a1 === b1 ? shapeOf() : "straight");
+      put(left, a2, b2, a2 === b2 ? shapeOf() : "straight");
+      // 나중에 오는 가로줄이 상자 안쪽에 끝을 두면 되돌아오지 않는다. 안쪽 전체를 막아 둔다.
+      mark(endBusy[left], lo - 1, hi + 1);
+      mark(endBusy[left + 1], lo - 1, hi + 1);
+      mark(bandBusy[left], lo - 2, hi + 2);
+      mark(sealed[left], lo, hi);
+      mark(sealed[left + 1], lo, hi);
+      perGap[left] += 2;
+      boxes -= 1;
+    }
+    /*
+     * 그래도 가로줄이 두 개가 안 되면 사다리가 둘로 쪼개져 보인다. 위에서부터 훑어
+     * 곧은 상자 하나가 들어갈 자리를 찾는다. 이때는 결과에 꼭 필요한 간격만 지킨다.
+     */
+    for (const height of [3, 2]) {
+      for (let top = 1; perGap[left] < 2 && top + height <= rows - 2; top += 1) {
+        const bottom = top + height;
+        if (!free(sealed[left], top, bottom) || !free(sealed[left + 1], top, bottom) || !free(bandAt[left], top, bottom)) continue;
+        put(left, top, top, "straight");
+        put(left, bottom, bottom, "straight");
+        mark(sealed[left], top, bottom);
+        mark(sealed[left + 1], top, bottom);
+        perGap[left] += 2;
+      }
+    }
+  }
+
   rungs.sort((a, b) => a.row - b.row || a.left - b.left);
-  return { columns, rows, rungs, loops };
+  return { ladder: { columns, rows, rungs, loops }, target };
+}
+
+export function makeLadder(columns: number, seed: string, rows = LADDER_ROWS): Ladder {
+  return ladderPlan(columns, seed, rows).ladder;
 }
 
 /*
