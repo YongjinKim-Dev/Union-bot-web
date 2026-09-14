@@ -1,19 +1,40 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
-import type { DrawEntry, Ladder } from "@/lib/draw";
-import { traceLadder } from "@/lib/draw";
+import { useEffect, useMemo, useState } from "react";
+import type { DrawEntry, Ladder, LadderRoute } from "@/lib/draw";
+import { routesOf, traceLadder } from "@/lib/draw";
 import styles from "./draw.module.css";
 
+/* 가로줄 한 줄이나 옆 칸 하나를 지나는 시간. 모든 조가 같은 빠르기로 걷는다. */
+const MS_PER_STEP = 320;
+
+/** 걸어온 거리만큼의 길과, 지금 서 있는 자리. */
+function walk(route: LadderRoute, distance: number): { trail: string; head: [number, number] } {
+  const { points, distances, total } = route;
+  if (distance >= total) {
+    return { trail: points.map(([x, y]) => `${x},${y}`).join(" "), head: points[points.length - 1] };
+  }
+  let k = 0;
+  while (distances[k + 1] <= distance) k += 1;
+  const [x0, y0] = points[k];
+  const [x1, y1] = points[k + 1];
+  const t = (distance - distances[k]) / (distances[k + 1] - distances[k]);
+  const head: [number, number] = [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t];
+  return { trail: [...points.slice(0, k + 1), head].map(([x, y]) => `${x},${y}`).join(" "), head };
+}
+
 /*
- * 사다리를 그리고 각 사람의 길을 따라 내려간다.
+ * 사다리를 그리고 사람마다 자기 길을 따라 걸어 내려간다.
  *
  * 길은 실제로 결과에 닿는 길이다. 손가락으로 따라가면 발표한 자리에 도착한다.
  * 그림과 결과가 따로 놀면 그건 추첨이 아니라 연출이다.
  *
- * 크기는 칸으로만 그리고 실제 픽셀은 CSS 에 맡긴다 — 다 같이 보는 화면이라
- * 사다리가 자리를 남김없이 채워야 한다. 가로세로 비율을 맞추지 않으므로
- * (preserveAspectRatio="none") 선 굵기는 vector-effect 로 붙잡아 둔다.
+ * 모두 같은 빠르기로 걷기 때문에 건너는 가로줄이 적은 사람이 먼저 닿는다. 닿는
+ * 순간 그 자리의 당첨·꽝 이 열린다 — 결과는 한꺼번에가 아니라 한 명씩 나온다.
+ *
+ * 크기는 칸으로만 그리고 실제 픽셀은 CSS 에 맡긴다. 가로세로 비율을 맞추지
+ * 않으므로(preserveAspectRatio="none") 선 굵기는 vector-effect 로 붙잡고, 원이
+ * 찌그러지지 않게 걷는 점과 결과 칸은 그림 위에 HTML 로 얹는다.
  */
 export function LadderBoard({
   ladder,
@@ -22,45 +43,44 @@ export function LadderBoard({
   revealed,
   running,
   onFinish,
-  durationMs = 6000,
+  winLabel = "당첨",
 }: {
   ladder: Ladder;
   /** 출발 순서대로 늘어놓은 참여자. */
   entries: DrawEntry[];
-  /** 당첨이 걸린 도착 자리. 스타트 전에는 그리지 않는다. */
+  /** 당첨이 걸린 도착 자리. 누가 닿기 전에는 드러내지 않는다. */
   winningSlots: number[];
-  /** 길이 다 내려온 뒤에만 당첨을 드러낸다. */
+  /** 모두 드러낸다. 걷기가 끝난 뒤 부르는 쪽이 켠다. */
   revealed: boolean;
   running: boolean;
   onFinish: () => void;
-  durationMs?: number;
+  /** 뽑힌 자리에 붙일 말. 결승이 아니면 "진출". */
+  winLabel?: string;
 }) {
+  const routes = useMemo(() => routesOf(ladder), [ladder]);
+  const span = useMemo(() => Math.max(...routes.map((r) => r.total)) * MS_PER_STEP, [routes]);
   /* 스타트 전에는 길을 그리지 않는다 — 미리 눈으로 좇을 거리를 주지 않는다. */
-  const [progress, setProgress] = useState(0);
-  /* useId 는 «r0» 처럼 url(#…) 에 그대로 못 쓰는 글자를 섞어 준다. */
-  const clipId = `ladder${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const [elapsed, setElapsed] = useState(0);
 
   /*
-   * 진행값은 처음 값으로만 정한다(위 useState). 효과 안에서 곧바로 setState 하면
-   * 그린 것을 지우고 다시 그리는 셈이라, 새 라운드마다 이 컴포넌트를 통째로 다시
-   * 세운다 — 부르는 쪽이 key 를 바꾼다.
+   * 걸은 시간은 처음 값으로만 정한다(위 useState). 새 라운드마다 이 컴포넌트를
+   * 통째로 다시 세운다 — 부르는 쪽이 key 를 바꾼다.
    */
   useEffect(() => {
     if (!running) return;
     const started = performance.now();
-    const span = durationMs;
     let raf = 0;
     let done = false;
     const finish = () => {
       if (done) return;
       done = true;
-      setProgress(1);
+      setElapsed(span);
       onFinish();
     };
     const step = (now: number) => {
-      const value = Math.min(1, (now - started) / span);
-      setProgress(value);
-      if (value < 1) raf = requestAnimationFrame(step);
+      const value = Math.min(span, now - started);
+      setElapsed(value);
+      if (value < span) raf = requestAnimationFrame(step);
       else finish();
     };
     raf = requestAnimationFrame(step);
@@ -71,40 +91,26 @@ export function LadderBoard({
      */
     const timer = setTimeout(finish, span + 120);
     return () => { cancelAnimationFrame(raf); clearTimeout(timer); };
-  }, [running, onFinish, durationMs]);
+  }, [running, onFinish, span]);
 
-  /* 가로는 열 하나가 1칸, 세로는 가로줄 한 줄이 1칸. 위아래로 반 칸씩 남긴다. */
+  const distance = elapsed / MS_PER_STEP;
   const x = (column: number) => column + 0.5;
   const y = (row: number) => row + 0.5;
   const bottom = y(ladder.rows + 1);
-  const at = (index: number) => `${((index + 0.5) / ladder.columns) * 100}%`;
+  const pctX = (value: number) => `${(value / ladder.columns) * 100}%`;
+  const pctY = (value: number) => `${(value / (ladder.rows + 2)) * 100}%`;
 
-  /* land[출발 열] = 도착 자리. */
+  /* 결과는 엔진의 계산을 따른다. 그림의 도착 자리는 같아야 하고, 다르면 그림이 틀린 것이다. */
   const land = useMemo(() => traceLadder(ladder), [ladder]);
+  const startOf = useMemo(() => {
+    const inverse: number[] = [];
+    land.forEach((slot, column) => { inverse[slot] = column; });
+    return inverse;
+  }, [land]);
   const won = useMemo(() => new Set(winningSlots), [winningSlots]);
-  const didWin = (column: number) => revealed && won.has(land[column]);
-
-  const paths = useMemo(() => {
-    const rungsByRow = new Map<number, number[]>();
-    for (const rung of ladder.rungs) {
-      const list = rungsByRow.get(rung.row) ?? [];
-      list.push(rung.left);
-      rungsByRow.set(rung.row, list);
-    }
-    return Array.from({ length: ladder.columns }, (_, start) => {
-      let column = start;
-      const points = [`${column + 0.5},0.5`];
-      for (let row = 0; row < ladder.rows; row += 1) {
-        const lefts = rungsByRow.get(row) ?? [];
-        points.push(`${column + 0.5},${row + 1.5}`);
-        if (lefts.includes(column)) column += 1;
-        else if (lefts.includes(column - 1)) column -= 1;
-        points.push(`${column + 0.5},${row + 1.5}`);
-      }
-      points.push(`${column + 0.5},${ladder.rows + 1.5}`);
-      return points.join(" ");
-    });
-  }, [ladder]);
+  const arrived = (column: number) => revealed || (distance > 0 && distance >= routes[column].total);
+  const resultOf = (column: number) => (arrived(column) ? (won.has(land[column]) ? "win" : "lose") : undefined);
+  const walks = routes.map((route) => walk(route, distance));
 
   return (
     <div className={styles.ladderWrap}>
@@ -112,48 +118,50 @@ export function LadderBoard({
       <div className={styles.ladderInner} style={{ "--columns": ladder.columns } as React.CSSProperties}>
         <div className={styles.ladderLabels}>
           {entries.map((entry, i) => (
-            <span key={entry.nickname} className={styles.ladderName} style={{ left: at(i) }}
-              data-won={didWin(i) ? "true" : undefined}>
+            <span key={entry.nickname} className={styles.ladderName} style={{ left: pctX(x(i)) }}
+              data-result={resultOf(i)}>
               {entry.nickname}
             </span>
           ))}
         </div>
-        <svg className={styles.ladder} viewBox={`0 0 ${ladder.columns} ${ladder.rows + 2}`}
-          preserveAspectRatio="none" role="img" aria-label={`참여자 ${ladder.columns}명의 사다리`}>
-          {/* 세로줄 */}
-          {Array.from({ length: ladder.columns }, (_, i) => (
-            <line key={`v${i}`} x1={x(i)} y1={0.5} x2={x(i)} y2={bottom}
-              className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
-          ))}
-          {/* 가로줄 */}
-          {ladder.rungs.map((rung) => (
-            <line key={`r${rung.row}-${rung.left}`}
-              x1={x(rung.left)} y1={y(rung.row + 1)} x2={x(rung.left + 1)} y2={y(rung.row + 1)}
-              className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
-          ))}
-          {/*
-            * 길 — 당첨된 사람만 금색으로 남긴다.
-            *
-            * 위에서부터 잘라 보이며 내려온다. 점선 길이로 그리면 화면에 몇 픽셀로
-            * 펴졌는지에 따라 속도가 달라지는데, 잘라 보이는 방식은 칸으로 재므로
-            * 조가 몇 개든 같은 속도로 내려온다.
-            */}
-          <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
-            <rect x={0} y={0} width={ladder.columns} height={progress * (ladder.rows + 2)} />
-          </clipPath>
-          <g clipPath={`url(#${clipId})`} className={styles.pathGroup}
-            data-revealed={revealed ? "true" : undefined}>
-            {paths.map((points, start) => (
-              <polyline key={`p${start}`} points={points} vectorEffect="non-scaling-stroke"
-                className={`${styles.ladderPath} ${didWin(start) ? styles.ladderPathWin : ""}`} />
+
+        <div className={styles.ladderCanvas}>
+          <svg className={styles.ladder} viewBox={`0 0 ${ladder.columns} ${ladder.rows + 2}`}
+            preserveAspectRatio="none" role="img" aria-label={`참여자 ${ladder.columns}명의 사다리`}>
+            {Array.from({ length: ladder.columns }, (_, i) => (
+              <line key={`v${i}`} x1={x(i)} y1={0.5} x2={x(i)} y2={bottom}
+                className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
             ))}
-          </g>
-        </svg>
-        {/* 당첨이 걸린 자리. 길이 다 내려온 뒤에 드러난다. */}
-        <div className={styles.slotRow}>
-          {revealed && winningSlots.map((slot) => (
-            <span key={`w${slot}`} className={styles.slotDot} style={{ left: at(slot) }} />
+            {ladder.rungs.map((rung) => (
+              <line key={`r${rung.row}-${rung.left}`}
+                x1={x(rung.left)} y1={y(rung.row + 1)} x2={x(rung.left + 1)} y2={y(rung.row + 1)}
+                className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
+            ))}
+            {/* 떨어진 길을 먼저, 뽑힌 길을 나중에 그려 겹친 곳에서 금색이 위로 온다. */}
+            {distance > 0 && walks
+              .map((w, column) => ({ w, column, result: resultOf(column) }))
+              .sort((a, b) => Number(a.result === "win") - Number(b.result === "win"))
+              .map(({ w, column, result }) => (
+                <polyline key={`p${column}`} points={w.trail} vectorEffect="non-scaling-stroke"
+                  className={`${styles.ladderPath} ${result === "win" ? styles.ladderPathWin : result === "lose" ? styles.ladderPathLose : ""}`} />
+              ))}
+          </svg>
+          {/* 아직 걷는 사람. */}
+          {distance > 0 && walks.map((w, column) => !arrived(column) && (
+            <span key={`h${column}`} className={styles.walker} style={{ left: pctX(w.head[0]), top: pctY(w.head[1]) }} />
           ))}
+        </div>
+
+        {/* 도착 자리. 누군가 닿기 전에는 ? 로 덮어 둔다. */}
+        <div className={styles.slotRow}>
+          {Array.from({ length: ladder.columns }, (_, slot) => {
+            const result = resultOf(startOf[slot]);
+            return (
+              <span key={`s${slot}`} className={styles.slotCard} style={{ left: pctX(x(slot)) }} data-result={result}>
+                {result === "win" ? winLabel : result === "lose" ? "꽝" : "?"}
+              </span>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -121,6 +121,49 @@ export function makeLadder(columns: number, seed: string, rows = LADDER_ROWS): L
   return { columns, rows, rungs };
 }
 
+/** 한 사람이 지나가는 길. 좌표는 칸 단위이고, 거리는 가로 한 칸과 세로 한 줄을 같게 친다. */
+export interface LadderRoute {
+  points: [number, number][];
+  /** points[i] 까지 온 거리. */
+  distances: number[];
+  total: number;
+  /** 도착 자리. traceLadder 와 늘 같다. */
+  land: number;
+}
+
+/*
+ * 화면에 그릴 길. 결과를 정하는 것은 traceLadder 이고 이 함수는 그림만 만든다 —
+ * 둘이 어긋나면 그림이 거짓말을 하므로 도착 자리를 함께 돌려주고 검사한다.
+ * 세로줄 가운데가 x = 열 + 0.5, 가로줄 한 줄이 y = 줄 + 1.5 이다.
+ */
+export function routesOf(ladder: Ladder): LadderRoute[] {
+  const rungsByRow = new Map<number, Set<number>>();
+  for (const rung of ladder.rungs) {
+    const set = rungsByRow.get(rung.row) ?? new Set<number>();
+    set.add(rung.left);
+    rungsByRow.set(rung.row, set);
+  }
+  return Array.from({ length: ladder.columns }, (_, start) => {
+    let column = start;
+    const points: [number, number][] = [[column + 0.5, 0.5]];
+    for (let row = 0; row < ladder.rows; row += 1) {
+      const lefts = rungsByRow.get(row);
+      const next = lefts?.has(column) ? column + 1 : lefts?.has(column - 1) ? column - 1 : column;
+      if (next === column) continue;
+      points.push([column + 0.5, row + 1.5], [next + 0.5, row + 1.5]);
+      column = next;
+    }
+    points.push([column + 0.5, ladder.rows + 1.5]);
+    const distances = [0];
+    for (let i = 1; i < points.length; i += 1) {
+      const [x0, y0] = points[i - 1];
+      const [x1, y1] = points[i];
+      distances.push(distances[i - 1] + Math.abs(x1 - x0) + Math.abs(y1 - y0));
+    }
+    return { points, distances, total: distances[distances.length - 1], land: column };
+  });
+}
+
 /** 각 열에서 출발해 어디에 닿는지. land[출발 열] = 도착 자리. */
 export function traceLadder(ladder: Ladder): number[] {
   const at = Array.from({ length: ladder.columns }, (_, i) => i);

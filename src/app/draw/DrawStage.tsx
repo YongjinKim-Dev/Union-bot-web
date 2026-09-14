@@ -279,7 +279,8 @@ export function DrawStage() {
                   </div>
                   <LadderBoard key={`${roundIndex}-${i}`} ladder={group.ladder} entries={group.columns}
                     winningSlots={group.winningSlots} revealed={revealed}
-                    running={phase === "running"} onFinish={onOneFinished} />
+                    running={phase === "running"} onFinish={onOneFinished}
+                    winLabel={isFinalRound ? "당첨" : "진출"} />
                   {phase === "arrange" && (
                     <ol className={styles.arrangeRow}>
                       {group.columns.map((entry, column) => (
