@@ -1,6 +1,8 @@
 import type mysql from "mysql2/promise";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
+import { avatarUrl } from "@/lib/memberQueries";
+import type { ClassType } from "@/lib/types";
 
 /*
  * 거점전 자리 안내.
@@ -314,7 +316,15 @@ export async function addSpot(baseId: string, name: string): Promise<string> {
 export interface BattleComment {
   id: string;
   userId: string;
+  /*
+   * 지금 쓰는 이름이다. 닉네임은 표에도 찍어 두지만, 보여 줄 때는 유저 표에서
+   * 다시 읽는다 — 누가 누군지 알아보려고 다는 얼굴과 직업인데 이름만 옛것이면
+   * 오히려 헷갈린다. 연맹을 나가 유저가 사라진 사람만 찍어 둔 이름으로 남는다.
+   */
   nickname: string;
+  avatarUrl: string | null;
+  className: string | null;
+  classType: ClassType | null;
   /** 지운 댓글이면 빈 문자열. 내용은 표에 남아 있지만 화면까지 내보내지 않는다. */
   body: string;
   createdAt: Date;
@@ -327,14 +337,25 @@ export interface BattleComment {
 
 export async function getComments(baseId: string): Promise<BattleComment[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, user_id, nickname, body, created_at, updated_at, removed_at, removed_by " +
-      "FROM battle_comment WHERE base_id = ? ORDER BY created_at, id",
+    "SELECT c.id, c.user_id, c.nickname, c.body, c.created_at, c.updated_at, c.removed_at, c.removed_by, " +
+      "  u.user_nickname, u.user_discord_id, u.discord_avatar, cc.name AS class_name, cc.type AS class_type " +
+      "FROM battle_comment c " +
+      // 연맹을 나간 사람의 댓글도 남아야 하므로 전부 LEFT JOIN 이다.
+      "LEFT JOIN user u ON u.id = c.user_id " +
+      "LEFT JOIN user_character_class_map m ON m.user_id = c.user_id " +
+      "LEFT JOIN character_class cc ON cc.id = m.character_class_id " +
+      "WHERE c.base_id = ? ORDER BY c.created_at, c.id",
     [baseId],
   );
   return rows.map((row) => ({
     id: String(row.id),
     userId: String(row.user_id),
-    nickname: row.nickname as string,
+    nickname: (row.user_nickname as string | null) ?? (row.nickname as string),
+    avatarUrl: row.user_discord_id
+      ? avatarUrl(row.user_discord_id as string, (row.discord_avatar as string | null) ?? null)
+      : null,
+    className: (row.class_name as string | null) ?? null,
+    classType: (row.class_type as ClassType | null) ?? null,
     body: row.removed_at ? "" : (row.body as string),
     createdAt: row.created_at as Date,
     updatedAt: (row.updated_at as Date | null) ?? null,

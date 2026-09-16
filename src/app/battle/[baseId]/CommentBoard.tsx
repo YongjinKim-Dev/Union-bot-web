@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition } from "react";
+import { ClassIcon } from "@/components/ClassIcon";
 import type { BattleComment } from "@/lib/battleQueries";
 import { formatKstDateTime } from "@/lib/format";
 import {
@@ -145,7 +147,29 @@ function CommentRow({
 
   return (
     <li className={removed ? styles.commentRemoved : styles.comment}>
+      {/* 얼굴과 직업은 지금 값을 읽어 온다. 아직 로그인한 적 없는 사람은
+          디스코드 기본 그림이 나오고, 연맹을 나간 사람은 빈 자리로 남는다. */}
+      {comment.avatarUrl ? (
+        <Image
+          src={comment.avatarUrl}
+          alt=""
+          width={30}
+          height={30}
+          className={styles.avatar}
+          unoptimized
+        />
+      ) : (
+        <span className={styles.avatarBlank} aria-hidden="true" />
+      )}
+
+      <div className={styles.commentMain}>
       <div className={styles.commentHead}>
+        {comment.className && (
+          /* 계열 마크가 타일 오른쪽 아래로 삐져나오므로 이름과 겹치지 않게 감싼다. */
+          <span className={styles.classTile}>
+            <ClassIcon name={comment.className} type={comment.classType} size={26} markSize={13} />
+          </span>
+        )}
         <span className={styles.commentName}>{comment.nickname}</span>
         <span className={styles.commentTime}>
           {formatKstDateTime(comment.createdAt)}
@@ -209,6 +233,7 @@ function CommentRow({
       ) : (
         <p className={styles.commentBody}>{comment.body}</p>
       )}
+      </div>
     </li>
   );
 }
