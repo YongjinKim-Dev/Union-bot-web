@@ -1,16 +1,127 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import type { BattleSpot } from "@/lib/battleQueries";
-import { addSpotAction, deleteSpotAction, saveSpotAction, setSpotActiveAction } from "../actions";
+import {
+  addSpotAction,
+  clearSpotImageAction,
+  deleteSpotAction,
+  saveSpotAction,
+  setSpotActiveAction,
+  setSpotImagePublicAction,
+  uploadSpotImageAction,
+} from "../actions";
 import styles from "../battle.module.css";
 
 const DESCRIPTION_MAX = 500;
 
 /*
- * 자리 한 칸. 사진은 아직 올리지 못하므로 들어갈 자리만 잡아 둔다 — 나중에
- * 업로드를 붙일 때 이 칸의 크기와 배치를 그대로 쓰면 된다.
+ * 사진 올리기.
+ *
+ * 공개 여부는 올릴 때 함께 넘긴다. 기본은 꺼짐 — 로그인한 사람만 본다.
+ * 켜면 주소를 아는 사람은 누구나 받을 수 있으므로 밖에 나가도 되는 사진만
+ * 켠다. 이미 올린 사진의 공개 여부만 바꾸는 것은 파일을 건드리지 않는다.
  */
+function ImageField({
+  baseId,
+  spot,
+  onError,
+}: {
+  baseId: string;
+  spot: BattleSpot;
+  onError: (message: string) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [open, setOpen] = useState(spot.imagePublic);
+  const [isPending, startTransition] = useTransition();
+
+  function upload() {
+    if (!file) return;
+    const form = new FormData();
+    form.set("file", file);
+    onError("");
+    startTransition(async () => {
+      const result = await uploadSpotImageAction(baseId, spot.id, form, open);
+      if (result.ok) {
+        setFile(null);
+        if (input.current) input.current.value = "";
+      } else {
+        onError(result.message);
+      }
+    });
+  }
+
+  return (
+    <div className={styles.imageField}>
+      <div className={styles.imageRow}>
+        <input
+          ref={input}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className={styles.file}
+          aria-label="스크린샷 고르기"
+          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+        />
+        <button
+          type="button"
+          className={styles.miniButton}
+          disabled={!file || isPending}
+          onClick={upload}
+        >
+          올리기
+        </button>
+      </div>
+      <div className={styles.imageRow}>
+        <label className={styles.check}>
+          <input
+            type="checkbox"
+            checked={open}
+            onChange={(event) => {
+              const next = event.target.checked;
+              setOpen(next);
+              // 이미 사진이 있으면 켜고 끄는 즉시 반영한다. 아직 없으면 다음에
+              // 올릴 사진에 이 값이 함께 넘어간다.
+              if (!spot.imageKey) return;
+              onError("");
+              startTransition(async () => {
+                try {
+                  await setSpotImagePublicAction(baseId, spot.id, next);
+                } catch {
+                  setOpen(!next);
+                  onError("바꾸지 못했습니다. 새로 고침 후 다시 시도해 주세요.");
+                }
+              });
+            }}
+          />
+          로그인 없이도 보이기
+        </label>
+        {spot.imageKey && (
+          <button
+            type="button"
+            className={styles.dangerButton}
+            disabled={isPending}
+            onClick={() => {
+              if (!window.confirm(`"${spot.name}" 사진을 지웁니다. 되돌릴 수 없습니다.`)) return;
+              onError("");
+              startTransition(async () => {
+                try {
+                  await clearSpotImageAction(baseId, spot.id);
+                } catch {
+                  onError("지우지 못했습니다. 새로 고침 후 다시 시도해 주세요.");
+                }
+              });
+            }}
+          >
+            사진 지우기
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* 자리 한 칸. 사진과 짧은 설명이 붙는다. */
 function SpotCard({
   baseId,
   spot,
@@ -46,9 +157,18 @@ function SpotCard({
 
   return (
     <article className={spot.isActive ? styles.spot : styles.spotOff}>
-      {/* 사진 자리. 업로드를 붙이기 전까지는 비어 있다는 것만 알려 준다. */}
       <div className={styles.shot}>
-        <span className={styles.shotNote}>스크린샷 자리</span>
+        {spot.imageKey ? (
+          /* eslint-disable-next-line @next/next/no-img-element -- 로그인 확인을 거쳐 우리 길로 내주는 사진이라 next/image 의 최적화 경로를 타지 않는다. */
+          <img
+            src={`/api/battle-image/${spot.id}`}
+            alt={spot.name}
+            className={styles.shotImg}
+          />
+        ) : (
+          <span className={styles.shotNote}>스크린샷 자리</span>
+        )}
+        {spot.imageKey && spot.imagePublic && <span className={styles.openBadge}>공개</span>}
       </div>
 
       <div className={styles.spotBody}>
@@ -70,6 +190,7 @@ function SpotCard({
               placeholder="짧은 설명"
               onChange={(event) => setDescription(event.target.value)}
             />
+            <ImageField baseId={baseId} spot={spot} onError={onError} />
             <div className={styles.spotActions}>
               <span className={styles.counter}>
                 {description.length}/{DESCRIPTION_MAX}

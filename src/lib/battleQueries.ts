@@ -2,6 +2,7 @@ import type mysql from "mysql2/promise";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
 import { avatarUrl } from "@/lib/memberQueries";
+import { ensureColumn } from "@/lib/schema";
 import type { ClassType } from "@/lib/types";
 
 /*
@@ -90,6 +91,10 @@ export async function ensureBattleTables(): Promise<void> {
       "PRIMARY KEY (id), " +
       "KEY idx_comment_log (comment_id, logged_at))",
   );
+  // battle_spot 은 이미 배포되어 있으므로 칸을 뒤늦게 붙인다.
+  await ensureColumn("battle_spot", "image_type", "varchar(40) NULL");
+  // 기본은 차단이다. 올릴 때 따로 켜 주지 않으면 로그인한 사람만 본다.
+  await ensureColumn("battle_spot", "image_public", "tinyint(1) NOT NULL DEFAULT 0");
   await seedRegions();
 }
 
@@ -188,6 +193,8 @@ export interface BattleSpot {
   name: string;
   description: string;
   imageKey: string | null;
+  /** 로그인 없이도 볼 수 있는 사진인지. 기본은 거짓. */
+  imagePublic: boolean;
   isActive: boolean;
   updatedAt: Date | null;
 }
@@ -215,7 +222,7 @@ export async function getBaseDetail(
   if (base.is_active !== 1 && !includeInactive) return null;
 
   const [spotRows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, name, description, image_key, is_active, updated_at FROM battle_spot " +
+    "SELECT id, name, description, image_key, image_public, is_active, updated_at FROM battle_spot " +
       "WHERE base_id = ? " +
       (includeInactive ? "" : "AND is_active = 1 ") +
       "ORDER BY sort_order, id",
@@ -233,6 +240,7 @@ export async function getBaseDetail(
       name: spot.name as string,
       description: spot.description as string,
       imageKey: (spot.image_key as string | null) ?? null,
+      imagePublic: spot.image_public === 1,
       isActive: spot.is_active === 1,
       updatedAt: (spot.updated_at as Date | null) ?? null,
     })),
@@ -490,9 +498,18 @@ export async function getRemovedBody(commentId: string): Promise<string | null> 
  * 자리와 댓글이 주인 없이 남아, 나중에 같은 번호가 다시 나면 엉뚱한 거점에
  * 옛날 댓글이 붙는다.
  */
-async function deleteBasesIn(connection: mysql.PoolConnection, baseIds: string[]): Promise<void> {
-  if (baseIds.length === 0) return;
+async function deleteBasesIn(
+  connection: mysql.PoolConnection,
+  baseIds: string[],
+): Promise<string[]> {
+  if (baseIds.length === 0) return [];
   const marks = baseIds.map(() => "?").join(",");
+  /* 행을 지우기 전에 사진 열쇠를 먼저 챙긴다. 지운 뒤에는 무엇이 있었는지
+     알 수 없고, 그러면 R2 에 주인 없는 파일이 영영 남는다. */
+  const [shots] = await connection.query<RowDataPacket[]>(
+    `SELECT image_key FROM battle_spot WHERE base_id IN (${marks}) AND image_key IS NOT NULL`,
+    baseIds,
+  );
   await connection.execute(
     `DELETE l FROM battle_comment_log l JOIN battle_comment c ON c.id = l.comment_id WHERE c.base_id IN (${marks})`,
     baseIds,
@@ -500,14 +517,18 @@ async function deleteBasesIn(connection: mysql.PoolConnection, baseIds: string[]
   await connection.execute(`DELETE FROM battle_comment WHERE base_id IN (${marks})`, baseIds);
   await connection.execute(`DELETE FROM battle_spot WHERE base_id IN (${marks})`, baseIds);
   await connection.execute(`DELETE FROM battle_base WHERE id IN (${marks})`, baseIds);
+  return shots.map((row) => row.image_key as string);
 }
 
-async function inTransaction(work: (connection: mysql.PoolConnection) => Promise<void>): Promise<void> {
+async function inTransaction<T>(
+  work: (connection: mysql.PoolConnection) => Promise<T>,
+): Promise<T> {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    await work(connection);
+    const result = await work(connection);
     await connection.commit();
+    return result;
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -516,23 +537,92 @@ async function inTransaction(work: (connection: mysql.PoolConnection) => Promise
   }
 }
 
-export async function deleteRegion(regionId: string): Promise<void> {
-  await inTransaction(async (connection) => {
+/** 지운 자리들이 쓰던 사진 열쇠를 돌려준다. 부르는 쪽이 R2 에서도 지운다. */
+export async function deleteRegion(regionId: string): Promise<string[]> {
+  return inTransaction(async (connection) => {
     const [rows] = await connection.query<RowDataPacket[]>(
       "SELECT id FROM battle_base WHERE region_id = ?",
       [regionId],
     );
-    await deleteBasesIn(connection, rows.map((row) => String(row.id)));
+    const keys = await deleteBasesIn(connection, rows.map((row) => String(row.id)));
     await connection.execute("DELETE FROM battle_region WHERE id = ?", [regionId]);
+    return keys;
   });
 }
 
-export async function deleteBase(baseId: string): Promise<void> {
-  await inTransaction((connection) => deleteBasesIn(connection, [baseId]));
+export async function deleteBase(baseId: string): Promise<string[]> {
+  return inTransaction((connection) => deleteBasesIn(connection, [baseId]));
 }
 
-export async function deleteSpot(spotId: string): Promise<void> {
+export async function deleteSpot(spotId: string): Promise<string | null> {
+  const key = await spotImageKey(spotId);
   await pool.execute("DELETE FROM battle_spot WHERE id = ?", [spotId]);
+  return key;
+}
+
+/* ── 자리 사진 ──────────────────────────────────────────────── */
+
+async function spotImageKey(spotId: string): Promise<string | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT image_key FROM battle_spot WHERE id = ?",
+    [spotId],
+  );
+  return (rows[0]?.image_key as string | null) ?? null;
+}
+
+/**
+ * 새 사진을 자리에 매단다. 앞서 쓰던 열쇠를 돌려주므로 부르는 쪽이 R2 에서
+ * 옛 파일을 지울 수 있다.
+ */
+export async function setSpotImage(
+  spotId: string,
+  key: string,
+  contentType: string,
+  isPublic: boolean,
+): Promise<string | null> {
+  const previous = await spotImageKey(spotId);
+  await pool.execute(
+    "UPDATE battle_spot SET image_key = ?, image_type = ?, image_public = ? WHERE id = ?",
+    [key, contentType, isPublic ? 1 : 0, spotId],
+  );
+  return previous === key ? null : previous;
+}
+
+export async function clearSpotImage(spotId: string): Promise<string | null> {
+  const previous = await spotImageKey(spotId);
+  await pool.execute(
+    "UPDATE battle_spot SET image_key = NULL, image_type = NULL, image_public = 0 WHERE id = ?",
+    [spotId],
+  );
+  return previous;
+}
+
+export async function setSpotImagePublic(spotId: string, isPublic: boolean): Promise<void> {
+  await pool.execute("UPDATE battle_spot SET image_public = ? WHERE id = ?", [
+    isPublic ? 1 : 0,
+    spotId,
+  ]);
+}
+
+export interface SpotImage {
+  key: string;
+  contentType: string;
+  isPublic: boolean;
+}
+
+/** 사진을 내주는 길에서 쓴다. 로그인을 물을지 여기 적힌 공개 여부로 정한다. */
+export async function getSpotImage(spotId: string): Promise<SpotImage | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT image_key, image_type, image_public FROM battle_spot WHERE id = ?",
+    [spotId],
+  );
+  const row = rows[0];
+  if (!row?.image_key) return null;
+  return {
+    key: row.image_key as string,
+    contentType: (row.image_type as string | null) ?? "image/webp",
+    isPublic: row.image_public === 1,
+  };
 }
 
 /** 지운 댓글까지 표에서 없앤다. 이력도 함께 사라진다. */

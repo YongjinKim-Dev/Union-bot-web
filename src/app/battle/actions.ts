@@ -1,13 +1,17 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import sharp from "sharp";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { requireAdmin } from "@/lib/adminAuth";
+import { deleteObject, putObject, r2Configured } from "@/lib/r2";
 import {
   addBase,
   addComment,
   addRegion,
   addSpot,
+  clearSpotImage,
   deleteBase,
   deleteRegion,
   deleteSpot,
@@ -20,6 +24,8 @@ import {
   renameRegion,
   setBaseActive,
   setRegionActive,
+  setSpotImage,
+  setSpotImagePublic,
   setSpotActive,
   updateSpot,
   type CommentLogRow,
@@ -83,13 +89,13 @@ export async function setBaseActiveAction(baseId: string, active: boolean) {
  */
 export async function deleteRegionAction(regionId: string) {
   await requireAdmin();
-  await deleteRegion(regionId);
+  await dropObjects(await deleteRegion(regionId));
   revalidatePath("/battle");
 }
 
 export async function deleteBaseAction(baseId: string) {
   await requireAdmin();
-  await deleteBase(baseId);
+  await dropObjects(await deleteBase(baseId));
   revalidatePath("/battle");
 }
 
@@ -128,7 +134,7 @@ export async function setSpotActiveAction(baseId: string, spotId: string, active
 
 export async function deleteSpotAction(baseId: string, spotId: string) {
   await requireAdmin();
-  await deleteSpot(spotId);
+  await dropObjects([await deleteSpot(spotId)]);
   revalidatePath("/battle");
   revalidatePath(`/battle/${baseId}`);
 }
@@ -138,6 +144,108 @@ export async function addSpotAction(baseId: string, name: string) {
   const trimmed = trimTo(name, SPOT_NAME_MAX);
   if (!trimmed) throw new Error("자리 이름을 적어 주세요.");
   await addSpot(baseId, trimmed);
+  revalidatePath(`/battle/${baseId}`);
+}
+
+/* ── 자리 사진 ──────────────────────────────────────────────── */
+
+/** 받아들이는 사진. 게임 스크린샷이므로 이 셋이면 충분하다. */
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+/** 올리기 전 원본 한도. 4K 스크린샷도 보통 이 아래다. */
+const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
+/* 자리 칸은 화면에서 500px 언저리로 그려진다. 2 배 화면까지 감안해 1600 이면
+   넉넉하고, webp 로 바꾸면 장당 수백 KB 로 떨어진다. */
+const MAX_IMAGE_WIDTH = 1600;
+
+/*
+ * DB 행은 지웠는데 R2 파일이 남으면 아무도 다시 찾지 못한다. 반대로 파일을
+ * 못 지워도 화면은 멀쩡하므로, 지우기 실패로 작업 전체를 되돌리지는 않는다.
+ */
+async function dropObjects(keys: (string | null)[]): Promise<void> {
+  if (!r2Configured()) return;
+  for (const key of keys) {
+    if (!key) continue;
+    try {
+      await deleteObject(key);
+    } catch {
+      // 남은 파일은 버킷 수명 규칙으로 치운다. 여기서 막을 일은 아니다.
+    }
+  }
+}
+
+/**
+ * 자리에 사진을 올린다.
+ *
+ * isPublic 은 부르는 쪽이 정한다. 주지 않으면 차단이다 — 로그인한 사람만
+ * 볼 수 있다. 공개로 켜면 주소를 아는 사람은 누구나 받을 수 있으므로,
+ * 밖에 나가도 되는 사진에만 켠다.
+ */
+export async function uploadSpotImageAction(
+  baseId: string,
+  spotId: string,
+  form: FormData,
+  isPublic: boolean = false,
+): Promise<CommentActionResult> {
+  await requireAdmin();
+  if (!r2Configured()) {
+    return { ok: false, message: "사진 보관함이 아직 설정되지 않았습니다." };
+  }
+
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "사진을 골라 주세요." };
+  }
+  if (!IMAGE_TYPES.includes(file.type)) {
+    return { ok: false, message: "PNG, JPG, WEBP 만 올릴 수 있습니다." };
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return { ok: false, message: "사진이 너무 큽니다. 12MB 아래로 올려 주세요." };
+  }
+
+  /* 원본 그대로 두지 않는다. 4K 스크린샷은 장당 몇 MB 인데 화면에는 그 절반
+     폭으로도 안 나온다. 좌표나 닉네임이 박힌 메타데이터도 여기서 떨어진다. */
+  let body: Buffer;
+  try {
+    body = await sharp(Buffer.from(await file.arrayBuffer()))
+      .rotate()
+      .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+  } catch {
+    return { ok: false, message: "사진을 읽지 못했습니다. 다른 파일로 시도해 주세요." };
+  }
+
+  // 열쇠에 무작위 값을 넣어 같은 자리에 다시 올려도 주소가 겹치지 않게 한다.
+  const key = `battle/${spotId}/${randomUUID()}.webp`;
+  try {
+    await putObject(key, body, "image/webp");
+  } catch {
+    return { ok: false, message: "사진을 보관함에 올리지 못했습니다." };
+  }
+
+  const previous = await setSpotImage(spotId, key, "image/webp", isPublic);
+  await dropObjects([previous]);
+
+  revalidatePath("/battle");
+  revalidatePath(`/battle/${baseId}`);
+  return { ok: true };
+}
+
+export async function clearSpotImageAction(baseId: string, spotId: string) {
+  await requireAdmin();
+  await dropObjects([await clearSpotImage(spotId)]);
+  revalidatePath("/battle");
+  revalidatePath(`/battle/${baseId}`);
+}
+
+/** 이미 올린 사진의 공개 여부만 바꾼다. 파일은 그대로 둔다. */
+export async function setSpotImagePublicAction(
+  baseId: string,
+  spotId: string,
+  isPublic: boolean,
+) {
+  await requireAdmin();
+  await setSpotImagePublic(spotId, isPublic);
   revalidatePath(`/battle/${baseId}`);
 }
 
