@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { submitVote } from "./actions";
 import {
   ATTEND_TYPES,
@@ -39,6 +39,10 @@ export function VoteButtons({
   /* 서버가 마감이라고 답하면 화면도 즉시 잠근다. 오래 열어둔 탭에서 눌렀을 때
      버튼이 계속 살아 있으면 같은 실패를 반복하게 된다. */
   const [serverClosed, setServerClosed] = useState(false);
+  /* 열리기 몇 초 전에 눌렀을 때. 마감과 달리 곧 열리므로 그때까지만 잠근다. */
+  const [tooEarly, setTooEarly] = useState(false);
+  const earlyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (earlyTimer.current) clearTimeout(earlyTimer.current); }, []);
 
   const isAttend = currentVote ? ATTEND_TYPES.includes(currentVote) : false;
   const votingClosed = closed || serverClosed;
@@ -49,6 +53,14 @@ export function VoteButtons({
       try {
         const result = await submitVote(surveyId, votingType);
         if (!result.ok) {
+          const waiting = result.opensAt !== null ? result.opensAt - result.serverNow : 0;
+          if (waiting > 0) {
+            // 몇 초 일찍 눌렀다. 열릴 때까지만 잠그고, 열리면 버튼을 다시 살린다.
+            setError(`아직 열리지 않았어요. ${Math.ceil(waiting / 1000)}초 뒤에 열립니다.`);
+            setTooEarly(true);
+            earlyTimer.current = setTimeout(() => { setTooEarly(false); setError(null); }, waiting);
+            return;
+          }
           setError(result.message);
           if (result.reason === "closed") setServerClosed(true);
           return;
@@ -59,7 +71,8 @@ export function VoteButtons({
         setVotedAt(result.vote.votedAt);
       } catch {
         // 여기까지 오는 것은 네트워크가 끊겼거나 서버가 죽은 경우뿐이다.
-        setError("서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        /* 배포가 바뀌어 이 화면의 버튼을 서버가 알아보지 못할 때도 여기로 온다. */
+        setError("투표를 보내지 못했습니다. 새로 고침 후 다시 시도해 주세요.");
       }
     });
   }
@@ -72,7 +85,7 @@ export function VoteButtons({
             key={type}
             type="button"
             className={`${styles.voteButton} ${currentVote === type ? styles.selected : ""}`}
-            disabled={votingClosed || isPending}
+            disabled={votingClosed || tooEarly || isPending}
             onClick={() => handleVote(type)}
           >
             {VOTING_TYPE_LABEL[type]}

@@ -9,6 +9,8 @@ import {
   getVoteForUser,
 } from "@/lib/queries";
 import { getVotingClosesAt } from "@/lib/format";
+import { buildId } from "@/lib/buildId";
+import { serverRenderTime } from "@/lib/serverTime";
 import { VoteTabs } from "./VoteTabs";
 import { CurrentSurveyPanel } from "./CurrentSurveyPanel";
 import { PastSurveySummary } from "./PastSurveySummary";
@@ -46,6 +48,8 @@ export default async function VotePage() {
             currentContent={
               currentSurvey ? (
                 <CurrentSurveyPanel
+                  renderedAt={serverRenderTime()}
+                  build={buildId()}
                   surveyId={currentSurvey.id}
                   opensAt={currentSurvey.exposed_at.getTime()}
                   executedAt={currentSurvey.executed_at.getTime()}

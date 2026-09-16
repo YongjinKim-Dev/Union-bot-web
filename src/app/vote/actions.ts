@@ -17,7 +17,15 @@ import type { VotingType } from "@/lib/types";
  */
 export type SubmitVoteResult =
   | { ok: true; vote: CastVoteResult }
-  | { ok: false; reason: "auth" | "closed"; message: string };
+  | {
+      ok: false;
+      reason: "auth" | "closed";
+      message: string;
+      /** 거절한 순간의 서버 시각(ms). 화면이 자기 시계를 바로잡는 데 쓴다. */
+      serverNow: number;
+      /** 이 회차가 열리는 시각(ms). 아직 열리기 전이면 화면이 남은 시간을 보여 준다. */
+      opensAt: number | null;
+    };
 
 export async function submitVote(
   surveyId: string,
@@ -38,6 +46,7 @@ export async function submitVote(
     reason: "auth" | "closed",
     message: string,
     ctx: { surveyId: string | null; userId: string | null; nickname: string | null },
+    opensAt: number | null = null,
   ): SubmitVoteResult => {
     after(async () => {
       const ua = (await headers()).get("user-agent");
@@ -51,7 +60,7 @@ export async function submitVote(
         elapsedMs: Date.now() - arrivedAt.getTime(),
       });
     });
-    return { ok: false, reason, message };
+    return { ok: false, reason, message, serverNow: Date.now(), opensAt };
   };
 
   const session = await auth();
@@ -79,7 +88,14 @@ export async function submitVote(
     );
   }
   if (!isVotingOpen(survey, arrivedAt)) {
-    return fail("closed", "아직 투표가 열리지 않았거나 이미 마감되었습니다.", who);
+    // 열리는 시각을 함께 돌려준다. 몇 초 일찍 누른 것이면 화면이 그만큼 기다렸다
+    // 버튼을 다시 살린다. 대신 눌러 주지는 않는다 — 누르는 것은 사람이 해야 한다.
+    return fail(
+      "closed",
+      "아직 투표가 열리지 않았거나 이미 마감되었습니다.",
+      who,
+      survey.exposed_at.getTime(),
+    );
   }
 
   const vote = await castVote(surveyId, session.user.dbUserId, votingType, arrivedAt);
