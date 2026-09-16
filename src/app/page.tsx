@@ -57,8 +57,14 @@ export default async function HomePage() {
     <SiteShell mainClassName={styles.main} active="home">
 
       <section className={styles.hero}>
+        {/*
+          파일 이름에 번호를 붙여 둔다. 그림을 바꿀 때 같은 이름에 덮어쓰면,
+          이미 사이트를 본 사람의 브라우저가 네 시간 동안 옛 그림을 들고 있다
+          (변환본 응답에 max-age=14400 이 붙는다). 번호를 올리면 주소가 달라져
+          모두가 바로 새 그림을 받는다.
+        */}
         <Image
-          src="/Wallpaper.jpg"
+          src="/Wallpaper-v2.jpg"
           alt=""
           fill
           priority
