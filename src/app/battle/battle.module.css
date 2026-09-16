@@ -1,0 +1,606 @@
+.main {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.page {
+  padding: 32px 24px 64px;
+}
+
+/* ── 머리 ───────────────────────────────────────────────────── */
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: var(--color-ink-faint);
+}
+
+.crumbLink {
+  color: var(--color-accent-deep);
+  text-decoration: none;
+}
+
+.crumbLink:hover {
+  text-decoration: underline;
+}
+
+.crumbSep {
+  color: var(--color-ink-faint);
+}
+
+.pageHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.kicker {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-dim);
+}
+
+.title {
+  margin: 4px 0 6px;
+  font-size: 1.5rem;
+}
+
+.lead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text-prose);
+}
+
+/* ── 탭 ─────────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.tab,
+.tabActive {
+  padding: 9px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-ink-dim);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--color-accent-deep);
+}
+
+.tabActive {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+/* ── 지역과 거점 ────────────────────────────────────────────── */
+
+.regions {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.region,
+.regionOff {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 내려 둔 지역은 기록으로만 남는다. 관리자에게만 보이고 한눈에 구분된다. */
+.regionOff {
+  opacity: 0.55;
+}
+
+.regionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.regionName {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.regionMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink-faint);
+}
+
+.offBadge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--color-rule-medium);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--color-ink-faint);
+}
+
+.baseGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.baseCard,
+.baseCardOff {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-hairline);
+  border-radius: 6px;
+  background: var(--color-card);
+}
+
+.baseCardOff {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.baseLink {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.baseLink:hover {
+  background: var(--color-accent-hover);
+}
+
+.baseName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.baseStat {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink-dim);
+}
+
+.baseEmpty {
+  font-size: 11px;
+  color: var(--color-ink-faint);
+}
+
+.baseEdit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+/* ── 자리 ───────────────────────────────────────────────────── */
+
+.section {
+  margin-top: 32px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.spotGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.spot,
+.spotOff {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-hairline);
+  border-radius: 6px;
+  background: var(--color-card);
+  overflow: hidden;
+}
+
+.spotOff {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+/*
+ * 스크린샷이 들어갈 자리. 사진을 붙이기 전이라 비어 있지만, 칸의 크기는 지금
+ * 정해 둔다 — 나중에 사진이 들어와도 화면이 흔들리지 않게 한다.
+ */
+.shot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  border-bottom: 1px solid var(--color-hairline);
+  background: var(--color-sunken);
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 9px,
+    var(--color-rule-subtle) 9px,
+    var(--color-rule-subtle) 10px
+  );
+}
+
+.shotNote {
+  padding: 3px 10px;
+  border: 1px dashed var(--color-rule-dashed);
+  border-radius: 3px;
+  background: var(--color-paper);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-ink-faint);
+}
+
+.spotBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px 16px;
+}
+
+.spotName {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-size: 14px;
+}
+
+.spotText {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  color: var(--color-text-prose);
+}
+
+.spotTextEmpty {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-ink-faint);
+}
+
+.spotActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.savedNote {
+  font-size: 11px;
+  color: var(--color-accent-deep);
+}
+
+/* ── 댓글 ───────────────────────────────────────────────────── */
+
+.commentList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.comment,
+.commentRemoved {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-rule-subtle);
+}
+
+.commentRemoved {
+  opacity: 0.6;
+}
+
+.commentHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.commentName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.commentTime {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-ink-faint);
+}
+
+.commentTools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.commentBody {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  color: var(--color-text-prose);
+}
+
+.commentGone {
+  margin: 0;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--color-ink-faint);
+}
+
+.commentEdit,
+.commentForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.commentEditActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 이력은 관리자만 연다. 지운 원문이 여기 나오므로 본문과 확실히 구분한다. */
+.history {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--color-accent-line);
+  background: var(--color-panel);
+}
+
+.historyRow {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: var(--color-text-prose);
+}
+
+.historyRow:last-child {
+  margin-bottom: 0;
+}
+
+.historyTag {
+  margin-right: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--color-rule-medium);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--color-ink-dim);
+}
+
+.historyMeta {
+  margin-right: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-ink-faint);
+}
+
+.historyNote {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-ink-faint);
+}
+
+/* ── 공통 ───────────────────────────────────────────────────── */
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--color-rule-medium);
+  border-radius: 4px;
+  background: var(--color-input);
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.textarea {
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.nameField {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.button,
+.buttonActive {
+  padding: 8px 16px;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent-deep);
+}
+
+.buttonActive {
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+  color: var(--color-accent-deeper);
+}
+
+.button:disabled,
+.miniButton:disabled,
+.linkButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.miniButton {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid var(--color-rule-medium);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.miniButton:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent-deep);
+}
+
+.linkButton {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-ink-faint);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.linkButton:hover:not(:disabled) {
+  color: var(--color-accent-deep);
+  text-decoration: underline;
+}
+
+.counter {
+  margin-right: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-ink-faint);
+}
+
+.empty {
+  margin: 0;
+  padding: 28px 0;
+  font-size: 13px;
+  color: var(--color-ink-faint);
+  text-align: center;
+}
+
+.error {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: var(--color-danger);
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 24px 16px 48px;
+  }
+
+  .baseGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .spotGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pageHead {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* 되돌릴 수 없는 버튼. 내리기 옆에 나란히 서므로 색으로 구분해 둔다. */
+.dangerButton {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid var(--color-rule-medium);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-ink-faint);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.dangerButton:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  background: var(--color-danger-tint);
+  color: var(--color-danger-deep);
+}
+
+.dangerButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dangerLink {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-ink-faint);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.dangerLink:hover:not(:disabled) {
+  color: var(--color-danger);
+  text-decoration: underline;
+}
+
+.dangerLink:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

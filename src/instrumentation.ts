@@ -12,4 +12,6 @@ export async function register() {
   await ensureMemberProfileColumn();
   const { ensureDrawTables } = await import("@/lib/drawQueries");
   await ensureDrawTables();
+  const { ensureBattleTables } = await import("@/lib/battleQueries");
+  await ensureBattleTables();
 }

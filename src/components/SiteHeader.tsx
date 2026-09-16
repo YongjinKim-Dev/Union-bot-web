@@ -1,7 +1,16 @@
 import { auth, signOut } from "@/auth";
 import { SiteNavigation } from "./SiteNavigation";
 
-export type NavKey = "home" | "vote" | "classes" | "equipment" | "about" | "docs" | "admin" | "profile";
+export type NavKey =
+  | "home"
+  | "vote"
+  | "classes"
+  | "equipment"
+  | "battle"
+  | "about"
+  | "docs"
+  | "admin"
+  | "profile";
 
 interface NavItem {
   key: NavKey;
@@ -21,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "vote", label: "투표", href: "/vote" },
   { key: "classes", label: "직업 등록", href: "/classes" },
   { key: "equipment", label: "스펙조사(준비중)", href: "/equipment" },
+  { key: "battle", label: "거점전/공성전", href: "/battle" },
   { key: "about", label: "연맹 소개", href: "/about" },
   { key: "docs", label: "문서", href: "/docs" },
 ];
