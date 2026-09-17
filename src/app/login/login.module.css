@@ -5,7 +5,7 @@
   flex-direction: column;
   justify-content: flex-end;
   overflow: hidden;
-  /* Shows through if login-bg.jpg is missing or still loading. */
+  /* 배경 그림을 받는 동안 비치는 색. */
   background: var(--color-dark);
 }
 

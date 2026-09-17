@@ -33,8 +33,10 @@ export default async function LoginPage({
   return (
     <main className={styles.main}>
       <ThemeToggle floating />
+      {/* 홈 배너와 같은 그림이다. 바꿀 때는 번호를 올린다 — 같은 이름에 덮어쓰면
+          이미 본 사람의 브라우저가 네 시간 동안 옛 그림을 들고 있다. */}
       <Image
-        src="/login-bg.jpg"
+        src="/Wallpaper-v2.jpg"
         alt=""
         fill
         priority
