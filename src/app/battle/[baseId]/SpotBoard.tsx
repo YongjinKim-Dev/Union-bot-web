@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import type { BattleSpot } from "@/lib/battleQueries";
 import {
   addSpotAction,
@@ -12,114 +12,9 @@ import {
   uploadSpotImageAction,
 } from "../actions";
 import styles from "../battle.module.css";
+import { ImageUploader } from "./ImageUploader";
 
 const DESCRIPTION_MAX = 500;
-
-/*
- * 사진 올리기.
- *
- * 공개 여부는 올릴 때 함께 넘긴다. 기본은 꺼짐 — 로그인한 사람만 본다.
- * 켜면 주소를 아는 사람은 누구나 받을 수 있으므로 밖에 나가도 되는 사진만
- * 켠다. 이미 올린 사진의 공개 여부만 바꾸는 것은 파일을 건드리지 않는다.
- */
-function ImageField({
-  baseId,
-  spot,
-  onError,
-}: {
-  baseId: string;
-  spot: BattleSpot;
-  onError: (message: string) => void;
-}) {
-  const input = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [open, setOpen] = useState(spot.imagePublic);
-  const [isPending, startTransition] = useTransition();
-
-  function upload() {
-    if (!file) return;
-    const form = new FormData();
-    form.set("file", file);
-    onError("");
-    startTransition(async () => {
-      const result = await uploadSpotImageAction(baseId, spot.id, form, open);
-      if (result.ok) {
-        setFile(null);
-        if (input.current) input.current.value = "";
-      } else {
-        onError(result.message);
-      }
-    });
-  }
-
-  return (
-    <div className={styles.imageField}>
-      <div className={styles.imageRow}>
-        <input
-          ref={input}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          className={styles.file}
-          aria-label="스크린샷 고르기"
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-        />
-        <button
-          type="button"
-          className={styles.miniButton}
-          disabled={!file || isPending}
-          onClick={upload}
-        >
-          올리기
-        </button>
-      </div>
-      <div className={styles.imageRow}>
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={open}
-            onChange={(event) => {
-              const next = event.target.checked;
-              setOpen(next);
-              // 이미 사진이 있으면 켜고 끄는 즉시 반영한다. 아직 없으면 다음에
-              // 올릴 사진에 이 값이 함께 넘어간다.
-              if (!spot.imageKey) return;
-              onError("");
-              startTransition(async () => {
-                try {
-                  await setSpotImagePublicAction(baseId, spot.id, next);
-                } catch {
-                  setOpen(!next);
-                  onError("바꾸지 못했습니다. 새로 고침 후 다시 시도해 주세요.");
-                }
-              });
-            }}
-          />
-          로그인 없이도 보이기
-        </label>
-        {spot.imageKey && (
-          <button
-            type="button"
-            className={styles.dangerButton}
-            disabled={isPending}
-            onClick={() => {
-              if (!window.confirm(`"${spot.name}" 사진을 지웁니다. 되돌릴 수 없습니다.`)) return;
-              onError("");
-              startTransition(async () => {
-                try {
-                  await clearSpotImageAction(baseId, spot.id);
-                } catch {
-                  onError("지우지 못했습니다. 새로 고침 후 다시 시도해 주세요.");
-                }
-              });
-            }}
-          >
-            사진 지우기
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 /* 자리 한 칸. 사진과 짧은 설명이 붙는다. */
 function SpotCard({
@@ -190,7 +85,15 @@ function SpotCard({
               placeholder="짧은 설명"
               onChange={(event) => setDescription(event.target.value)}
             />
-            <ImageField baseId={baseId} spot={spot} onError={onError} />
+            <ImageUploader
+              label={`"${spot.name}" 사진`}
+              hasImage={spot.imageKey !== null}
+              isPublic={spot.imagePublic}
+              upload={(form, isPublic) => uploadSpotImageAction(baseId, spot.id, form, isPublic)}
+              clear={() => clearSpotImageAction(baseId, spot.id)}
+              setPublic={(isPublic) => setSpotImagePublicAction(baseId, spot.id, isPublic)}
+              onError={onError}
+            />
             <div className={styles.spotActions}>
               <span className={styles.counter}>
                 {description.length}/{DESCRIPTION_MAX}
@@ -267,17 +170,23 @@ function SpotCard({
   );
 }
 
+/*
+ * 주요 자리 목록. 편집 스위치와 오류 표시는 위에서(BaseBoard) 받는다 —
+ * 지도와 자리를 한 번에 켜고 끄려고 스위치를 한 곳에 모았다.
+ */
 export function SpotBoard({
   baseId,
   spots,
   isAdmin,
+  editing,
+  onError,
 }: {
   baseId: string;
   spots: BattleSpot[];
   isAdmin: boolean;
+  editing: boolean;
+  onError: (message: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [error, setError] = useState("");
   const [newName, setNewName] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -285,18 +194,7 @@ export function SpotBoard({
     <section className={styles.section}>
       <div className={styles.sectionHead}>
         <h2 className={styles.sectionTitle}>주요 자리</h2>
-        {isAdmin && (
-          <button
-            type="button"
-            className={editing ? styles.buttonActive : styles.button}
-            onClick={() => setEditing((on) => !on)}
-          >
-            {editing ? "편집 끝내기" : "편집"}
-          </button>
-        )}
       </div>
-
-      {error && <p className={styles.error}>{error}</p>}
 
       {spots.length === 0 ? (
         <p className={styles.empty}>등록된 자리가 없습니다.</p>
@@ -309,7 +207,7 @@ export function SpotBoard({
               spot={spot}
               isAdmin={isAdmin}
               editing={editing}
-              onError={setError}
+              onError={onError}
             />
           ))}
         </div>
@@ -332,12 +230,12 @@ export function SpotBoard({
             onClick={() => {
               const name = newName.trim();
               setNewName("");
-              setError("");
+              onError("");
               startTransition(async () => {
                 try {
                   await addSpotAction(baseId, name);
                 } catch {
-                  setError("추가하지 못했습니다. 새로 고침 후 다시 시도해 주세요.");
+                  onError("추가하지 못했습니다. 새로 고침 후 다시 시도해 주세요.");
                 }
               });
             }}

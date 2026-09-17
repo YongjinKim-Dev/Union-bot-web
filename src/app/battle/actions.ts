@@ -11,6 +11,7 @@ import {
   addComment,
   addRegion,
   addSpot,
+  clearBaseMap,
   clearSpotImage,
   deleteBase,
   deleteRegion,
@@ -23,6 +24,8 @@ import {
   renameBase,
   renameRegion,
   setBaseActive,
+  setBaseMap,
+  setBaseMapPublic,
   setRegionActive,
   setSpotImage,
   setSpotImagePublic,
@@ -155,7 +158,10 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 /* 자리 칸은 화면에서 500px 언저리로 그려진다. 2 배 화면까지 감안해 1600 이면
    넉넉하고, webp 로 바꾸면 장당 수백 KB 로 떨어진다. */
-const MAX_IMAGE_WIDTH = 1600;
+const MAX_SPOT_WIDTH = 1600;
+/* 지도는 페이지 폭을 다 쓰고, 눌러서 크게 열어 작은 글씨까지 읽는다. 그래서
+   자리 사진보다 크게 남긴다. */
+const MAX_MAP_WIDTH = 2400;
 
 /*
  * DB 행은 지웠는데 R2 파일이 남으면 아무도 다시 찾지 못한다. 반대로 파일을
@@ -173,20 +179,13 @@ async function dropObjects(keys: (string | null)[]): Promise<void> {
   }
 }
 
-/**
- * 자리에 사진을 올린다.
- *
- * isPublic 은 부르는 쪽이 정한다. 주지 않으면 차단이다 — 로그인한 사람만
- * 볼 수 있다. 공개로 켜면 주소를 아는 사람은 누구나 받을 수 있으므로,
- * 밖에 나가도 되는 사진에만 켠다.
+type Prepared = { ok: true; key: string } | { ok: false; message: string };
+
+/*
+ * 받은 파일을 검사하고 줄여서 보관함에 넣는다. 열쇠만 돌려주고 DB 에는
+ * 손대지 않는다 — 자리 사진인지 거점 지도인지는 부르는 쪽이 안다.
  */
-export async function uploadSpotImageAction(
-  baseId: string,
-  spotId: string,
-  form: FormData,
-  isPublic: boolean = false,
-): Promise<CommentActionResult> {
-  await requireAdmin();
+async function storeUpload(form: FormData, folder: string, maxWidth: number): Promise<Prepared> {
   if (!r2Configured()) {
     return { ok: false, message: "사진 보관함이 아직 설정되지 않았습니다." };
   }
@@ -208,27 +207,73 @@ export async function uploadSpotImageAction(
   try {
     body = await sharp(Buffer.from(await file.arrayBuffer()))
       .rotate()
-      .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
+      .resize({ width: maxWidth, withoutEnlargement: true })
       .webp({ quality: 82 })
       .toBuffer();
   } catch {
     return { ok: false, message: "사진을 읽지 못했습니다. 다른 파일로 시도해 주세요." };
   }
 
-  // 열쇠에 무작위 값을 넣어 같은 자리에 다시 올려도 주소가 겹치지 않게 한다.
-  const key = `battle/${spotId}/${randomUUID()}.webp`;
+  // 열쇠에 무작위 값을 넣어 같은 곳에 다시 올려도 주소가 겹치지 않게 한다.
+  const key = `${folder}/${randomUUID()}.webp`;
   try {
     await putObject(key, body, "image/webp");
   } catch {
     return { ok: false, message: "사진을 보관함에 올리지 못했습니다." };
   }
+  return { ok: true, key };
+}
 
-  const previous = await setSpotImage(spotId, key, "image/webp", isPublic);
-  await dropObjects([previous]);
+/**
+ * 자리에 사진을 올린다.
+ *
+ * isPublic 은 부르는 쪽이 정한다. 주지 않으면 차단이다 — 로그인한 사람만
+ * 볼 수 있다. 공개로 켜면 주소를 아는 사람은 누구나 받을 수 있으므로,
+ * 밖에 나가도 되는 사진에만 켠다.
+ */
+export async function uploadSpotImageAction(
+  baseId: string,
+  spotId: string,
+  form: FormData,
+  isPublic: boolean = false,
+): Promise<CommentActionResult> {
+  await requireAdmin();
+  const stored = await storeUpload(form, `battle/spot/${spotId}`, MAX_SPOT_WIDTH);
+  if (!stored.ok) return stored;
 
+  await dropObjects([await setSpotImage(spotId, stored.key, "image/webp", isPublic)]);
   revalidatePath("/battle");
   revalidatePath(`/battle/${baseId}`);
   return { ok: true };
+}
+
+/** 거점 전체 지도를 올린다. 공개 여부는 자리 사진과 같은 규칙 — 기본은 차단. */
+export async function uploadBaseMapAction(
+  baseId: string,
+  form: FormData,
+  isPublic: boolean = false,
+): Promise<CommentActionResult> {
+  await requireAdmin();
+  const stored = await storeUpload(form, `battle/map/${baseId}`, MAX_MAP_WIDTH);
+  if (!stored.ok) return stored;
+
+  await dropObjects([await setBaseMap(baseId, stored.key, "image/webp", isPublic)]);
+  revalidatePath("/battle");
+  revalidatePath(`/battle/${baseId}`);
+  return { ok: true };
+}
+
+export async function clearBaseMapAction(baseId: string) {
+  await requireAdmin();
+  await dropObjects([await clearBaseMap(baseId)]);
+  revalidatePath("/battle");
+  revalidatePath(`/battle/${baseId}`);
+}
+
+export async function setBaseMapPublicAction(baseId: string, isPublic: boolean) {
+  await requireAdmin();
+  await setBaseMapPublic(baseId, isPublic);
+  revalidatePath(`/battle/${baseId}`);
 }
 
 export async function clearSpotImageAction(baseId: string, spotId: string) {

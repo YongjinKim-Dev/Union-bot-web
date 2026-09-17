@@ -215,10 +215,12 @@ export function BattleHub({ regions, isAdmin }: { regions: BattleRegion[]; isAdm
                     <Link href={`/battle/${base.id}`} className={styles.baseLink}>
                       <span className={styles.baseName}>{base.name}</span>
                       <span className={styles.baseStat}>
-                        자리 {base.filledSpots}/{base.spotCount}
+                        {base.hasMap ? "지도 ✓" : "지도 —"} · 자리 {base.filledSpots}/{base.spotCount}
                         {base.commentCount > 0 && ` · 댓글 ${base.commentCount}`}
                       </span>
-                      {base.filledSpots === 0 && <span className={styles.baseEmpty}>아직 비어 있음</span>}
+                      {!base.hasMap && base.filledSpots === 0 && (
+                        <span className={styles.baseEmpty}>아직 비어 있음</span>
+                      )}
                     </Link>
                     {editing && (
                       <div className={styles.baseEdit}>

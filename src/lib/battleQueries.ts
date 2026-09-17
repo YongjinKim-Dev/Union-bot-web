@@ -95,6 +95,11 @@ export async function ensureBattleTables(): Promise<void> {
   await ensureColumn("battle_spot", "image_type", "varchar(40) NULL");
   // 기본은 차단이다. 올릴 때 따로 켜 주지 않으면 로그인한 사람만 본다.
   await ensureColumn("battle_spot", "image_public", "tinyint(1) NOT NULL DEFAULT 0");
+  // 거점 전체를 한눈에 보는 지도. 자리 사진이 "어디에 서나"라면 이건 "거점이
+  // 어떻게 생겼나"다. 공개 여부는 자리 사진과 같은 규칙을 따른다.
+  await ensureColumn("battle_base", "map_key", "varchar(160) NULL");
+  await ensureColumn("battle_base", "map_type", "varchar(40) NULL");
+  await ensureColumn("battle_base", "map_public", "tinyint(1) NOT NULL DEFAULT 0");
   await seedRegions();
 }
 
@@ -135,6 +140,7 @@ export interface BattleBase {
   regionId: string;
   name: string;
   isActive: boolean;
+  hasMap: boolean;
   /** 사진이나 설명이 하나라도 채워진 자리 수. 목록에서 "아직 비었다"를 보여 준다. */
   filledSpots: number;
   spotCount: number;
@@ -160,7 +166,7 @@ export async function getBattleBoard(includeInactive: boolean): Promise<BattleRe
   /* 거점·자리·댓글을 거점 목록 한 번으로 모은다. 지역마다 따로 물으면 거점
      12 개에 왕복이 12 번 붙는다. */
   const [baseRows] = await pool.query<RowDataPacket[]>(
-    "SELECT b.id, b.region_id, b.name, b.is_active, " +
+    "SELECT b.id, b.region_id, b.name, b.is_active, b.map_key IS NOT NULL AS has_map, " +
       "  (SELECT COUNT(*) FROM battle_spot s WHERE s.base_id = b.id AND s.is_active = 1) AS spot_count, " +
       "  (SELECT COUNT(*) FROM battle_spot s WHERE s.base_id = b.id AND s.is_active = 1 " +
       "     AND (s.description <> '' OR s.image_key IS NOT NULL)) AS filled_spots, " +
@@ -181,6 +187,7 @@ export async function getBattleBoard(includeInactive: boolean): Promise<BattleRe
         regionId: String(base.region_id),
         name: base.name as string,
         isActive: base.is_active === 1,
+        hasMap: Number(base.has_map) === 1,
         spotCount: Number(base.spot_count),
         filledSpots: Number(base.filled_spots),
         commentCount: Number(base.comment_count),
@@ -203,6 +210,8 @@ export interface BattleBaseDetail {
   id: string;
   name: string;
   isActive: boolean;
+  mapKey: string | null;
+  mapPublic: boolean;
   regionId: string;
   regionName: string;
   spots: BattleSpot[];
@@ -213,7 +222,7 @@ export async function getBaseDetail(
   includeInactive: boolean,
 ): Promise<BattleBaseDetail | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT b.id, b.name, b.is_active, r.id AS region_id, r.name AS region_name " +
+    "SELECT b.id, b.name, b.is_active, b.map_key, b.map_public, r.id AS region_id, r.name AS region_name " +
       "FROM battle_base b JOIN battle_region r ON r.id = b.region_id WHERE b.id = ?",
     [baseId],
   );
@@ -233,6 +242,8 @@ export async function getBaseDetail(
     id: String(base.id),
     name: base.name as string,
     isActive: base.is_active === 1,
+    mapKey: (base.map_key as string | null) ?? null,
+    mapPublic: base.map_public === 1,
     regionId: String(base.region_id),
     regionName: base.region_name as string,
     spots: spotRows.map((spot) => ({
@@ -507,8 +518,9 @@ async function deleteBasesIn(
   /* 행을 지우기 전에 사진 열쇠를 먼저 챙긴다. 지운 뒤에는 무엇이 있었는지
      알 수 없고, 그러면 R2 에 주인 없는 파일이 영영 남는다. */
   const [shots] = await connection.query<RowDataPacket[]>(
-    `SELECT image_key FROM battle_spot WHERE base_id IN (${marks}) AND image_key IS NOT NULL`,
-    baseIds,
+    `SELECT image_key AS k FROM battle_spot WHERE base_id IN (${marks}) AND image_key IS NOT NULL ` +
+      `UNION ALL SELECT map_key AS k FROM battle_base WHERE id IN (${marks}) AND map_key IS NOT NULL`,
+    [...baseIds, ...baseIds],
   );
   await connection.execute(
     `DELETE l FROM battle_comment_log l JOIN battle_comment c ON c.id = l.comment_id WHERE c.base_id IN (${marks})`,
@@ -517,7 +529,7 @@ async function deleteBasesIn(
   await connection.execute(`DELETE FROM battle_comment WHERE base_id IN (${marks})`, baseIds);
   await connection.execute(`DELETE FROM battle_spot WHERE base_id IN (${marks})`, baseIds);
   await connection.execute(`DELETE FROM battle_base WHERE id IN (${marks})`, baseIds);
-  return shots.map((row) => row.image_key as string);
+  return shots.map((row) => row.k as string);
 }
 
 async function inTransaction<T>(
@@ -604,14 +616,15 @@ export async function setSpotImagePublic(spotId: string, isPublic: boolean): Pro
   ]);
 }
 
-export interface SpotImage {
+/** 보관함에 있는 사진 하나. 자리 사진이든 거점 지도든 같은 모양이다. */
+export interface StoredImage {
   key: string;
   contentType: string;
   isPublic: boolean;
 }
 
 /** 사진을 내주는 길에서 쓴다. 로그인을 물을지 여기 적힌 공개 여부로 정한다. */
-export async function getSpotImage(spotId: string): Promise<SpotImage | null> {
+export async function getSpotImage(spotId: string): Promise<StoredImage | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT image_key, image_type, image_public FROM battle_spot WHERE id = ?",
     [spotId],
@@ -631,4 +644,55 @@ export async function purgeComment(commentId: string): Promise<void> {
     await connection.execute("DELETE FROM battle_comment_log WHERE comment_id = ?", [commentId]);
     await connection.execute("DELETE FROM battle_comment WHERE id = ?", [commentId]);
   });
+}
+
+/* ── 거점 지도 ──────────────────────────────────────────────── */
+
+async function baseMapKey(baseId: string): Promise<string | null> {
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT map_key FROM battle_base WHERE id = ?", [
+    baseId,
+  ]);
+  return (rows[0]?.map_key as string | null) ?? null;
+}
+
+/** 새 지도를 매단다. 앞서 쓰던 열쇠를 돌려주므로 부르는 쪽이 옛 파일을 지운다. */
+export async function setBaseMap(
+  baseId: string,
+  key: string,
+  contentType: string,
+  isPublic: boolean,
+): Promise<string | null> {
+  const previous = await baseMapKey(baseId);
+  await pool.execute(
+    "UPDATE battle_base SET map_key = ?, map_type = ?, map_public = ? WHERE id = ?",
+    [key, contentType, isPublic ? 1 : 0, baseId],
+  );
+  return previous === key ? null : previous;
+}
+
+export async function clearBaseMap(baseId: string): Promise<string | null> {
+  const previous = await baseMapKey(baseId);
+  await pool.execute(
+    "UPDATE battle_base SET map_key = NULL, map_type = NULL, map_public = 0 WHERE id = ?",
+    [baseId],
+  );
+  return previous;
+}
+
+export async function setBaseMapPublic(baseId: string, isPublic: boolean): Promise<void> {
+  await pool.execute("UPDATE battle_base SET map_public = ? WHERE id = ?", [isPublic ? 1 : 0, baseId]);
+}
+
+export async function getBaseMap(baseId: string): Promise<StoredImage | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT map_key, map_type, map_public FROM battle_base WHERE id = ?",
+    [baseId],
+  );
+  const row = rows[0];
+  if (!row?.map_key) return null;
+  return {
+    key: row.map_key as string,
+    contentType: (row.map_type as string | null) ?? "image/webp",
+    isPublic: row.map_public === 1,
+  };
 }

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { SiteShell } from "@/components/SiteShell";
 import { getBaseDetail, getComments } from "@/lib/battleQueries";
-import { SpotBoard } from "./SpotBoard";
+import { BaseBoard } from "./BaseBoard";
 import { CommentBoard } from "./CommentBoard";
 import styles from "../battle.module.css";
 
@@ -42,7 +42,7 @@ export default async function BaseDetailPage({ params }: { params: Promise<{ bas
           </div>
         </header>
 
-        <SpotBoard baseId={base.id} spots={base.spots} isAdmin={isAdmin} />
+        <BaseBoard base={base} isAdmin={isAdmin} />
 
         <CommentBoard
           baseId={base.id}
