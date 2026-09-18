@@ -11,6 +11,7 @@ import {
   addComment,
   addRegion,
   addSpot,
+  baseRegionId,
   clearBaseMap,
   clearSpotImage,
   deleteBase,
@@ -182,6 +183,26 @@ async function dropObjects(keys: (string | null)[]): Promise<void> {
 type Prepared = { ok: true; key: string } | { ok: false; message: string };
 
 /*
+ * 보관함 안의 자리. 화면 구조(지역 > 거점 > 지도·자리)를 그대로 폴더로 옮긴다.
+ *
+ *   node-war/<지역>/<거점>/map/<무작위>.webp
+ *   node-war/<지역>/<거점>/<자리>/<무작위>.webp
+ *
+ * 지역과 거점을 한 칸에 이어 붙이지 않는다 — "12" 가 1 지역 2 거점인지 12 지역
+ * 인지 알 수 없게 된다. 이름이 아니라 번호를 쓰는 것은 이름이 바뀌어도 이미
+ * 올라간 파일이 제자리에 남아야 하기 때문이다.
+ */
+async function baseFolder(baseId: string): Promise<string> {
+  // 지역을 못 찾는 일은 없어야 하지만, 그렇다고 사진을 못 올리게 할 일도 아니다.
+  const regionId = (await baseRegionId(baseId)) ?? "0";
+  return `node-war/${regionId}/${baseId}`;
+}
+
+async function spotFolder(baseId: string, spotId: string): Promise<string> {
+  return `${await baseFolder(baseId)}/${spotId}`;
+}
+
+/*
  * 받은 파일을 검사하고 줄여서 보관함에 넣는다. 열쇠만 돌려주고 DB 에는
  * 손대지 않는다 — 자리 사진인지 거점 지도인지는 부르는 쪽이 안다.
  */
@@ -238,7 +259,7 @@ export async function uploadSpotImageAction(
   isPublic: boolean = false,
 ): Promise<CommentActionResult> {
   await requireAdmin();
-  const stored = await storeUpload(form, `battle/spot/${spotId}`, MAX_SPOT_WIDTH);
+  const stored = await storeUpload(form, await spotFolder(baseId, spotId), MAX_SPOT_WIDTH);
   if (!stored.ok) return stored;
 
   await dropObjects([await setSpotImage(spotId, stored.key, "image/webp", isPublic)]);
@@ -254,7 +275,7 @@ export async function uploadBaseMapAction(
   isPublic: boolean = false,
 ): Promise<CommentActionResult> {
   await requireAdmin();
-  const stored = await storeUpload(form, `battle/map/${baseId}`, MAX_MAP_WIDTH);
+  const stored = await storeUpload(form, `${await baseFolder(baseId)}/map`, MAX_MAP_WIDTH);
   if (!stored.ok) return stored;
 
   await dropObjects([await setBaseMap(baseId, stored.key, "image/webp", isPublic)]);

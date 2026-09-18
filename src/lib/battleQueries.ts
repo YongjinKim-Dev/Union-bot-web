@@ -646,6 +646,20 @@ export async function purgeComment(commentId: string): Promise<void> {
   });
 }
 
+/**
+ * 이 거점이 속한 지역 번호. 사진을 보관함에 넣을 때 폴더 경로로 쓴다.
+ *
+ * 화면에서 받은 값을 그대로 경로에 넣지 않는다 — 어디에 저장할지는 서버가
+ * 정해야 한다. 지역·거점 이름은 바뀔 수 있어 번호를 쓴다.
+ */
+export async function baseRegionId(baseId: string): Promise<string | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT region_id FROM battle_base WHERE id = ?",
+    [baseId],
+  );
+  return rows[0] ? String(rows[0].region_id) : null;
+}
+
 /* ── 거점 지도 ──────────────────────────────────────────────── */
 
 async function baseMapKey(baseId: string): Promise<string | null> {
