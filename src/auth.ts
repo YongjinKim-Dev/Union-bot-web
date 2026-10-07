@@ -9,6 +9,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Discord({
       clientId: process.env.DISCORD_CLIENT_ID,
       clientSecret: process.env.DISCORD_CLIENT_SECRET,
+      issuer: "https://discord.com",
       // guilds.members.read 는 관리자 메뉴 노출 여부를 디스코드 역할로 판단하기
       // 위해 필요하다. 추가 시점부터 기존 사용자도 동의 화면을 한 번 더 본다.
       authorization: {
