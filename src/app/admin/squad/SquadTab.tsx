@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import { autoAssign, editCell, emptyFormation, moveMember, parseMembers, SHEET, sheetRows, type CellAddress } from "./formation";
+import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { autoAssign, editCell, emptyFormation, memberLabel, moveMember, parseMembers, SHEET, sheetRows, type CellAddress } from "./formation";
 import { formationImage } from "./image";
 import styles from "./squad.module.css";
 
@@ -39,6 +39,7 @@ export function SquadTab() {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [message, setMessage] = useState("");
   const [copying, setCopying] = useState(false);
+  const [showJobs, setShowJobs] = useState(false);
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -46,6 +47,26 @@ export function SquadTab() {
   const drag = useRef<{ id: string; x: number; y: number; moving: boolean } | null>(null);
   const rows = sheetRows(formation);
   const assignedCount = formation.parties.reduce((sum, party) => sum + party.filter(Boolean).length, 0);
+
+  useLayoutEffect(() => {
+    const sheet = sheetScroll.current;
+    if (!sheet) return;
+    function fitNames() {
+      sheet?.querySelectorAll<HTMLElement>("[data-member-label]").forEach((label) => {
+        label.style.fontSize = "";
+        const available = (label.parentElement?.clientWidth ?? 0) - 6;
+        if (available > 0 && label.scrollWidth > available) {
+          label.style.fontSize = `${(10 * 4 / 3) * available / label.scrollWidth}px`;
+        }
+      });
+    }
+    fitNames();
+    const observer = new ResizeObserver(fitNames);
+    observer.observe(sheet);
+    let active = true;
+    void document.fonts.ready.then(() => { if (active) fitNames(); });
+    return () => { active = false; observer.disconnect(); };
+  }, [formation, showJobs, editing]);
 
   function assign() {
     const members = parseMembers(input);
@@ -120,7 +141,7 @@ export function SquadTab() {
 
   async function copyImage() {
     setCopying(true);
-    const png = formationImage(formation);
+    const png = formationImage(formation, showJobs);
     try {
       if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") throw new Error("clipboard");
       // Safari에서도 사용자 클릭 권한이 유지되도록 await 전에 쓰기를 시작한다.
@@ -150,9 +171,14 @@ export function SquadTab() {
 
     <div className={styles.toolbar}>
       <h2>부대 편성 <span>{assignedCount}명</span></h2>
-      <button type="button" className={styles.button} onClick={copyImage} disabled={copying}>
-        {copying ? "복사 중…" : "이미지로 복사"}
-      </button>
+      <div className={styles.actions}>
+        <button type="button" className={styles.button} aria-pressed={showJobs} onClick={() => setShowJobs((previous) => !previous)}>
+          {showJobs ? "직업 표시 끄기" : "직업 표시 켜기"}
+        </button>
+        <button type="button" className={styles.button} onClick={copyImage} disabled={copying}>
+          {copying ? "복사 중…" : "이미지로 복사"}
+        </button>
+      </div>
     </div>
     <div ref={sheetScroll} className={styles.sheetScroll}>
       <table className={styles.sheet} aria-label="부대 편성표" style={{
@@ -168,13 +194,14 @@ export function SquadTab() {
           {formation.parties.flatMap((party, partyIndex) => [0, 1].map((column) => {
             const index = row * 2 + column;
             const member = party[index];
+            const label = memberLabel(member, showJobs);
             const key = `${partyIndex}:${index}`;
             const startEdit = (value = member?.name ?? "") => setEditing({ key, value, cell: { party: partyIndex, index } });
             return <td key={key} data-squad-target={key} data-drop={over === key || undefined}>
               {editing?.key === key ? <NameInput key={key} value={editing.value} onCommit={commit} onCancel={() => setEditing(null)} />
                 : <button type="button" className={styles.cell} data-dragging={dragging === member?.id || undefined}
-                  aria-label={`${partyIndex + 1}부대 ${row + 1}행 ${column + 1}열: ${member?.name ?? "빈칸"}`}
-                  title={member?.name ?? "더블클릭하여 입력"}
+                  aria-label={`${partyIndex + 1}부대 ${row + 1}행 ${column + 1}열: ${label || "빈칸"}`}
+                  title={label || "더블클릭하여 입력"}
                   {...(member ? dragProps(member.id) : {})}
                   onDoubleClick={() => startEdit()}
                   onKeyDown={(event) => {
@@ -184,7 +211,7 @@ export function SquadTab() {
                     } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
                       event.preventDefault(); startEdit(event.key);
                     }
-                  }}>{member?.name ?? ""}</button>}
+                  }}><span className={styles.memberLabel} data-member-label>{label}</span></button>}
             </td>;
           }))}
         </tr>)}</tbody>

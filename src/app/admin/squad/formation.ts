@@ -26,6 +26,16 @@ export function emptyFormation(): Formation {
   return { parties: [[], [], [], []], waiting: [], rows: 10 };
 }
 
+export function memberLabel(member: SquadMember | null | undefined, showJobs: boolean): string {
+  if (!member) return "";
+  if (!showJobs || !member.job) return member.name;
+  const tag = member.name.match(/\((빌더|흑정|대포|대포컷|불퇴|신기전|화염탑|코끼리|수비|샤이|자이언트)\)$/);
+  if (tag && !["수비", "샤이", "자이언트"].includes(tag[1])) return member.name;
+  const name = tag ? member.name.slice(0, -tag[0].length) : member.name;
+  const specialization = member.awakening === "각성" ? "각·" : member.awakening === "전승" ? "전·" : "";
+  return `${name}(${tag?.[1] === "수비" ? "수비 · " : ""}${specialization}${member.job})`;
+}
+
 export function parseMembers(input: string): SquadMember[] {
   let accepting = true;
   return input.split(/\r?\n/).flatMap((line, index) => {

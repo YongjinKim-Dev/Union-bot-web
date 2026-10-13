@@ -1,6 +1,6 @@
-import { SHEET, sheetRows, type Formation } from "./formation";
+import { memberLabel, SHEET, sheetRows, type Formation } from "./formation";
 
-export async function formationImage(formation: Formation): Promise<Blob> {
+export async function formationImage(formation: Formation, showJobs = false): Promise<Blob> {
   await document.fonts.ready;
   const rows = sheetRows(formation);
   const width = SHEET.columnWidth * 8;
@@ -29,12 +29,18 @@ export async function formationImage(formation: Formation): Promise<Blob> {
       for (let column = 0; column < 2; column++) {
         const member = formation.parties[party][row * 2 + column];
         if (!member) continue;
+        const label = memberLabel(member, showJobs);
+        ctx.font = `${10 * 4 / 3}px ${SHEET.font}`;
+        const textWidth = ctx.measureText(label).width;
+        if (textWidth > SHEET.columnWidth - 6) {
+          ctx.font = `${(10 * 4 / 3) * (SHEET.columnWidth - 6) / textWidth}px ${SHEET.font}`;
+        }
         const left = x + column * SHEET.columnWidth;
         ctx.save();
         ctx.beginPath();
         ctx.rect(left + 3, SHEET.headerHeight + row * SHEET.rowHeight, SHEET.columnWidth - 6, SHEET.rowHeight);
         ctx.clip();
-        ctx.fillText(member.name, left + SHEET.columnWidth / 2, SHEET.headerHeight + (row + 0.5) * SHEET.rowHeight);
+        ctx.fillText(label, left + SHEET.columnWidth / 2, SHEET.headerHeight + (row + 0.5) * SHEET.rowHeight);
         ctx.restore();
       }
     }
