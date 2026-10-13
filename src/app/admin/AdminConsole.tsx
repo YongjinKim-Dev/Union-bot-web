@@ -12,6 +12,7 @@ import { ReferenceLogTab } from "./ReferenceLogTab";
 import { AttendanceTab } from "./AttendanceTab";
 import { SpecTab } from "./SpecTab";
 import { DrawTab } from "./DrawTab";
+import { SquadTab } from "./squad/SquadTab";
 import { TabGuide } from "./TabGuide";
 import { PastVotesTab } from "./PastVotesTab";
 import { SettingsTab } from "./SettingsTab";
@@ -23,6 +24,7 @@ const TABS: TabKey[] = [
   "명단 비교",
   "스펙조사",
   "추첨",
+  "부대편성",
   "거절 기록",
   "참고 자료",
   "참여 점검",
@@ -147,6 +149,7 @@ export function AdminConsole({ current, queue }: AdminConsoleProps) {
       {tab === "명단 비교" && <ComparisonTab />}
       {tab === "스펙조사" && <SpecTab />}
       {tab === "추첨" && <DrawTab />}
+      <div hidden={tab !== "부대편성"}><SquadTab /></div>
       {tab === "거절 기록" && <FailureLogTab />}
       {tab === "참고 자료" && <ReferenceLogTab />}
       {tab === "참여 점검" && <AttendanceTab />}
