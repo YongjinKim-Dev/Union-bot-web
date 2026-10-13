@@ -1,23 +1,145 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
-import { autoAssign, emptyFormation, parseMembers, SHEET } from "./formation";
+import { useCallback, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { autoAssign, editCell, emptyFormation, moveMember, parseMembers, SHEET, sheetRows, type CellAddress } from "./formation";
+import { formationImage } from "./image";
 import styles from "./squad.module.css";
+
+function NameInput({ value, onCommit, onCancel }: {
+  value: string; onCommit: (value: string) => void; onCancel: () => void;
+}) {
+  const [text, setText] = useState(value);
+  const finished = useRef(false);
+  const focusInput = useCallback((element: HTMLInputElement | null) => {
+    if (element) { element.focus(); element.select(); }
+  }, []);
+  function finish(cancel = false) {
+    if (finished.current) return;
+    finished.current = true;
+    if (cancel) onCancel();
+    else onCommit(text);
+  }
+  return <input className={styles.nameInput} aria-label="이름 수정" value={text}
+    ref={focusInput}
+    onChange={(event) => setText(event.target.value)} onBlur={() => finish()}
+    onKeyDown={(event) => {
+      if (event.nativeEvent.isComposing) return;
+      if (event.key === "Enter" || event.key === "Escape") {
+        event.preventDefault();
+        finish(event.key === "Escape");
+      }
+    }} />;
+}
+
+type Editing = { key: string; value: string; cell?: CellAddress; waitingId?: string };
 
 export function SquadTab() {
   const [input, setInput] = useState("");
   const [formation, setFormation] = useState(emptyFormation);
+  const [editing, setEditing] = useState<Editing | null>(null);
   const [message, setMessage] = useState("");
+  const [copying, setCopying] = useState(false);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const sheetScroll = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ id: string; x: number; y: number; moving: boolean } | null>(null);
+  const rows = sheetRows(formation);
   const assignedCount = formation.parties.reduce((sum, party) => sum + party.filter(Boolean).length, 0);
 
   function assign() {
     const members = parseMembers(input);
     if (!members.length) { setMessage("닉네임 / 직업 형식으로 명단을 입력해 주세요."); return; }
     setFormation(autoAssign(members));
+    setEditing(null);
     setMessage("");
   }
 
-  return <div className={styles.root}>
+  function commit(value: string) {
+    if (!editing) return;
+    const { cell, waitingId } = editing;
+    const id = `manual-${crypto.randomUUID()}`;
+    setFormation((previous) => cell ? editCell(previous, cell, value, id) : {
+      ...previous,
+      waiting: previous.waiting.map((member) => member.id === waitingId && value.trim()
+        ? { ...member, name: value.trim() } : member),
+    });
+    setEditing(null);
+  }
+
+  function targetAt(x: number, y: number) {
+    const element = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-squad-target]");
+    return element && root.current?.contains(element) ? element.dataset.squadTarget ?? null : null;
+  }
+
+  function pointerDown(event: PointerEvent<HTMLButtonElement>, id: string) {
+    if (event.button !== 0 || editing) return;
+    drag.current = { id, x: event.clientX, y: event.clientY, moving: false };
+  }
+
+  function pointerMove(event: PointerEvent<HTMLButtonElement>) {
+    const current = drag.current;
+    if (!current) return;
+    if (!current.moving && Math.hypot(event.clientX - current.x, event.clientY - current.y) < 5) return;
+    current.moving = true;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const scroller = sheetScroll.current;
+    if (scroller) {
+      const bounds = scroller.getBoundingClientRect();
+      if (event.clientY >= bounds.top && event.clientY <= bounds.bottom) {
+        if (event.clientX < bounds.left + 28) scroller.scrollLeft -= 24;
+        if (event.clientX > bounds.right - 28) scroller.scrollLeft += 24;
+      }
+    }
+    setDragging(current.id);
+    setOver(targetAt(event.clientX, event.clientY));
+  }
+
+  function pointerUp(event: PointerEvent<HTMLButtonElement>) {
+    const current = drag.current;
+    const target = targetAt(event.clientX, event.clientY);
+    if (current?.moving && target) {
+      const [party, index] = target.split(":").map(Number);
+      setFormation((previous) => moveMember(previous, current.id, target === "waiting" ? null : { party, index }));
+    }
+    endDrag();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  function endDrag() { drag.current = null; setDragging(null); setOver(null); }
+
+  function dragProps(id: string) {
+    return {
+      onPointerDown: (event: PointerEvent<HTMLButtonElement>) => pointerDown(event, id),
+      onPointerMove: pointerMove,
+      onPointerUp: pointerUp,
+      onPointerCancel: endDrag,
+      onLostPointerCapture: endDrag,
+    };
+  }
+
+  async function copyImage() {
+    setCopying(true);
+    const png = formationImage(formation);
+    try {
+      if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") throw new Error("clipboard");
+      // Safari에서도 사용자 클릭 권한이 유지되도록 await 전에 쓰기를 시작한다.
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+      setMessage("부대표 이미지를 복사했습니다.");
+    } catch {
+      try {
+        const url = URL.createObjectURL(await png);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "부대편성.png";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setMessage("이미지 복사를 사용할 수 없어 PNG 파일로 내려받았습니다.");
+      } catch { setMessage("이미지를 만들지 못했습니다. 다시 시도해 주세요."); }
+    } finally { setCopying(false); }
+  }
+
+  return <div ref={root} className={styles.root}>
     <div className={styles.inputHeader}>
       <label htmlFor="squad-members">명단 입력</label>
       <button type="button" className={styles.primary} onClick={assign}>부대 자동 배치</button>
@@ -28,8 +150,11 @@ export function SquadTab() {
 
     <div className={styles.toolbar}>
       <h2>부대 편성 <span>{assignedCount}명</span></h2>
+      <button type="button" className={styles.button} onClick={copyImage} disabled={copying}>
+        {copying ? "복사 중…" : "이미지로 복사"}
+      </button>
     </div>
-    <div className={styles.sheetScroll}>
+    <div ref={sheetScroll} className={styles.sheetScroll}>
       <table className={styles.sheet} aria-label="부대 편성표" style={{
         "--sheet-column": `${SHEET.columnWidth}px`, "--sheet-row": `${SHEET.rowHeight}px`,
         "--sheet-header": `${SHEET.headerHeight}px`, fontFamily: SHEET.font,
@@ -39,17 +164,45 @@ export function SquadTab() {
           <th key={name} scope="colgroup" colSpan={2} style={{ background: SHEET.colors[party] }}>
             {name}<br />({formation.parties[party].filter(Boolean).length}명)
           </th>)}</tr></thead>
-        <tbody>{Array.from({ length: formation.rows }, (_, row) => <tr key={row}>
-          {formation.parties.flatMap((party, partyIndex) => [0, 1].map((column) =>
-            <td key={`${partyIndex}:${column}`}><span className={styles.cell}>{party[row * 2 + column]?.name ?? ""}</span></td>))}
+        <tbody>{Array.from({ length: rows + 1 }, (_, row) => <tr key={row} className={row === rows ? styles.extraRow : undefined}>
+          {formation.parties.flatMap((party, partyIndex) => [0, 1].map((column) => {
+            const index = row * 2 + column;
+            const member = party[index];
+            const key = `${partyIndex}:${index}`;
+            const startEdit = (value = member?.name ?? "") => setEditing({ key, value, cell: { party: partyIndex, index } });
+            return <td key={key} data-squad-target={key} data-drop={over === key || undefined}>
+              {editing?.key === key ? <NameInput key={key} value={editing.value} onCommit={commit} onCancel={() => setEditing(null)} />
+                : <button type="button" className={styles.cell} data-dragging={dragging === member?.id || undefined}
+                  aria-label={`${partyIndex + 1}부대 ${row + 1}행 ${column + 1}열: ${member?.name ?? "빈칸"}`}
+                  title={member?.name ?? "더블클릭하여 입력"}
+                  {...(member ? dragProps(member.id) : {})}
+                  onDoubleClick={() => startEdit()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === "F2") { event.preventDefault(); startEdit(); }
+                    else if ((event.key === "Delete" || event.key === "Backspace") && member) {
+                      event.preventDefault(); setFormation((previous) => moveMember(previous, member.id, null));
+                    } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                      event.preventDefault(); startEdit(event.key);
+                    }
+                  }}>{member?.name ?? ""}</button>}
+            </td>;
+          }))}
         </tr>)}</tbody>
       </table>
     </div>
-    <section className={styles.waiting} aria-label="미배치 인원">
+    <p className={styles.hint}>끌어서 이동 · 이름이나 빈칸을 더블클릭해 입력 · Delete로 미배치 이동</p>
+    <section className={styles.waiting} data-squad-target="waiting" data-drop={over === "waiting" || undefined} aria-label="미배치 인원">
       <h3>미배치 <span>{formation.waiting.length}명</span></h3>
       <div className={styles.waitingMembers}>
-        {formation.waiting.map((member) => <span key={member.id} className={styles.waitingMember}>{member.name}</span>)}
-        {!formation.waiting.length && <p>미배치 인원이 없습니다.</p>}
+        {formation.waiting.map((member) => editing?.waitingId === member.id
+          ? <NameInput key={member.id} value={editing.value} onCommit={commit} onCancel={() => setEditing(null)} />
+          : <button key={member.id} type="button" className={styles.waitingMember} {...dragProps(member.id)}
+            data-dragging={dragging === member.id || undefined}
+            onDoubleClick={() => setEditing({ key: `waiting-${member.id}`, waitingId: member.id, value: member.name })}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === "F2") {
+              event.preventDefault(); setEditing({ key: `waiting-${member.id}`, waitingId: member.id, value: member.name });
+            } }}>{member.name}</button>)}
+        {!formation.waiting.length && <p>배치에서 뺄 인원을 여기로 옮기세요.</p>}
       </div>
     </section>
     <p className={styles.message} role="status">{message}</p>

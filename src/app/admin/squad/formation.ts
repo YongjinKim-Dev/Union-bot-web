@@ -11,6 +11,8 @@ export interface Formation {
   rows: number;
 }
 
+export interface CellAddress { party: number; index: number }
+
 export const SHEET = {
   names: ["1부대(본대)", "2부대(본대)", "3부대(수비)", "4부대(본대/기둥)"],
   colors: ["#E8F4F8", "#F0F8E8", "#FFF8E8", "#F8E8F0"],
@@ -98,4 +100,46 @@ export function autoAssign(members: SquadMember[]): Formation {
     waiting: members.filter((member) => !assigned.has(member.id)),
     rows: Math.max(1, Math.ceil(Math.max(...sizes, ...parties.map((p) => p.length)) / 2)),
   };
+}
+
+export function sheetRows(formation: Formation) {
+  return Math.max(formation.rows, ...formation.parties.map((party) =>
+    Math.ceil((party.findLastIndex((member) => member !== null) + 1) / 2)));
+}
+
+// 빈칸으로는 이동하고, 이미 사람이 있는 칸으로는 자리를 맞바꾼다.
+export function moveMember(formation: Formation, id: string, target: CellAddress | null): Formation {
+  const parties = formation.parties.map((party) => [...party]);
+  const waiting = [...formation.waiting];
+  const sourceParty = parties.findIndex((party) => party.some((m) => m?.id === id));
+  const sourceIndex = sourceParty < 0 ? waiting.findIndex((m) => m.id === id)
+    : parties[sourceParty].findIndex((m) => m?.id === id);
+  if (sourceIndex < 0) return formation;
+  const member = sourceParty < 0 ? waiting[sourceIndex] : parties[sourceParty][sourceIndex];
+  if (!member) return formation;
+  if (!target) {
+    if (sourceParty < 0) return formation;
+    parties[sourceParty][sourceIndex] = null;
+    waiting.push(member);
+  } else {
+    const displaced = parties[target.party][target.index] ?? null;
+    if (sourceParty < 0) {
+      if (displaced) waiting[sourceIndex] = displaced;
+      else waiting.splice(sourceIndex, 1);
+    } else parties[sourceParty][sourceIndex] = displaced;
+    while (parties[target.party].length <= target.index) parties[target.party].push(null);
+    parties[target.party][target.index] = member;
+  }
+  return { ...formation, parties, waiting };
+}
+
+export function editCell(formation: Formation, target: CellAddress, name: string, id: string): Formation {
+  const previous = formation.parties[target.party][target.index];
+  const value = name.trim();
+  if (!value) return previous ? moveMember(formation, previous.id, null) : formation;
+  const parties = formation.parties.map((party) => [...party]);
+  while (parties[target.party].length <= target.index) parties[target.party].push(null);
+  parties[target.party][target.index] = previous ? { ...previous, name: value }
+    : { id, name: value, job: "", awakening: "" };
+  return { ...formation, parties };
 }

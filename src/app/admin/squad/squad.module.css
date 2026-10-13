@@ -3,8 +3,11 @@
 .inputHeader label, .toolbar h2 { font-size: 15px; font-weight: 700; margin: 0; }
 .toolbar { margin-top: 28px; }
 .toolbar span, .waiting h3 span { margin-left: 8px; color: var(--color-ink-faint); font-size: 12px; font-weight: 400; }
-.primary { padding: 8px 14px; border: 1px solid var(--color-accent-deep); color: var(--color-accent-tint); background: var(--color-accent-deep); font: 600 12.5px var(--font-body); cursor: pointer; }
+.button, .primary { padding: 8px 14px; border: 1px solid var(--color-hairline); background: transparent; color: var(--color-ink); font: 600 12.5px var(--font-body); cursor: pointer; }
+.primary { color: var(--color-accent-tint); background: var(--color-accent-deep); border-color: var(--color-accent-deep); }
+.button:hover { background: var(--color-surface); }
 .primary:hover { background: var(--color-accent-deeper); }
+.button:disabled { opacity: 0.5; cursor: wait; }
 .rosterInput { display: block; box-sizing: border-box; width: 100%; min-height: 116px; resize: vertical; border: 1px solid var(--color-hairline); background: var(--color-paper); color: var(--color-ink); padding: 12px 14px; font: 13px/1.7 var(--font-body); }
 .rosterInput:focus { outline: 1px solid var(--color-accent); }
 .sheetScroll { max-width: 100%; overflow-x: auto; padding-bottom: 2px; }
@@ -12,11 +15,20 @@
 .sheet col { width: 12.5%; }
 .sheet th { box-sizing: border-box; height: var(--sheet-header); padding: 0; border: 1px solid #000; color: #2c3e50; font-size: 11pt; font-weight: 700; line-height: 16px; text-align: center; vertical-align: middle; }
 .sheet td { padding: 0; height: var(--sheet-row); border: 1px solid #000; background: #fff; text-align: center; vertical-align: middle; }
-.cell { display: block; height: var(--sheet-row); padding: 0 3px; color: #000; font: 10pt/var(--sheet-row) Arial, "Malgun Gothic", sans-serif; text-align: center; white-space: nowrap; overflow: hidden; }
-.waiting { margin-top: 22px; padding: 14px; border: 1px dashed var(--color-hairline); }
+.cell { display: block; width: 100%; height: var(--sheet-row); margin: 0; padding: 0 3px; border: 0; border-radius: 0; background: transparent; color: #000; font: 10pt/var(--sheet-row) Arial, "Malgun Gothic", sans-serif; text-align: center; white-space: nowrap; overflow: hidden; cursor: cell; user-select: none; touch-action: none; }
+.cell:focus-visible { outline: 2px solid #267c45; outline-offset: -2px; }
+.cell:hover { background: #f2f7f3; }
+.nameInput { box-sizing: border-box; display: block; width: 100%; height: var(--sheet-row, 26px); min-width: 0; padding: 0 3px; margin: 0; border: 0; border-radius: 0; outline: 2px solid #267c45; outline-offset: -2px; background: #fff; color: #000; font: 10pt Arial, "Malgun Gothic", sans-serif; text-align: center; }
+.extraRow td { border-color: #c8c8c8; }
+.extraRow .cell { background: #fafafa; }
+.root [data-drop] { outline: 2px solid #267c45; outline-offset: -2px; background: #e5f2e9; }
+.root [data-dragging] { opacity: 0.4; cursor: grabbing; }
+.hint { margin: 10px 0 22px; color: var(--color-ink-faint); font-size: 11px; line-height: 1.6; }
+.waiting { padding: 14px; border: 1px dashed var(--color-hairline); }
 .waiting h3 { margin: 0 0 12px; font-size: 13px; }
 .waitingMembers { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; min-height: 30px; }
 .waitingMembers p { margin: 0; font-size: 12px; color: var(--color-ink-faint); }
-.waitingMember { padding: 5px 10px; border: 1px solid var(--color-hairline); background: var(--color-surface); color: var(--color-ink); font: 12px var(--font-body); }
+.waitingMember { padding: 5px 10px; border: 1px solid var(--color-hairline); background: var(--color-surface); color: var(--color-ink); font: 12px var(--font-body); cursor: grab; touch-action: none; user-select: none; }
+.waitingMembers .nameInput { width: 140px; }
 .message { min-height: 18px; font-size: 12px; margin: 12px 0 0; color: var(--color-ink-dim); }
-@media (max-width: 600px) { .toolbar { margin-top: 22px; } }
+@media (max-width: 600px) { .hint { font-size: 10px; } .toolbar { margin-top: 22px; } }
