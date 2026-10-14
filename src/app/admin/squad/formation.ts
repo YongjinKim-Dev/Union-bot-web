@@ -55,19 +55,42 @@ export function parseMembers(input: string): SquadMember[] {
   });
 }
 
+/** 이름 뒤에 붙은 역할 표시. "예니체리(대포)" 의 "(대포)" 부분이다. */
+const TRAILING_TAG = /\(([^()]*)\)\s*$/;
+
+/** 역할 표시를 뗀 이름. 명단에 "홍줭(흑정)" 으로 적혀 와도 "홍줭" 으로 찾는다. */
+export function baseName(name: string): string {
+  return name.replace(TRAILING_TAG, "").trim();
+}
+
+/*
+ * 부대 정원.
+ *
+ * 55 석짜리와 75 석짜리 두 벌뿐이라 그 사이가 비어 있었다. 60 명이 나오면 55
+ * 석에 넣느라 다섯 명이, 69 명이면 열네 명이 말없이 미배치로 빠졌다. 그 구간이
+ * 요즘 나오는 인원대와 그대로 겹친다. 이제 다 들어가는 쪽을 고른다.
+ */
+function partySizes(count: number): number[] {
+  if (count > 55) return [20, 20, 15, 20];
+  if (count >= 50) return [15, 15, 14, 11];
+  return Array.from({ length: 4 }, (_, i) => Math.floor(count / 4) + (i < count % 4 ? 1 : 0));
+}
+
 // 첨부한 Google Apps Script의 고정 배치 → 직업 순환 배치 → 순차 배치 순서를 유지한다.
 export function autoAssign(members: SquadMember[]): Formation {
-  const sizes = members.length >= 70 ? [20, 20, 15, 20]
-    : members.length >= 50 ? [15, 15, 14, 11]
-      : Array.from({ length: 4 }, (_, i) => Math.floor(members.length / 4) + (i < members.length % 4 ? 1 : 0));
+  const sizes = partySizes(members.length);
   const parties: SquadMember[][] = [[], [], [], []];
   const assigned = new Set<string>();
   function place(member: SquadMember, party: number, suffix = "") {
-    parties[party].push({ ...member, name: member.name + suffix });
+    // 이미 역할이 적혀 온 이름에 또 붙이면 "예니체리(대포)(대포)" 가 된다.
+    const name = suffix ? baseName(member.name) + suffix : member.name;
+    parties[party].push({ ...member, name });
     assigned.add(member.id);
   }
   function fixed(name: string, party: number, suffix = "") {
-    const member = members.find((m) => m.name === name && !assigned.has(m.id));
+    // 명단에 역할이 붙어 오거나 영문 대소문자가 달라도 같은 사람으로 본다.
+    const key = name.toLowerCase();
+    const member = members.find((m) => baseName(m.name).toLowerCase() === key && !assigned.has(m.id));
     if (!member) return false;
     place(member, party, suffix);
     return true;

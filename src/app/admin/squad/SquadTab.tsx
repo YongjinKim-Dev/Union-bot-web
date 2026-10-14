@@ -71,9 +71,14 @@ export function SquadTab() {
   function assign() {
     const members = parseMembers(input);
     if (!members.length) { setMessage("닉네임 / 직업 형식으로 명단을 입력해 주세요."); return; }
-    setFormation(autoAssign(members));
+    const next = autoAssign(members);
+    setFormation(next);
     setEditing(null);
-    setMessage("");
+    /* 자리가 모자라 빠진 사람은 말해 준다. 미배치 칸에 조용히 쌓여 있으면
+       그대로 넘어가 부대 없이 들어가는 사람이 생긴다. */
+    setMessage(next.waiting.length
+      ? `${members.length}명 중 ${next.waiting.length}명이 자리가 없어 미배치로 갔습니다. 아래에서 옮겨 주세요.`
+      : `${members.length}명을 모두 배치했습니다.`);
   }
 
   function commit(value: string) {
