@@ -1,4 +1,4 @@
-import { memberArt, memberLabel, SHEET, sheetRows, type Formation } from "./formation";
+import { memberArt, memberLabel, memberRole, ROLE_ICON, SHEET, sheetRows, type Formation } from "./formation";
 
 /*
  * 부대표를 그림으로 그린다. 화면과 같은 모양이어야 하므로 색과 크기는 SHEET
@@ -122,8 +122,13 @@ export async function formationImage(formation: Formation, showJobs = false): Pr
           textLeft = left + 5 + SHEET.iconSize + 6;
         }
 
+        // 역할 그림은 오른쪽 끝에 고정한다. 이름이 길어 줄어들어도 이것은 남는다.
+        const role = memberRole(member);
+        const roleIcon = role ? ROLE_ICON[role] : "";
+        const roleRoom = roleIcon ? 16 : 0;
+
         const label = memberLabel(member, showJobs);
-        const room = SHEET.columnWidth - (textLeft - left) - 5;
+        const room = SHEET.columnWidth - (textLeft - left) - 5 - roleRoom;
         ctx.fillStyle = SHEET.text;
         ctx.font = `12px ${SHEET.font}`;
         const textWidth = ctx.measureText(label).width;
@@ -134,6 +139,13 @@ export async function formationImage(formation: Formation, showJobs = false): Pr
         ctx.clip();
         ctx.fillText(label, textLeft, middle);
         ctx.restore();
+
+        if (roleIcon) {
+          ctx.font = `12px ${SHEET.font}`;
+          ctx.textAlign = "right";
+          ctx.fillText(roleIcon, left + SHEET.columnWidth - 5, middle);
+          ctx.textAlign = "left";
+        }
       }
     }
   }

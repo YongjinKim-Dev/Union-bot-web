@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, moveMember, parseMembers, ROLES, setRole, SHEET, sheetRows, type CellAddress } from "./formation";
+import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, moveMember, parseMembers, ROLE_ICON, ROLES, setRole, SHEET, sheetRows, type CellAddress } from "./formation";
 import { formationImage } from "./image";
 import styles from "./squad.module.css";
 
@@ -213,7 +213,12 @@ export function SquadTab() {
                       </span>
                     ) : null;
                   })()}
-                  <span className={styles.memberLabel} data-member-label>{label}</span></button>}
+                  <span className={styles.memberLabel} data-member-label>{label}</span>
+                  {memberRole(member) && (
+                    <span className={styles.role} title={memberRole(member) ?? ""}>
+                      {ROLE_ICON[memberRole(member) as string]}
+                    </span>
+                  )}</button>}
             </td>;
           }))}
         </tr>)}</tbody>
@@ -225,8 +230,8 @@ export function SquadTab() {
         <span className={styles.roleHint}>역할</span>
         {ROLES.map((role) => (
           <button key={role} type="button"
-            className={selectedRole === role ? styles.roleOn : styles.role}
-            onClick={() => applyRole(role)}>{role}</button>
+            className={selectedRole === role ? styles.roleOn : styles.roleButton}
+            onClick={() => applyRole(role)}>{ROLE_ICON[role]} {role}</button>
         ))}
         <button type="button" className={styles.button} onClick={() => setSelected(null)}>고르기 취소</button>
       </div>

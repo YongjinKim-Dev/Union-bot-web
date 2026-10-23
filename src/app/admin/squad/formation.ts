@@ -80,7 +80,40 @@ export function emptyFormation(): Formation {
  *
  * 여기에 적힌 것만 붙일 수 있다. 늘리려면 이 줄에 더하면 된다.
  */
-export const ROLES = ["오더", "빌더", "대포", "대포컷", "코끼리", "불퇴", "신기전", "화염탑", "흑정", "수비"];
+export const ROLES = ["오더", "빌더", "대포", "대포컷", "코끼리", "불퇴", "신기전", "화염탑", "수비", "중범선"];
+
+/*
+ * 역할을 글자 대신 그림으로 보여 준다. 칸이 150px 뿐이라 "(대포컷)" 네 글자가
+ * 이름을 밀어낸다. 그림은 한 글자 자리면 되고 멀리서도 구분된다.
+ *
+ * 그림 파일을 따로 두지 않고 이모지를 쓴다 — 받아 올 것이 없고, 화면과 복사한
+ * 그림 양쪽에서 같은 글꼴로 그려진다. 버튼에도 같은 것이 붙어 금세 익는다.
+ *
+ * 어두운 판에 12px 로 그려지므로 밝기가 모양보다 중요하다. 검은 폭탄과 검은
+ * 하트는 바탕에 묻혀 보이지 않아 밝은 것으로 바꿨다.
+ *
+ * 흑정은 버튼에서 뺐지만 자동 배치가 아직 붙이므로 그림은 남겨 둔다.
+ */
+export const ROLE_ICON: Record<string, string> = {
+  오더: "🚩",
+  빌더: "🔨",
+  대포: "🧨",
+  대포컷: "✂️",
+  코끼리: "🐘",
+  불퇴: "🛡️",
+  신기전: "🎆",
+  화염탑: "🔥",
+  수비: "🏰",
+  중범선: "🚢",
+  흑정: "🔮",
+};
+
+/** 이름 뒤에 붙어 있는 역할. 우리가 아는 것만 역할로 본다. */
+export function memberRole(member: SquadMember | null | undefined): string | null {
+  if (!member) return null;
+  const tag = member.name.match(TRAILING_TAG)?.[1];
+  return tag && tag in ROLE_ICON ? tag : null;
+}
 
 /** 역할만 갈아 끼운다. 같은 역할을 다시 누르면 뗀다. */
 export function setRole(formation: Formation, id: string, role: string | null): Formation {
@@ -99,12 +132,11 @@ export function setRole(formation: Formation, id: string, role: string | null): 
 
 export function memberLabel(member: SquadMember | null | undefined, showJobs: boolean): string {
   if (!member) return "";
-  if (!showJobs || !member.job) return member.name;
-  const tag = member.name.match(/\((오더|빌더|흑정|대포|대포컷|불퇴|신기전|화염탑|코끼리|수비|샤이|자이언트)\)$/);
-  if (tag && !["수비", "샤이", "자이언트"].includes(tag[1])) return member.name;
-  const name = tag ? member.name.slice(0, -tag[0].length) : member.name;
+  // 역할은 이름 옆에 그림으로 붙으므로 글자로 또 적지 않는다.
+  const name = memberRole(member) ? baseName(member.name) : member.name;
+  if (!showJobs || !member.job) return name;
   const specialization = member.awakening === "각성" ? "각·" : member.awakening === "전승" ? "전·" : "";
-  return `${name}(${tag?.[1] === "수비" ? "수비 · " : ""}${specialization}${member.job})`;
+  return `${name}(${specialization}${member.job})`;
 }
 
 export function parseMembers(input: string): SquadMember[] {
