@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, moveMember, parseMembers, ROLES, setRole, SHEET, sheetRows, type CellAddress } from "./formation";
+import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, moveMember, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress } from "./formation";
 import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
 import styles from "./squad.module.css";
@@ -40,7 +40,7 @@ function NameInput({ value, onCommit, onCancel }: {
     }} />;
 }
 
-type Editing = { key: string; value: string; cell?: CellAddress; waitingId?: string };
+type Editing = { key: string; value: string; cell?: CellAddress; waitingId?: string; headerParty?: number };
 
 export function SquadTab() {
   const [input, setInput] = useState("");
@@ -54,6 +54,7 @@ export function SquadTab() {
   const root = useRef<HTMLDivElement>(null);
   const sheetScroll = useRef<HTMLDivElement>(null);
   const rows = sheetRows(formation);
+  const columns = formation.parties.length * 2;
   const assignedCount = formation.parties.reduce((sum, party) => sum + party.filter(Boolean).length, 0);
 
   useLayoutEffect(() => {
@@ -80,7 +81,9 @@ export function SquadTab() {
     const members = parseMembers(input);
     if (!members.length) { setMessage("닉네임 / 직업 형식으로 명단을 입력해 주세요."); return; }
     const next = autoAssign(members);
-    setFormation(next);
+    // 고쳐 둔 부대 이름은 다시 돌려도 남긴다. 부대 수가 달라지면 되돌린다.
+    setFormation((previous) => next.names.length === previous.names.length
+      ? { ...next, names: previous.names } : next);
     setEditing(null);
     /* 자리가 모자라 빠진 사람은 말해 준다. 미배치 칸에 조용히 쌓여 있으면
        그대로 넘어가 부대 없이 들어가는 사람이 생긴다. */
@@ -91,12 +94,16 @@ export function SquadTab() {
 
   function commit(value: string) {
     if (!editing) return;
-    const { cell, waitingId } = editing;
+    const { cell, waitingId, headerParty } = editing;
     const id = `manual-${crypto.randomUUID()}`;
-    setFormation((previous) => cell ? editCell(previous, cell, value, id) : {
-      ...previous,
-      waiting: previous.waiting.map((member) => member.id === waitingId && value.trim()
-        ? { ...member, name: value.trim() } : member),
+    setFormation((previous) => {
+      if (headerParty !== undefined) return renameParty(previous, headerParty, value);
+      if (cell) return editCell(previous, cell, value, id);
+      return {
+        ...previous,
+        waiting: previous.waiting.map((member) => member.id === waitingId && value.trim()
+          ? { ...member, name: value.trim() } : member),
+      };
     });
     setEditing(null);
   }
@@ -177,12 +184,20 @@ export function SquadTab() {
     <div ref={sheetScroll} className={styles.sheetScroll}>
       <table className={styles.sheet} aria-label="부대 편성표" style={{
         "--sheet-column": `${SHEET.columnWidth}px`, "--sheet-row": `${SHEET.rowHeight}px`,
-        "--sheet-header": `${SHEET.headerHeight}px`, fontFamily: SHEET.font,
+        "--sheet-header": `${SHEET.headerHeight}px`, "--sheet-min": `${columns * 138}px`,
+        fontFamily: SHEET.font,
       } as CSSProperties}>
-        <colgroup>{Array.from({ length: 8 }, (_, i) => <col key={i} />)}</colgroup>
-        <thead><tr>{SHEET.names.map((name, party) =>
-          <th key={name} scope="colgroup" colSpan={2}>
-            {name}<br /><span>({formation.parties[party].filter(Boolean).length}명)</span>
+        <colgroup>{Array.from({ length: columns }, (_, i) =>
+          <col key={i} style={{ width: `${100 / columns}%` }} />)}</colgroup>
+        <thead><tr>{formation.names.map((name, party) =>
+          <th key={party} scope="colgroup" colSpan={2}>
+            {editing?.key === `head:${party}`
+              ? <NameInput key={`head:${party}`} value={editing.value} onCommit={commit}
+                onCancel={() => setEditing(null)} />
+              : <button type="button" className={styles.headerName} title="눌러서 이름 고치기"
+                onClick={() => setEditing({ key: `head:${party}`, value: name, headerParty: party })}>
+                {name}<br /><span>({formation.parties[party].filter(Boolean).length}명)</span>
+              </button>}
           </th>)}</tr></thead>
         <tbody>{Array.from({ length: rows + 1 }, (_, row) => <tr key={row} className={row === rows ? styles.extraRow : undefined}>
           {formation.parties.flatMap((party, partyIndex) => [0, 1].map((column) => {

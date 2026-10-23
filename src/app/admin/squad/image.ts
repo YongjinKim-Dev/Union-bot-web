@@ -35,7 +35,9 @@ function toPng(canvas: HTMLCanvasElement): Promise<Blob> {
 export async function formationImage(formation: Formation): Promise<Blob> {
   await document.fonts.ready;
   const rows = sheetRows(formation);
-  const width = SHEET.columnWidth * 8;
+  // 부대 수는 인원이 정한다. 100 인이면 여섯 부대라 표가 그만큼 넓어진다.
+  const count = formation.parties.length;
+  const width = SHEET.columnWidth * count * 2;
   const height = SHEET.headerHeight + SHEET.rowHeight * rows;
 
   // 그릴 그림을 미리 다 받아 둔다. 그리는 도중에는 기다릴 수 없다.
@@ -68,7 +70,7 @@ export async function formationImage(formation: Formation): Promise<Blob> {
   ctx.textBaseline = "middle";
 
   // 부대 머리글 — 위아래로 옅게 깎인 금속 판처럼.
-  for (let party = 0; party < 4; party++) {
+  for (let party = 0; party < count; party++) {
     const x = party * SHEET.columnWidth * 2;
     const gradient = ctx.createLinearGradient(0, 0, 0, SHEET.headerHeight);
     gradient.addColorStop(0, SHEET.headerTop);
@@ -78,7 +80,7 @@ export async function formationImage(formation: Formation): Promise<Blob> {
     ctx.fillStyle = SHEET.headerText;
     ctx.textAlign = "center";
     ctx.font = `bold 14px ${SHEET.font}`;
-    ctx.fillText(SHEET.names[party], x + SHEET.columnWidth, 17);
+    ctx.fillText(formation.names[party] ?? "", x + SHEET.columnWidth, 17);
     ctx.font = `12px ${SHEET.font}`;
     ctx.globalAlpha = 0.75;
     ctx.fillText(`(${formation.parties[party].filter(Boolean).length}명)`, x + SHEET.columnWidth, 32);
@@ -95,7 +97,7 @@ export async function formationImage(formation: Formation): Promise<Blob> {
   // 픽셀로 그린 계열 마크는 늘리면 뭉개진다.
   ctx.imageSmoothingEnabled = false;
 
-  for (let party = 0; party < 4; party++) {
+  for (let party = 0; party < count; party++) {
     for (let row = 0; row < rows; row++) {
       for (let column = 0; column < 2; column++) {
         const member = formation.parties[party][row * 2 + column];
@@ -166,7 +168,7 @@ export async function formationImage(formation: Formation): Promise<Blob> {
   ctx.strokeStyle = SHEET.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let column = 1; column < 8; column++) {
+  for (let column = 1; column < count * 2; column++) {
     const x = column * SHEET.columnWidth + 0.5;
     ctx.moveTo(x, SHEET.headerHeight);
     ctx.lineTo(x, height);
@@ -182,7 +184,7 @@ export async function formationImage(formation: Formation): Promise<Blob> {
   ctx.lineWidth = 2;
   ctx.strokeRect(1, 1, width - 2, height - 2);
   ctx.beginPath();
-  for (let column = 1; column < 4; column++) {
+  for (let column = 1; column < count; column++) {
     const x = column * SHEET.columnWidth * 2 + 0.5;
     ctx.moveTo(x, 0);
     ctx.lineTo(x, SHEET.headerHeight);

@@ -14,6 +14,8 @@ export interface Formation {
   parties: (SquadMember | null)[][];
   waiting: SquadMember[];
   rows: number;
+  /** 머리글에 적히는 부대 이름. 부대 수만큼 있고, 표에서 눌러 고칠 수 있다. */
+  names: string[];
 }
 
 export interface CellAddress { party: number; index: number }
@@ -46,6 +48,18 @@ export function memberArt(member: SquadMember | null | undefined): MemberArt | n
 }
 
 /*
+ * 부대 이름의 기본값.
+ *
+ * 네 부대일 때는 쓰던 이름 그대로 두고, 여섯 부대로 나뉘면 뒤에 둘을 더한다.
+ * 어차피 표에서 눌러 고칠 수 있으므로 여기 값은 출발점일 뿐이다.
+ */
+const BASE_NAMES = ["1부대(본대)", "2부대(본대)", "3부대(수비)", "4부대(본대/기둥)"];
+
+export function defaultNames(parties: number): string[] {
+  return Array.from({ length: parties }, (_, i) => BASE_NAMES[i] ?? `${i + 1}부대`);
+}
+
+/*
  * 부대표의 생김새.
  *
  * 어두운 판으로 둔 이유가 둘이다. 하나, 이 그림은 디스코드에 붙인다 — 거기가
@@ -53,7 +67,6 @@ export function memberArt(member: SquadMember | null | undefined): MemberArt | n
  * 원본 그대로 얹힌다. 밝은 바탕이면 색을 뒤집는 처리가 한 겹 더 붙는다.
  */
 export const SHEET = {
-  names: ["1부대(본대)", "2부대(본대)", "3부대(수비)", "4부대(본대/기둥)"],
   columnWidth: 178,
   iconSize: 20,
   markSize: 12,
@@ -74,7 +87,7 @@ export const SHEET = {
 };
 
 export function emptyFormation(): Formation {
-  return { parties: [[], [], [], []], waiting: [], rows: 10 };
+  return { parties: [[], [], [], []], waiting: [], rows: 10, names: defaultNames(4) };
 }
 
 /*
@@ -153,11 +166,11 @@ export function baseName(name: string): string {
  * 석에 넣느라 다섯 명이, 69 명이면 열네 명이 말없이 미배치로 빠졌다. 그 구간이
  * 요즘 나오는 인원대와 그대로 겹친다. 이제 다 들어가는 쪽을 고른다.
  *
- * 100 인은 네 부대로 고르게 나눈다. 55·75 처럼 수비를 덜어 둔 모양이 따로 있으면
- * 여기 숫자만 바꾸면 된다.
+ * 100 인은 여섯 부대로 나눈다. 부대 수는 이 배열의 길이가 정하므로, 다른 모양이
+ * 필요하면 여기 숫자만 바꾸면 표와 그림이 따라온다.
  */
 function partySizes(count: number): number[] {
-  if (count > 75) return [25, 25, 25, 25];
+  if (count > 75) return [17, 17, 17, 17, 16, 16];
   if (count > 55) return [20, 20, 15, 20];
   if (count >= 50) return [15, 15, 14, 11];
   return Array.from({ length: 4 }, (_, i) => Math.floor(count / 4) + (i < count % 4 ? 1 : 0));
@@ -166,7 +179,7 @@ function partySizes(count: number): number[] {
 // 첨부한 Google Apps Script의 고정 배치 → 직업 순환 배치 → 순차 배치 순서를 유지한다.
 export function autoAssign(members: SquadMember[]): Formation {
   const sizes = partySizes(members.length);
-  const parties: SquadMember[][] = [[], [], [], []];
+  const parties: SquadMember[][] = sizes.map(() => []);
   const assigned = new Set<string>();
   function place(member: SquadMember, party: number, suffix = "") {
     // 이미 역할이 적혀 온 이름에 또 붙이면 "예니체리(대포)(대포)" 가 된다.
@@ -206,7 +219,7 @@ export function autoAssign(members: SquadMember[]): Formation {
       // 예전에는 (샤이)(자이언트)를 이름 뒤에 붙였다. 이제 아이콘이 직업을
       // 보여주므로 같은 말을 두 번 하지 않는다.
       place(member, party);
-      party = (party + 1) % 4;
+      party = (party + 1) % sizes.length;
     }
   }
 
@@ -214,13 +227,14 @@ export function autoAssign(members: SquadMember[]): Formation {
   for (const member of members) {
     if (assigned.has(member.id)) continue;
     // 원본은 범위 검사보다 배열 접근이 먼저여서 정원 초과 시 예외가 발생한다.
-    while (party < 4 && parties[party].length >= sizes[party]) party++;
-    if (party < 4) place(member, party);
+    while (party < sizes.length && parties[party].length >= sizes[party]) party++;
+    if (party < sizes.length) place(member, party);
   }
   return {
     parties,
     waiting: members.filter((member) => !assigned.has(member.id)),
     rows: Math.max(1, Math.ceil(Math.max(...sizes, ...parties.map((p) => p.length)) / 2)),
+    names: defaultNames(sizes.length),
   };
 }
 
@@ -253,6 +267,13 @@ export function moveMember(formation: Formation, id: string, target: CellAddress
     parties[target.party][target.index] = member;
   }
   return { ...formation, parties, waiting };
+}
+
+/** 머리글 이름 바꾸기. 비워 두면 머리글이 사라지므로 그때는 그대로 둔다. */
+export function renameParty(formation: Formation, party: number, name: string): Formation {
+  const value = name.trim();
+  if (!value) return formation;
+  return { ...formation, names: formation.names.map((n, i) => (i === party ? value : n)) };
 }
 
 export function editCell(formation: Formation, target: CellAddress, name: string, id: string): Formation {

@@ -15,11 +15,14 @@
 .sheetScroll { max-width: 100%; overflow-x: auto; padding-bottom: 2px; }
 
 /* 검은사막 UI 결을 따라간다. 이 표는 그대로 그림이 되어 디스코드에 올라간다. */
-.sheet { border-collapse: separate; border-spacing: 0; table-layout: fixed; width: 100%; min-width: 1104px; background: #17130e; color: #ded5c4; border: 2px solid #6b5327; box-shadow: inset 0 0 0 1px #2b2318; }
-.sheet col { width: 12.5%; }
+.sheet { border-collapse: separate; border-spacing: 0; table-layout: fixed; width: 100%; min-width: var(--sheet-min, 1104px); background: #17130e; color: #ded5c4; border: 2px solid #6b5327; box-shadow: inset 0 0 0 1px #2b2318; }
 .sheet th { box-sizing: border-box; height: var(--sheet-header); padding: 0; background: linear-gradient(180deg, #3a2d18, #241c11); color: #e6c884; border-bottom: 2px solid #6b5327; border-right: 1px solid #4a3a1f; font-size: 12px; font-weight: 700; line-height: 1.3; text-align: center; vertical-align: middle; }
 .sheet th:last-child { border-right: 0; }
 .sheet th span { font-weight: 400; font-size: 10px; opacity: 0.75; }
+/* 머리글은 눌러서 고친다. 버튼 티를 내지 않고 머리글 그대로 보이게 한다. */
+.headerName { display: block; width: 100%; height: var(--sheet-header); padding: 0 6px; margin: 0; border: 0; background: transparent; color: inherit; font: inherit; line-height: 1.3; text-align: center; cursor: text; }
+.headerName:hover { background: #4a3a1f; }
+.headerName:focus-visible { outline: 2px solid #e6c884; outline-offset: -2px; }
 .sheet td { padding: 0; height: var(--sheet-row); border-bottom: 1px solid #2b2318; border-right: 1px solid #2b2318; vertical-align: middle; }
 .sheet td:last-child { border-right: 0; }
 .sheet tbody tr:nth-child(even) td { background: #1d1811; }
