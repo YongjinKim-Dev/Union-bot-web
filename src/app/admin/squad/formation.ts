@@ -190,7 +190,7 @@ export function autoAssign(members: SquadMember[]): Formation {
   fixed("홍줭", 1);
   fixed("사색가", 2, "(빌더)");
   fixed("Wheel", 3);
-  fixed("마창", 0, "(흑정)");
+  fixed("마창", 0);
   let cannonCount = 0;
   for (const name of ["연필", "Nicode", "폭풍"]) {
     if (cannonCount < 2) {

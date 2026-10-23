@@ -14,6 +14,11 @@
 /** 구멍을 파낼 때 칠하는 색. 표의 바탕과 같아야 뚫린 것처럼 보인다. */
 const PUNCH = "#17130e";
 
+/** 신기전의 화살 세 대. 상자 앞면에서 같은 간격으로 뻗어 나온다. */
+const ARROWS = [10.6, 13, 15.4]
+  .map((y) => `<path d="M14.2 ${y - 0.55}H19.6V${y - 1.25}L21.8 ${y}L19.6 ${y + 1.25}V${y + 0.55}H14.2z"/>`)
+  .join("");
+
 /** 대포컷의 칼. 날·코등이·자루·머리를 한 획으로 그린다. */
 const SWORD =
   "M18.6 0.8L20.5 4.1V12.4H22.9V14.8H19.8V19.8H20.6V21.9H16.6V19.8H17.4V14.8H14.3V12.4H16.7V4.1z";
@@ -39,18 +44,26 @@ export const ROLE_ICON_PATH: Record<string, string> = {
     `<path d="M4.5 9.5a6.5 6.5 0 0113 0V14c0 1.8-1 2.8-2.4 3.2V21h-3.3v-3.6H9.6c-.2 2-1.3 3.6-2.6 3.6-1.5 0-2.6-1.9-2.6-4.2z"/>` +
     `<circle cx="14.6" cy="9" r="1.4" fill="${PUNCH}"/>` +
     `<path d="M17.5 10.5h2.2c1.6 0 2.8 1.2 2.8 2.8V18h-2.4v-4.2h-2.6z"/>`,
+  // 게임 속 신기전 그대로 — 비스듬히 선 발사 상자에서 화살이 쏟아져 나온다.
   신기전:
-    `<rect x="3" y="10" width="13.5" height="6.4" rx="1"/>` +
-    `<circle cx="6.5" cy="19.5" r="2.4"/><circle cx="14" cy="19.5" r="2.4"/>` +
-    `<path d="M17.6 3.4l4.6 2.2-4.6 2.2.9-2.2z"/><path d="M12.5 5.6h6v1.8h-6z"/>`,
-  // 촛불처럼 보이지 않도록 탑을 넓게 두고 꼭대기에 성가퀴를 낸다.
+    `<path d="M2.6 20.2h16.4v2.4H2.6z"/><path d="M13.6 14.4l2.6 1.2-2.4 5-2.6-1.2z"/>` +
+    `<g transform="rotate(-38 10.5 13)"><rect x="4.6" y="8.8" width="10" height="8.4" rx=".8"/>` +
+    ARROWS +
+    `</g>`,
+  // 게임 속 화염탑은 탑이 아니라 굴뚝 달린 무쇠 가마다.
   화염탑:
-    `<path d="M6 22v-9h12v9z"/><path d="M5.4 13V10h2.3v1.4h1.6V10h2.3v1.4h1.6V10h2.3v1.4h1.6V10h2.3v3z"/>` +
-    `<path d="M12 1.2c1.7 2.8 3.8 3.6 3.8 6.2a3.8 3.8 0 11-7.6 0c0-2.6 2.1-3.4 3.8-6.2z"/>`,
+    `<path d="M4.2 19.4H19.8L21.4 22.4H2.6z"/>` +
+    `<path d="M7.8 19.6V12.4C7.8 8.6 9.6 6.4 12 6.4s4.2 2.2 4.2 6v7.2z"/>` +
+    `<path d="M12 6.4C12 3.2 19.4 3.4 19.4 8.4V10.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>` +
+    `<circle cx="12" cy="14.9" r="2.1" fill="${PUNCH}"/>` +
+    `<path d="M16.1 13c2.5.3 4.4 1 5.9 1.9-1.1.1-2 .4-2.7.9.9.2 1.7.6 2.3 1.1-1.9.5-3.8.5-5.5-.1z"/>`,
   빌더: `<rect x="4.4" y="2.4" width="15.2" height="6.2" rx="1"/><path d="M10.6 8.6h2.8v12.8h-2.8z"/>`,
+  // 돛 세 폭에 선미루까지 — 게임 속 에페리아 중범선의 윤곽이다.
   중범선:
-    `<path d="M1.5 17.5h21l-3.4 4.5H4.9z"/><path d="M11.1 2h1.8v14h-1.8z"/>` +
-    `<path d="M13.6 3.6l6.6 9.4h-6.6z"/><path d="M10.4 6.2L4.2 13h6.2z"/>`,
+    `<path d="M1.6 16.6h20.8c0 0-1.4 4.6-4.6 4.6H6.2c-3.2 0-4.6-4.6-4.6-4.6z"/>` +
+    `<path d="M17.6 13.4h4.4v3.2h-4.4z"/><path d="M.6 12.6l4.8 2.8-.7 1.4-4.6-2.6z"/>` +
+    `<path d="M4.9 6.4h1.1v10.2H4.9z"/><path d="M10.9 2.6h1.1v14H10.9z"/><path d="M16.5 5.6h1.1v11h-1.1z"/>` +
+    `<path d="M2.8 8h5.4l.5 3.4H2.3z"/><path d="M8.6 4.6h6l.6 4.4H8z"/><path d="M14.9 7.4h4.8l.5 3.2h-5.8z"/>`,
 };
 
 /** 그림으로 보여 줄 수 있는 역할인지. 모르는 꼬리표는 역할로 치지 않는다. */
@@ -65,6 +78,7 @@ export function hasRoleIcon(role: string | null | undefined): boolean {
 export function roleIconDataUrl(role: string, color: string): string {
   const body = ROLE_ICON_PATH[role] ?? "";
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color}">${body}</svg>`;
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color}" color="${color}">` +
+    `${body}</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
