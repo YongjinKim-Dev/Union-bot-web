@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import { autoAssign, editCell, emptyFormation, memberLabel, moveMember, parseMembers, SHEET, sheetRows, type CellAddress } from "./formation";
+import { autoAssign, editCell, emptyFormation, memberArt, memberLabel, moveMember, parseMembers, SHEET, sheetRows, type CellAddress } from "./formation";
 import { formationImage } from "./image";
 import styles from "./squad.module.css";
 
@@ -192,8 +192,8 @@ export function SquadTab() {
       } as CSSProperties}>
         <colgroup>{Array.from({ length: 8 }, (_, i) => <col key={i} />)}</colgroup>
         <thead><tr>{SHEET.names.map((name, party) =>
-          <th key={name} scope="colgroup" colSpan={2} style={{ background: SHEET.colors[party] }}>
-            {name}<br />({formation.parties[party].filter(Boolean).length}명)
+          <th key={name} scope="colgroup" colSpan={2}>
+            {name}<br /><span>({formation.parties[party].filter(Boolean).length}명)</span>
           </th>)}</tr></thead>
         <tbody>{Array.from({ length: rows + 1 }, (_, row) => <tr key={row} className={row === rows ? styles.extraRow : undefined}>
           {formation.parties.flatMap((party, partyIndex) => [0, 1].map((column) => {
@@ -216,7 +216,23 @@ export function SquadTab() {
                     } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
                       event.preventDefault(); startEdit(event.key);
                     }
-                  }}><span className={styles.memberLabel} data-member-label>{label}</span></button>}
+                  }}>
+                  {(() => {
+                    const art = memberArt(member);
+                    return art ? (
+                      <span className={styles.art}>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- 칸마다 들어가는 작은 정적 그림이라 최적화가 필요 없다. */}
+                        <img src={art.icon} alt="" className={styles.icon} />
+                        {art.mark && (
+                          <span className={styles.badge} style={{ borderColor: art.mark.color }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element -- 픽셀 그림이라 늘리면 뭉개진다. */}
+                            <img src={art.mark.src} alt="" />
+                          </span>
+                        )}
+                      </span>
+                    ) : null;
+                  })()}
+                  <span className={styles.memberLabel} data-member-label>{label}</span></button>}
             </td>;
           }))}
         </tr>)}</tbody>

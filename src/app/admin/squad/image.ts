@@ -1,66 +1,172 @@
-import { memberLabel, SHEET, sheetRows, type Formation } from "./formation";
+import { memberArt, memberLabel, SHEET, sheetRows, type Formation } from "./formation";
+
+/*
+ * 부대표를 그림으로 그린다. 화면과 같은 모양이어야 하므로 색과 크기는 SHEET
+ * 하나에서 가져온다.
+ *
+ * 그림은 디스코드에 그대로 올라간다. 어두운 판으로 두면 거기 붙었을 때 혼자
+ * 튀지 않고, 직업 아이콘이 흰 선화라 색을 뒤집지 않고 그대로 얹을 수 있다.
+ */
+
+const cache = new Map<string, Promise<HTMLImageElement | null>>();
+
+/** 같은 아이콘이 여러 칸에 나오므로 한 번만 받아 둔다. */
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  let pending = cache.get(src);
+  if (!pending) {
+    pending = new Promise<HTMLImageElement | null>((resolve) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      // 아이콘 하나가 없다고 표 전체를 못 그리면 안 된다.
+      image.onerror = () => resolve(null);
+      image.src = src;
+    });
+    cache.set(src, pending);
+  }
+  return pending;
+}
 
 export async function formationImage(formation: Formation, showJobs = false): Promise<Blob> {
   await document.fonts.ready;
   const rows = sheetRows(formation);
   const width = SHEET.columnWidth * 8;
   const height = SHEET.headerHeight + SHEET.rowHeight * rows;
+
+  // 그릴 그림을 미리 다 받아 둔다. 그리는 도중에는 기다릴 수 없다.
+  const art = formation.parties.flat().map((member) => memberArt(member));
+  await Promise.all(
+    art.flatMap((a) => (a ? [loadImage(a.icon), ...(a.mark ? [loadImage(a.mark.src)] : [])] : [])),
+  );
+  const images = new Map<string, HTMLImageElement | null>();
+  for (const a of art) {
+    if (!a) continue;
+    images.set(a.icon, await loadImage(a.icon));
+    if (a.mark) images.set(a.mark.src, await loadImage(a.mark.src));
+  }
+
   const canvas = document.createElement("canvas");
-  canvas.width = (width + 1) * 2;
-  canvas.height = (height + 1) * 2;
+  canvas.width = width * 2;
+  canvas.height = height * 2;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("이미지를 만들 수 없습니다.");
   ctx.scale(2, 2);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.fillRect(0, 0, width + 1, height + 1);
-  ctx.textAlign = "center";
+
+  ctx.fillStyle = SHEET.panel;
+  ctx.fillRect(0, 0, width, height);
   ctx.textBaseline = "middle";
+
+  // 부대 머리글 — 위아래로 옅게 깎인 금속 판처럼.
   for (let party = 0; party < 4; party++) {
     const x = party * SHEET.columnWidth * 2;
-    ctx.fillStyle = SHEET.colors[party];
+    const gradient = ctx.createLinearGradient(0, 0, 0, SHEET.headerHeight);
+    gradient.addColorStop(0, SHEET.headerTop);
+    gradient.addColorStop(1, SHEET.headerBottom);
+    ctx.fillStyle = gradient;
     ctx.fillRect(x, 0, SHEET.columnWidth * 2, SHEET.headerHeight);
-    ctx.fillStyle = "#2C3E50";
-    ctx.font = `bold ${11 * 4 / 3}px ${SHEET.font}`;
-    ctx.fillText(SHEET.names[party], x + SHEET.columnWidth, 10);
-    ctx.fillText(`(${formation.parties[party].filter(Boolean).length}명)`, x + SHEET.columnWidth, 26);
-    ctx.font = `${10 * 4 / 3}px ${SHEET.font}`;
-    ctx.fillStyle = "#000000";
+    ctx.fillStyle = SHEET.headerText;
+    ctx.textAlign = "center";
+    ctx.font = `bold 13px ${SHEET.font}`;
+    ctx.fillText(SHEET.names[party], x + SHEET.columnWidth, 15);
+    ctx.font = `11px ${SHEET.font}`;
+    ctx.globalAlpha = 0.75;
+    ctx.fillText(`(${formation.parties[party].filter(Boolean).length}명)`, x + SHEET.columnWidth, 29);
+    ctx.globalAlpha = 1;
+  }
+
+  // 줄마다 옅은 명암. 눈이 가로줄을 따라가기 쉬워진다.
+  ctx.fillStyle = SHEET.stripe;
+  for (let row = 1; row < rows; row += 2) {
+    ctx.fillRect(0, SHEET.headerHeight + row * SHEET.rowHeight, width, SHEET.rowHeight);
+  }
+
+  ctx.textAlign = "left";
+  // 픽셀로 그린 계열 마크는 늘리면 뭉개진다.
+  ctx.imageSmoothingEnabled = false;
+
+  for (let party = 0; party < 4; party++) {
     for (let row = 0; row < rows; row++) {
       for (let column = 0; column < 2; column++) {
         const member = formation.parties[party][row * 2 + column];
         if (!member) continue;
-        const label = memberLabel(member, showJobs);
-        ctx.font = `${10 * 4 / 3}px ${SHEET.font}`;
-        const textWidth = ctx.measureText(label).width;
-        if (textWidth > SHEET.columnWidth - 6) {
-          ctx.font = `${(10 * 4 / 3) * (SHEET.columnWidth - 6) / textWidth}px ${SHEET.font}`;
+        const left = (party * 2 + column) * SHEET.columnWidth;
+        const middle = SHEET.headerHeight + (row + 0.5) * SHEET.rowHeight;
+        const a = memberArt(member);
+        let textLeft = left + 5;
+
+        if (a) {
+          const icon = images.get(a.icon);
+          if (icon) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(icon, left + 5, middle - SHEET.iconSize / 2, SHEET.iconSize, SHEET.iconSize);
+            ctx.imageSmoothingEnabled = false;
+          }
+          if (a.mark) {
+            const mark = images.get(a.mark.src);
+            const cx = left + 5 + SHEET.iconSize - 1;
+            const cy = middle + SHEET.iconSize / 2 - 2;
+            const radius = SHEET.markSize / 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = SHEET.panel;
+            ctx.fill();
+            ctx.strokeStyle = a.mark.color;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            if (mark) {
+              ctx.save();
+              ctx.clip();
+              ctx.drawImage(mark, cx - 3.5, cy - 4, 7, 8);
+              ctx.restore();
+            }
+          }
+          textLeft = left + 5 + SHEET.iconSize + 6;
         }
-        const left = x + column * SHEET.columnWidth;
+
+        const label = memberLabel(member, showJobs);
+        const room = SHEET.columnWidth - (textLeft - left) - 5;
+        ctx.fillStyle = SHEET.text;
+        ctx.font = `12px ${SHEET.font}`;
+        const textWidth = ctx.measureText(label).width;
+        if (textWidth > room) ctx.font = `${Math.max(8, 12 * room / textWidth)}px ${SHEET.font}`;
         ctx.save();
         ctx.beginPath();
-        ctx.rect(left + 3, SHEET.headerHeight + row * SHEET.rowHeight, SHEET.columnWidth - 6, SHEET.rowHeight);
+        ctx.rect(textLeft, SHEET.headerHeight + row * SHEET.rowHeight, room, SHEET.rowHeight);
         ctx.clip();
-        ctx.fillText(label, left + SHEET.columnWidth / 2, SHEET.headerHeight + (row + 0.5) * SHEET.rowHeight);
+        ctx.fillText(label, textLeft, middle);
         ctx.restore();
       }
     }
   }
-  ctx.strokeStyle = "#000000";
+
+  // 격자와 테두리.
+  ctx.strokeStyle = SHEET.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let column = 0; column <= 8; column++) {
+  for (let column = 1; column < 8; column++) {
     const x = column * SHEET.columnWidth + 0.5;
-    ctx.moveTo(x, column % 2 === 0 ? 0 : SHEET.headerHeight);
+    ctx.moveTo(x, SHEET.headerHeight);
     ctx.lineTo(x, height);
   }
-  ctx.moveTo(0, 0.5);
-  ctx.lineTo(width, 0.5);
-  for (let row = 0; row <= rows; row++) {
+  for (let row = 1; row <= rows; row++) {
     const y = SHEET.headerHeight + row * SHEET.rowHeight + 0.5;
     ctx.moveTo(0, y);
     ctx.lineTo(width, y);
   }
   ctx.stroke();
+
+  ctx.strokeStyle = SHEET.border;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, width - 2, height - 2);
+  ctx.beginPath();
+  for (let column = 1; column < 4; column++) {
+    const x = column * SHEET.columnWidth * 2 + 0.5;
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, SHEET.headerHeight);
+  }
+  ctx.moveTo(0, SHEET.headerHeight + 0.5);
+  ctx.lineTo(width, SHEET.headerHeight + 0.5);
+  ctx.stroke();
+
   return new Promise((resolve, reject) => canvas.toBlob((blob) =>
     blob ? resolve(blob) : reject(new Error("이미지를 만들 수 없습니다.")), "image/png"));
 }

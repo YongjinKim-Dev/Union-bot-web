@@ -13,18 +13,33 @@
 .rosterInput { display: block; box-sizing: border-box; width: 100%; min-height: 348px; resize: vertical; border: 1px solid var(--color-hairline); background: var(--color-paper); color: var(--color-ink); padding: 12px 14px; font: 13px/1.7 var(--font-body); }
 .rosterInput:focus { outline: 1px solid var(--color-accent); }
 .sheetScroll { max-width: 100%; overflow-x: auto; padding-bottom: 2px; }
-.sheet { border-collapse: collapse; table-layout: fixed; width: 100%; min-width: 880px; background: #fff; color: #000; }
+
+/* 검은사막 UI 결을 따라간다. 이 표는 그대로 그림이 되어 디스코드에 올라간다. */
+.sheet { border-collapse: separate; border-spacing: 0; table-layout: fixed; width: 100%; min-width: 920px; background: #17130e; color: #ded5c4; border: 2px solid #6b5327; box-shadow: inset 0 0 0 1px #2b2318; }
 .sheet col { width: 12.5%; }
-.sheet th { box-sizing: border-box; height: var(--sheet-header); padding: 0; border: 1px solid #000; color: #2c3e50; font-size: 11pt; font-weight: 700; line-height: 16px; text-align: center; vertical-align: middle; }
-.sheet td { padding: 0; height: var(--sheet-row); border: 1px solid #000; background: #fff; text-align: center; vertical-align: middle; }
-.cell { display: block; width: 100%; height: var(--sheet-row); margin: 0; padding: 0 3px; border: 0; border-radius: 0; background: transparent; color: #000; font: 10pt/var(--sheet-row) Arial, "Malgun Gothic", sans-serif; text-align: center; white-space: nowrap; overflow: hidden; cursor: cell; user-select: none; touch-action: none; }
-.cell:focus-visible { outline: 2px solid #267c45; outline-offset: -2px; }
-.cell:hover { background: #f2f7f3; }
-.memberLabel { display: inline-block; }
-.nameInput { box-sizing: border-box; display: block; width: 100%; height: var(--sheet-row, 26px); min-width: 0; padding: 0 3px; margin: 0; border: 0; border-radius: 0; outline: 2px solid #267c45; outline-offset: -2px; background: #fff; color: #000; font: 10pt Arial, "Malgun Gothic", sans-serif; text-align: center; }
-.extraRow td { border-color: #c8c8c8; }
-.extraRow .cell { background: #fafafa; }
-.root [data-drop] { outline: 2px solid #267c45; outline-offset: -2px; background: #e5f2e9; }
+.sheet th { box-sizing: border-box; height: var(--sheet-header); padding: 0; background: linear-gradient(180deg, #3a2d18, #241c11); color: #e6c884; border-bottom: 2px solid #6b5327; border-right: 1px solid #4a3a1f; font-size: 12px; font-weight: 700; line-height: 1.3; text-align: center; vertical-align: middle; }
+.sheet th:last-child { border-right: 0; }
+.sheet th span { font-weight: 400; font-size: 10px; opacity: 0.75; }
+.sheet td { padding: 0; height: var(--sheet-row); border-bottom: 1px solid #2b2318; border-right: 1px solid #2b2318; vertical-align: middle; }
+.sheet td:last-child { border-right: 0; }
+.sheet tbody tr:nth-child(even) td { background: #1d1811; }
+
+/* 아이콘이 앞에 붙으므로 이름은 왼쪽으로 민다. 가운데 정렬이면 시작점이 들쭉날쭉해진다. */
+.cell { display: flex; align-items: center; gap: 6px; width: 100%; height: var(--sheet-row); margin: 0; padding: 0 5px; border: 0; border-radius: 0; background: transparent; color: inherit; font: 12px var(--font-body); text-align: left; white-space: nowrap; overflow: hidden; cursor: cell; user-select: none; touch-action: none; }
+.cell:focus-visible { outline: 2px solid #e6c884; outline-offset: -2px; }
+.cell:hover { background: #241d14; }
+.memberLabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* 직업 아이콘과 계열 배지. 배지 그림은 픽셀이라 늘리면 뭉개진다. */
+.art { position: relative; display: inline-flex; flex: none; }
+.icon { width: 18px; height: 18px; object-fit: contain; display: block; }
+.badge { position: absolute; right: -4px; bottom: -3px; width: 11px; height: 11px; border-radius: 50%; background: #17130e; border: 1px solid; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.badge img { image-rendering: pixelated; max-width: 7px; max-height: 8px; }
+
+.nameInput { box-sizing: border-box; display: block; width: 100%; height: var(--sheet-row, 26px); min-width: 0; padding: 0 5px; margin: 0; border: 0; border-radius: 0; outline: 2px solid #e6c884; outline-offset: -2px; background: #0f0c08; color: #f1e8d6; font: 12px var(--font-body); }
+.extraRow td { border-color: #231d15; }
+.root [data-drop] { outline: 2px solid #e6c884; outline-offset: -2px; background: #2a2114; }
+
 .root [data-dragging] { opacity: 0.4; cursor: grabbing; }
 .hint { margin: 10px 0 22px; color: var(--color-ink-faint); font-size: 11px; line-height: 1.6; }
 .waiting { padding: 14px; border: 1px dashed var(--color-hairline); }

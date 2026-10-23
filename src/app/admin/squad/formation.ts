@@ -1,3 +1,7 @@
+import { DEFAULT_CLASS_ICON, getClassIconPath } from "@/lib/classIconMap";
+import { getClassMark } from "@/lib/classMarkMap";
+import type { ClassType } from "@/lib/types";
+
 export interface SquadMember {
   id: string;
   name: string;
@@ -13,13 +17,57 @@ export interface Formation {
 
 export interface CellAddress { party: number; index: number }
 
+/*
+ * 칸에 붙는 직업 아이콘과 계열 마크.
+ *
+ * 명단에는 직업이 글자로만 들어오므로 그림은 여기서 찾는다. 직업 이름이 우리가
+ * 아는 32 개에 없으면 아무것도 붙이지 않는다 — 엉뚱한 그림을 붙이느니 글자만
+ * 두는 편이 낫다.
+ */
+export interface MemberArt {
+  icon: string;
+  mark: { src: string; color: string } | null;
+}
+
+const MARK_COLOR = { 전승: "#5b7fb5", 각성: "#b0555f", 기타: "#8d867c" };
+
+export function memberArt(member: SquadMember | null | undefined): MemberArt | null {
+  if (!member?.job) return null;
+  const icon = getClassIconPath(member.job);
+  if (icon === DEFAULT_CLASS_ICON) return null;
+  const type: ClassType =
+    member.awakening === "전승" ? "Succession" : member.awakening === "각성" ? "Awaken" : "Else";
+  const mark = getClassMark(member.job, type);
+  return {
+    icon,
+    mark: mark ? { src: mark.src, color: MARK_COLOR[member.awakening as keyof typeof MARK_COLOR] ?? MARK_COLOR.기타 } : null,
+  };
+}
+
+/*
+ * 부대표의 생김새.
+ *
+ * 어두운 판으로 둔 이유가 둘이다. 하나, 이 그림은 디스코드에 붙인다 — 거기가
+ * 어두우므로 밝은 표는 혼자 튄다. 둘, 직업 아이콘이 흰 선화라 어두운 바탕에서는
+ * 원본 그대로 얹힌다. 밝은 바탕이면 색을 뒤집는 처리가 한 겹 더 붙는다.
+ */
 export const SHEET = {
   names: ["1부대(본대)", "2부대(본대)", "3부대(수비)", "4부대(본대/기둥)"],
-  colors: ["#E8F4F8", "#F0F8E8", "#FFF8E8", "#F8E8F0"],
-  columnWidth: 140,
-  rowHeight: 22,
-  headerHeight: 35,
-  font: 'Arial, "Malgun Gothic", sans-serif',
+  columnWidth: 150,
+  iconSize: 18,
+  markSize: 11,
+  // 계열 배지가 알아볼 만한 크기로 들어가려면 22 로는 모자란다.
+  rowHeight: 26,
+  headerHeight: 40,
+  font: '"Malgun Gothic", Arial, sans-serif',
+  panel: "#17130e",
+  stripe: "#1d1811",
+  grid: "#2b2318",
+  border: "#6b5327",
+  headerTop: "#3a2d18",
+  headerBottom: "#241c11",
+  headerText: "#e6c884",
+  text: "#ded5c4",
 };
 
 export function emptyFormation(): Formation {
@@ -69,8 +117,12 @@ export function baseName(name: string): string {
  * 55 석짜리와 75 석짜리 두 벌뿐이라 그 사이가 비어 있었다. 60 명이 나오면 55
  * 석에 넣느라 다섯 명이, 69 명이면 열네 명이 말없이 미배치로 빠졌다. 그 구간이
  * 요즘 나오는 인원대와 그대로 겹친다. 이제 다 들어가는 쪽을 고른다.
+ *
+ * 100 인은 네 부대로 고르게 나눈다. 55·75 처럼 수비를 덜어 둔 모양이 따로 있으면
+ * 여기 숫자만 바꾸면 된다.
  */
 function partySizes(count: number): number[] {
+  if (count > 75) return [25, 25, 25, 25];
   if (count > 55) return [20, 20, 15, 20];
   if (count >= 50) return [15, 15, 14, 11];
   return Array.from({ length: 4 }, (_, i) => Math.floor(count / 4) + (i < count % 4 ? 1 : 0));
@@ -116,7 +168,9 @@ export function autoAssign(members: SquadMember[]): Formation {
     let party = 0;
     for (const member of members) {
       if (member.job !== job || assigned.has(member.id)) continue;
-      place(member, party, job === "샤이" || job === "자이언트" ? `(${job})` : "");
+      // 예전에는 (샤이)(자이언트)를 이름 뒤에 붙였다. 이제 아이콘이 직업을
+      // 보여주므로 같은 말을 두 번 하지 않는다.
+      place(member, party);
       party = (party + 1) % 4;
     }
   }
