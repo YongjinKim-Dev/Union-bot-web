@@ -54,12 +54,12 @@ export function memberArt(member: SquadMember | null | undefined): MemberArt | n
  */
 export const SHEET = {
   names: ["1부대(본대)", "2부대(본대)", "3부대(수비)", "4부대(본대/기둥)"],
-  columnWidth: 170,
+  columnWidth: 178,
   iconSize: 20,
   markSize: 12,
-  roleSize: 15,
+  roleSize: 20,
   // 직업 아이콘·계열 배지·역할 그림이 한 줄에 들어가야 한다.
-  rowHeight: 30,
+  rowHeight: 32,
   headerHeight: 44,
   font: '"Malgun Gothic", Arial, sans-serif',
   panel: "#17130e",

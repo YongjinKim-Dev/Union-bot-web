@@ -240,7 +240,7 @@ export function SquadTab() {
         {ROLES.map((role) => (
           <button key={role} type="button"
             className={selectedRole === role ? styles.roleOn : styles.roleButton}
-            onClick={() => applyRole(role)}><RoleIcon role={role} size={15} /> {role}</button>
+            onClick={() => applyRole(role)}><RoleIcon role={role} size={17} /> {role}</button>
         ))}
         <button type="button" className={styles.button} onClick={() => setSelected(null)}>고르기 취소</button>
       </div>
