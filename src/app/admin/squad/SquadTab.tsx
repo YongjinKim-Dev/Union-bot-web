@@ -2,7 +2,7 @@
 
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, moveMember, parseMembers, ROLES, setRole, SHEET, sheetRows, type CellAddress } from "./formation";
-import { formationImage } from "./image";
+import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
 import styles from "./squad.module.css";
 
@@ -48,7 +48,6 @@ export function SquadTab() {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [message, setMessage] = useState("");
   const [copying, setCopying] = useState(false);
-  const [showJobs, setShowJobs] = useState(false);
   /* 끌지 않고 두 번 눌러 옮긴다. 1부대에서 4부대까지 가로로 끌고 가는 것이
      폰에서도 트랙패드에서도 어려웠다. */
   const [selected, setSelected] = useState<string | null>(null);
@@ -75,7 +74,7 @@ export function SquadTab() {
     let active = true;
     void document.fonts.ready.then(() => { if (active) fitNames(); });
     return () => { active = false; observer.disconnect(); };
-  }, [formation, showJobs, editing]);
+  }, [formation, editing]);
 
   function assign() {
     const members = parseMembers(input);
@@ -132,20 +131,20 @@ export function SquadTab() {
   const selectedRole = selectedMember
     ? selectedMember.name.slice(baseName(selectedMember.name).length).replace(/[()]/g, "") : "";
 
-  async function copyImage() {
+  /* png 는 이미 시작된 약속이어야 한다. Safari 는 누름이 끝난 뒤에 시작한
+     쓰기를 막으므로, 부르는 쪽에서 미리 만들어 넘긴다. */
+  async function copyPng(png: Promise<Blob>, filename: string, done: string) {
     setCopying(true);
-    const png = formationImage(formation, showJobs);
     try {
       if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") throw new Error("clipboard");
-      // Safari에서도 사용자 클릭 권한이 유지되도록 await 전에 쓰기를 시작한다.
       await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
-      setMessage("부대표 이미지를 복사했습니다.");
+      setMessage(done);
     } catch {
       try {
         const url = URL.createObjectURL(await png);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "부대편성.png";
+        link.download = filename;
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         setMessage("이미지 복사를 사용할 수 없어 PNG 파일로 내려받았습니다.");
@@ -165,10 +164,12 @@ export function SquadTab() {
     <div className={styles.toolbar}>
       <h2>부대 편성 <span>{assignedCount}명</span></h2>
       <div className={styles.actions}>
-        <button type="button" className={styles.button} aria-pressed={showJobs} onClick={() => setShowJobs((previous) => !previous)}>
-          {showJobs ? "직업 표시 끄기" : "직업 표시 켜기"}
+        <button type="button" className={styles.button} disabled={copying}
+          onClick={() => copyPng(roleLegendImage(), "역할그림.png", "역할 그림을 복사했습니다.")}>
+          역할 그림 복사
         </button>
-        <button type="button" className={styles.button} onClick={copyImage} disabled={copying}>
+        <button type="button" className={styles.button} disabled={copying}
+          onClick={() => copyPng(formationImage(formation), "부대편성.png", "부대표 이미지를 복사했습니다.")}>
           {copying ? "복사 중…" : "이미지로 복사"}
         </button>
       </div>
@@ -187,7 +188,7 @@ export function SquadTab() {
           {formation.parties.flatMap((party, partyIndex) => [0, 1].map((column) => {
             const index = row * 2 + column;
             const member = party[index];
-            const label = memberLabel(member, showJobs);
+            const label = memberLabel(member);
             const key = `${partyIndex}:${index}`;
             const startEdit = (value = member?.name ?? "") => setEditing({ key, value, cell: { party: partyIndex, index } });
             return <td key={key}>

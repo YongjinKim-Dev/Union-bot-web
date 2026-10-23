@@ -113,13 +113,10 @@ export function setRole(formation: Formation, id: string, role: string | null): 
   };
 }
 
-export function memberLabel(member: SquadMember | null | undefined, showJobs: boolean): string {
+export function memberLabel(member: SquadMember | null | undefined): string {
   if (!member) return "";
-  // 역할은 이름 옆에 그림으로 붙으므로 글자로 또 적지 않는다.
-  const name = memberRole(member) ? baseName(member.name) : member.name;
-  if (!showJobs || !member.job) return name;
-  const specialization = member.awakening === "각성" ? "각·" : member.awakening === "전승" ? "전·" : "";
-  return `${name}(${specialization}${member.job})`;
+  // 직업도 역할도 그림으로 붙으므로 글자로 또 적지 않는다. 칸은 이름 몫이다.
+  return memberRole(member) ? baseName(member.name) : member.name;
 }
 
 export function parseMembers(input: string): SquadMember[] {

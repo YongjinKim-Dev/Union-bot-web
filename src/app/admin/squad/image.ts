@@ -1,4 +1,4 @@
-import { memberArt, memberLabel, memberRole, SHEET, sheetRows, type Formation } from "./formation";
+import { memberArt, memberLabel, memberRole, ROLES, SHEET, sheetRows, type Formation } from "./formation";
 import { roleIconDataUrl } from "./roleIcons";
 
 /*
@@ -27,7 +27,12 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
   return pending;
 }
 
-export async function formationImage(formation: Formation, showJobs = false): Promise<Blob> {
+function toPng(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => canvas.toBlob((blob) =>
+    blob ? resolve(blob) : reject(new Error("이미지를 만들 수 없습니다.")), "image/png"));
+}
+
+export async function formationImage(formation: Formation): Promise<Blob> {
   await document.fonts.ready;
   const rows = sheetRows(formation);
   const width = SHEET.columnWidth * 8;
@@ -133,7 +138,7 @@ export async function formationImage(formation: Formation, showJobs = false): Pr
         const role = memberRole(member);
         const roleRoom = role ? SHEET.roleSize + 4 : 0;
 
-        const label = memberLabel(member, showJobs);
+        const label = memberLabel(member);
         const room = SHEET.columnWidth - (textLeft - left) - 5 - roleRoom;
         ctx.fillStyle = SHEET.text;
         ctx.font = `${SHEET.fontSize}px ${SHEET.font}`;
@@ -186,6 +191,89 @@ export async function formationImage(formation: Formation, showJobs = false): Pr
   ctx.lineTo(width, SHEET.headerHeight + 0.5);
   ctx.stroke();
 
-  return new Promise((resolve, reject) => canvas.toBlob((blob) =>
-    blob ? resolve(blob) : reject(new Error("이미지를 만들 수 없습니다.")), "image/png"));
+  return toPng(canvas);
 }
+
+/*
+ * 역할 그림이 무엇을 뜻하는지 알려 주는 쪽지.
+ *
+ * 그림만 붙은 표를 처음 받아 보면 깃발이 불퇴인지 점령인지 알 수 없다. 표와
+ * 같은 색과 결로 그려서 디스코드에 나란히 올릴 수 있게 한다.
+ */
+const LEGEND = { columns: 5, cellWidth: 152, cellHeight: 56, headerHeight: 36, iconSize: 28, pad: 13 };
+
+export async function roleLegendImage(): Promise<Blob> {
+  await document.fonts.ready;
+  const rows = Math.ceil(ROLES.length / LEGEND.columns);
+  const width = LEGEND.cellWidth * LEGEND.columns;
+  const height = LEGEND.headerHeight + LEGEND.cellHeight * rows;
+
+  const sources = ROLES.map((role) => roleIconDataUrl(role, SHEET.text));
+  const drawn = await Promise.all(sources.map(loadImage));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width * 2;
+  canvas.height = height * 2;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("이미지를 만들 수 없습니다.");
+  ctx.scale(2, 2);
+  ctx.fillStyle = SHEET.panel;
+  ctx.fillRect(0, 0, width, height);
+  ctx.textBaseline = "middle";
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, LEGEND.headerHeight);
+  gradient.addColorStop(0, SHEET.headerTop);
+  gradient.addColorStop(1, SHEET.headerBottom);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, LEGEND.headerHeight);
+  ctx.fillStyle = SHEET.headerText;
+  ctx.textAlign = "center";
+  ctx.font = `bold 15px ${SHEET.font}`;
+  ctx.fillText("역할 그림", width / 2, LEGEND.headerHeight / 2 + 1);
+
+  ctx.fillStyle = SHEET.stripe;
+  for (let row = 1; row < rows; row += 2) {
+    ctx.fillRect(0, LEGEND.headerHeight + row * LEGEND.cellHeight, width, LEGEND.cellHeight);
+  }
+
+  ctx.textAlign = "left";
+  for (const [index, role] of ROLES.entries()) {
+    const left = (index % LEGEND.columns) * LEGEND.cellWidth;
+    const middle = LEGEND.headerHeight
+      + (Math.floor(index / LEGEND.columns) + 0.5) * LEGEND.cellHeight;
+    const image = drawn[index];
+    if (image) {
+      ctx.drawImage(image, left + LEGEND.pad, middle - LEGEND.iconSize / 2,
+        LEGEND.iconSize, LEGEND.iconSize);
+    }
+    ctx.fillStyle = SHEET.text;
+    ctx.font = `15px ${SHEET.font}`;
+    ctx.fillText(role, left + LEGEND.pad + LEGEND.iconSize + 11, middle + 1);
+  }
+
+  ctx.strokeStyle = SHEET.grid;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let column = 1; column < LEGEND.columns; column++) {
+    const x = column * LEGEND.cellWidth + 0.5;
+    ctx.moveTo(x, LEGEND.headerHeight);
+    ctx.lineTo(x, height);
+  }
+  for (let row = 1; row < rows; row++) {
+    const y = LEGEND.headerHeight + row * LEGEND.cellHeight + 0.5;
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = SHEET.border;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, width - 2, height - 2);
+  ctx.beginPath();
+  ctx.moveTo(0, LEGEND.headerHeight + 0.5);
+  ctx.lineTo(width, LEGEND.headerHeight + 0.5);
+  ctx.stroke();
+
+  return toPng(canvas);
+}
+
