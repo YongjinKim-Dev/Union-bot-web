@@ -1,6 +1,7 @@
 import { DEFAULT_CLASS_ICON, getClassIconPath } from "@/lib/classIconMap";
 import { getClassMark } from "@/lib/classMarkMap";
 import type { ClassType } from "@/lib/types";
+import { hasRoleIcon } from "./roleIcons";
 
 export interface SquadMember {
   id: string;
@@ -53,12 +54,13 @@ export function memberArt(member: SquadMember | null | undefined): MemberArt | n
  */
 export const SHEET = {
   names: ["1부대(본대)", "2부대(본대)", "3부대(수비)", "4부대(본대/기둥)"],
-  columnWidth: 150,
-  iconSize: 18,
-  markSize: 11,
-  // 계열 배지가 알아볼 만한 크기로 들어가려면 22 로는 모자란다.
-  rowHeight: 26,
-  headerHeight: 40,
+  columnWidth: 170,
+  iconSize: 20,
+  markSize: 12,
+  roleSize: 15,
+  // 직업 아이콘·계열 배지·역할 그림이 한 줄에 들어가야 한다.
+  rowHeight: 30,
+  headerHeight: 44,
   font: '"Malgun Gothic", Arial, sans-serif',
   panel: "#17130e",
   stripe: "#1d1811",
@@ -68,6 +70,7 @@ export const SHEET = {
   headerBottom: "#241c11",
   headerText: "#e6c884",
   text: "#ded5c4",
+  fontSize: 13,
 };
 
 export function emptyFormation(): Formation {
@@ -83,36 +86,16 @@ export function emptyFormation(): Formation {
 export const ROLES = ["오더", "빌더", "대포", "대포컷", "코끼리", "불퇴", "신기전", "화염탑", "수비", "중범선"];
 
 /*
- * 역할을 글자 대신 그림으로 보여 준다. 칸이 150px 뿐이라 "(대포컷)" 네 글자가
- * 이름을 밀어낸다. 그림은 한 글자 자리면 되고 멀리서도 구분된다.
- *
- * 그림 파일을 따로 두지 않고 이모지를 쓴다 — 받아 올 것이 없고, 화면과 복사한
- * 그림 양쪽에서 같은 글꼴로 그려진다. 버튼에도 같은 것이 붙어 금세 익는다.
- *
- * 어두운 판에 12px 로 그려지므로 밝기가 모양보다 중요하다. 검은 폭탄과 검은
- * 하트는 바탕에 묻혀 보이지 않아 밝은 것으로 바꿨다.
- *
- * 흑정은 버튼에서 뺐지만 자동 배치가 아직 붙이므로 그림은 남겨 둔다.
+ * 역할을 글자 대신 그림으로 보여 준다. 칸이 좁아 "(대포컷)" 네 글자가 이름을
+ * 밀어내기 때문이다. 그림은 roleIcons.ts 에 직접 그려 두었다 — 이모지에는
+ * 대포도 화차도 돛단배도 없다.
  */
-export const ROLE_ICON: Record<string, string> = {
-  오더: "🚩",
-  빌더: "🔨",
-  대포: "🧨",
-  대포컷: "✂️",
-  코끼리: "🐘",
-  불퇴: "🛡️",
-  신기전: "🎆",
-  화염탑: "🔥",
-  수비: "🏰",
-  중범선: "🚢",
-  흑정: "🔮",
-};
 
-/** 이름 뒤에 붙어 있는 역할. 우리가 아는 것만 역할로 본다. */
+/** 이름 뒤에 붙어 있는 역할. 그림이 있는 것만 역할로 본다. */
 export function memberRole(member: SquadMember | null | undefined): string | null {
   if (!member) return null;
   const tag = member.name.match(TRAILING_TAG)?.[1];
-  return tag && tag in ROLE_ICON ? tag : null;
+  return hasRoleIcon(tag) ? (tag as string) : null;
 }
 
 /** 역할만 갈아 끼운다. 같은 역할을 다시 누르면 뗀다. */

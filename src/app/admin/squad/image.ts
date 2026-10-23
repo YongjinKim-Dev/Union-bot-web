@@ -1,4 +1,5 @@
-import { memberArt, memberLabel, memberRole, ROLE_ICON, SHEET, sheetRows, type Formation } from "./formation";
+import { memberArt, memberLabel, memberRole, SHEET, sheetRows, type Formation } from "./formation";
+import { roleIconDataUrl } from "./roleIcons";
 
 /*
  * 부대표를 그림으로 그린다. 화면과 같은 모양이어야 하므로 색과 크기는 SHEET
@@ -34,9 +35,15 @@ export async function formationImage(formation: Formation, showJobs = false): Pr
 
   // 그릴 그림을 미리 다 받아 둔다. 그리는 도중에는 기다릴 수 없다.
   const art = formation.parties.flat().map((member) => memberArt(member));
-  await Promise.all(
-    art.flatMap((a) => (a ? [loadImage(a.icon), ...(a.mark ? [loadImage(a.mark.src)] : [])] : [])),
-  );
+  const roleSources = new Map<string, string>();
+  for (const member of formation.parties.flat()) {
+    const role = memberRole(member);
+    if (role && !roleSources.has(role)) roleSources.set(role, roleIconDataUrl(role, SHEET.text));
+  }
+  await Promise.all([
+    ...art.flatMap((a) => (a ? [loadImage(a.icon), ...(a.mark ? [loadImage(a.mark.src)] : [])] : [])),
+    ...[...roleSources.values()].map(loadImage),
+  ]);
   const images = new Map<string, HTMLImageElement | null>();
   for (const a of art) {
     if (!a) continue;
@@ -65,11 +72,11 @@ export async function formationImage(formation: Formation, showJobs = false): Pr
     ctx.fillRect(x, 0, SHEET.columnWidth * 2, SHEET.headerHeight);
     ctx.fillStyle = SHEET.headerText;
     ctx.textAlign = "center";
-    ctx.font = `bold 13px ${SHEET.font}`;
-    ctx.fillText(SHEET.names[party], x + SHEET.columnWidth, 15);
-    ctx.font = `11px ${SHEET.font}`;
+    ctx.font = `bold 14px ${SHEET.font}`;
+    ctx.fillText(SHEET.names[party], x + SHEET.columnWidth, 17);
+    ctx.font = `12px ${SHEET.font}`;
     ctx.globalAlpha = 0.75;
-    ctx.fillText(`(${formation.parties[party].filter(Boolean).length}명)`, x + SHEET.columnWidth, 29);
+    ctx.fillText(`(${formation.parties[party].filter(Boolean).length}명)`, x + SHEET.columnWidth, 32);
     ctx.globalAlpha = 1;
   }
 
@@ -124,15 +131,14 @@ export async function formationImage(formation: Formation, showJobs = false): Pr
 
         // 역할 그림은 오른쪽 끝에 고정한다. 이름이 길어 줄어들어도 이것은 남는다.
         const role = memberRole(member);
-        const roleIcon = role ? ROLE_ICON[role] : "";
-        const roleRoom = roleIcon ? 16 : 0;
+        const roleRoom = role ? SHEET.roleSize + 4 : 0;
 
         const label = memberLabel(member, showJobs);
         const room = SHEET.columnWidth - (textLeft - left) - 5 - roleRoom;
         ctx.fillStyle = SHEET.text;
-        ctx.font = `12px ${SHEET.font}`;
+        ctx.font = `${SHEET.fontSize}px ${SHEET.font}`;
         const textWidth = ctx.measureText(label).width;
-        if (textWidth > room) ctx.font = `${Math.max(8, 12 * room / textWidth)}px ${SHEET.font}`;
+        if (textWidth > room) ctx.font = `${Math.max(8, SHEET.fontSize * room / textWidth)}px ${SHEET.font}`;
         ctx.save();
         ctx.beginPath();
         ctx.rect(textLeft, SHEET.headerHeight + row * SHEET.rowHeight, room, SHEET.rowHeight);
@@ -140,11 +146,12 @@ export async function formationImage(formation: Formation, showJobs = false): Pr
         ctx.fillText(label, textLeft, middle);
         ctx.restore();
 
-        if (roleIcon) {
-          ctx.font = `12px ${SHEET.font}`;
-          ctx.textAlign = "right";
-          ctx.fillText(roleIcon, left + SHEET.columnWidth - 5, middle);
-          ctx.textAlign = "left";
+        if (role) {
+          const drawn = await loadImage(roleSources.get(role) as string);
+          if (drawn) {
+            ctx.drawImage(drawn, left + SHEET.columnWidth - 5 - SHEET.roleSize,
+              middle - SHEET.roleSize / 2, SHEET.roleSize, SHEET.roleSize);
+          }
         }
       }
     }

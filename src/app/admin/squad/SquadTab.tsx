@@ -1,9 +1,18 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, moveMember, parseMembers, ROLE_ICON, ROLES, setRole, SHEET, sheetRows, type CellAddress } from "./formation";
+import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, moveMember, parseMembers, ROLES, setRole, SHEET, sheetRows, type CellAddress } from "./formation";
 import { formationImage } from "./image";
+import { ROLE_ICON_PATH } from "./roleIcons";
 import styles from "./squad.module.css";
+
+/** 역할 그림. 직접 그린 것이라 글자색을 그대로 따라간다. */
+function RoleIcon({ role, size }: { role: string; size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false"
+      dangerouslySetInnerHTML={{ __html: ROLE_ICON_PATH[role] ?? "" }} />
+  );
+}
 
 function NameInput({ value, onCommit, onCancel }: {
   value: string; onCommit: (value: string) => void; onCancel: () => void;
@@ -216,7 +225,7 @@ export function SquadTab() {
                   <span className={styles.memberLabel} data-member-label>{label}</span>
                   {memberRole(member) && (
                     <span className={styles.role} title={memberRole(member) ?? ""}>
-                      {ROLE_ICON[memberRole(member) as string]}
+                      <RoleIcon role={memberRole(member) as string} size={SHEET.roleSize} />
                     </span>
                   )}</button>}
             </td>;
@@ -231,7 +240,7 @@ export function SquadTab() {
         {ROLES.map((role) => (
           <button key={role} type="button"
             className={selectedRole === role ? styles.roleOn : styles.roleButton}
-            onClick={() => applyRole(role)}>{ROLE_ICON[role]} {role}</button>
+            onClick={() => applyRole(role)}><RoleIcon role={role} size={15} /> {role}</button>
         ))}
         <button type="button" className={styles.button} onClick={() => setSelected(null)}>고르기 취소</button>
       </div>
