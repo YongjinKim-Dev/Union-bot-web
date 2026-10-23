@@ -74,10 +74,33 @@ export function emptyFormation(): Formation {
   return { parties: [[], [], [], []], waiting: [], rows: 10 };
 }
 
+/*
+ * 이름 뒤에 붙이는 역할. 직업이 아니라 그 사람이 맡은 일이라 아이콘으로는
+ * 드러나지 않는다. 손으로 글자를 치는 대신 눌러서 붙인다.
+ *
+ * 여기에 적힌 것만 붙일 수 있다. 늘리려면 이 줄에 더하면 된다.
+ */
+export const ROLES = ["오더", "빌더", "대포", "대포컷", "코끼리", "불퇴", "신기전", "화염탑", "흑정", "수비"];
+
+/** 역할만 갈아 끼운다. 같은 역할을 다시 누르면 뗀다. */
+export function setRole(formation: Formation, id: string, role: string | null): Formation {
+  const swap = (member: SquadMember) => {
+    const bare = baseName(member.name);
+    const current = member.name.match(TRAILING_TAG)?.[1];
+    return { ...member, name: role && role !== current ? `${bare}(${role})` : bare };
+  };
+  return {
+    ...formation,
+    parties: formation.parties.map((party) =>
+      party.map((member) => (member?.id === id ? swap(member) : member))),
+    waiting: formation.waiting.map((member) => (member.id === id ? swap(member) : member)),
+  };
+}
+
 export function memberLabel(member: SquadMember | null | undefined, showJobs: boolean): string {
   if (!member) return "";
   if (!showJobs || !member.job) return member.name;
-  const tag = member.name.match(/\((빌더|흑정|대포|대포컷|불퇴|신기전|화염탑|코끼리|수비|샤이|자이언트)\)$/);
+  const tag = member.name.match(/\((오더|빌더|흑정|대포|대포컷|불퇴|신기전|화염탑|코끼리|수비|샤이|자이언트)\)$/);
   if (tag && !["수비", "샤이", "자이언트"].includes(tag[1])) return member.name;
   const name = tag ? member.name.slice(0, -tag[0].length) : member.name;
   const specialization = member.awakening === "각성" ? "각·" : member.awakening === "전승" ? "전·" : "";
