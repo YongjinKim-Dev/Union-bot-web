@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMember, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type FormatKey } from "./formation";
+import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
+import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMember, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type FormatKey } from "./formation";
 import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
 import styles from "./squad.module.css";
@@ -51,9 +51,16 @@ export function SquadTab() {
   /* 판 크기. 자동은 온 인원으로 고르고, 직접 고르면 인원이 모자라도 그 판으로
      짠다 — 100 인 거점전인데 여든 명만 와도 여섯 부대로 세워 두는 일이 있다. */
   const [format, setFormat] = useState<FormatKey>("auto");
-  /* 끌지 않고 두 번 눌러 옮긴다. 1부대에서 4부대까지 가로로 끌고 가는 것이
-     폰에서도 트랙패드에서도 어려웠다. */
-  const [selected, setSelected] = useState<string | null>(null);
+  /* 고른 사람들. 눌러서 고르고 눌러서 보내는 길과 끌어다 놓는 길이 함께 산다.
+     가로로 멀리 끌고 가는 것이 폰에서도 트랙패드에서도 어려워 누르는 길을
+     남겼고, 마우스로는 끄는 편이 빠르다. */
+  const [selected, setSelected] = useState<string[]>([]);
+  /* 폰에는 Ctrl 이 없다. 켜 두면 누르는 것이 곧 고르기가 된다. */
+  const [multi, setMulti] = useState(false);
+  /* 끄는 동안 따라오는 사람들. 끌기가 아닌 평소에는 비어 있어야, 바깥에서
+     끌어온 파일 따위를 놓았을 때 엉뚱하게 사람이 움직이지 않는다. */
+  const [dragging, setDragging] = useState<string[]>([]);
+  const [dragOver, setDragOver] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const sheetScroll = useRef<HTMLDivElement>(null);
   const rows = sheetRows(formation);
@@ -88,6 +95,9 @@ export function SquadTab() {
     setFormation((previous) => next.names.length === previous.names.length
       ? { ...next, names: previous.names } : next);
     setEditing(null);
+    // 다시 짜면 자리가 통째로 바뀐다. 고른 채로 두면 엉뚱한 사람이 고른 것이 된다.
+    setSelected([]);
+    endDrag();
     /* 자리가 모자라 빠진 사람은 말해 준다. 미배치 칸에 조용히 쌓여 있으면
        그대로 넘어가 부대 없이 들어가는 사람이 생긴다. */
     setMessage(next.waiting.length
@@ -118,35 +128,81 @@ export function SquadTab() {
     setEditing(null);
   }
 
-  /** 고른 사람을 그 자리로 보낸다. 빈칸이면 이동, 사람이 있으면 자리 맞바꿈. */
+  const picked = new Set(selected);
+
+  function toggle(id: string) {
+    setSelected((previous) => previous.includes(id)
+      ? previous.filter((other) => other !== id) : [...previous, id]);
+  }
+
+  /** 고른 사람들을 그 자리로 보낸다. 한 명이면 자리 맞바꿈, 여럿이면 빈칸 채우기. */
   function place(target: CellAddress | null) {
-    if (!selected) return;
-    setFormation((previous) => moveMember(previous, selected, target));
-    setSelected(null);
+    if (!selected.length) return;
+    setFormation((previous) => moveMembers(previous, selected, target));
+    setSelected([]);
   }
 
   /** 칸을 눌렀을 때. 고른 것이 없으면 고르고, 있으면 그 자리로 보낸다. */
-  function tapCell(member: { id: string } | null | undefined, cell: CellAddress) {
+  function tapCell(member: { id: string } | null | undefined, cell: CellAddress,
+    event?: MouseEvent) {
     if (editing) return;
-    if (selected) {
-      if (selected === member?.id) { setSelected(null); return; }
+    const adding = multi || event?.ctrlKey || event?.metaKey || event?.shiftKey;
+    if (member && adding) { toggle(member.id); return; }
+    if (selected.length) {
+      if (selected.length === 1 && selected[0] === member?.id) { setSelected([]); return; }
       place(cell);
       return;
     }
-    if (member) setSelected(member.id);
+    if (member) setSelected([member.id]);
   }
 
+  /* 끌기. 고른 무리 안의 사람을 끌면 무리째 따라오고, 밖의 사람을 끌면 그
+     사람만 따라온다. 손에 뭘 들었는지 보이도록 고르기도 같이 맞춘다. */
+  function startDrag(event: DragEvent, id: string) {
+    const ids = picked.has(id) && selected.length > 1 ? selected : [id];
+    setDragging(ids);
+    setSelected(ids);
+    event.dataTransfer.effectAllowed = "move";
+    // 파이어폭스는 담은 것이 없으면 끌기를 시작조차 하지 않는다.
+    event.dataTransfer.setData("text/plain", ids.join(","));
+  }
+
+  function overDrop(event: DragEvent, key: string | null) {
+    if (!dragging.length) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragOver((previous) => (previous === key ? previous : key));
+  }
+
+  function drop(event: DragEvent, target: CellAddress | null) {
+    if (!dragging.length) return;
+    event.preventDefault();
+    const ids = dragging;
+    endDrag();
+    setFormation((previous) => moveMembers(previous, ids, target));
+    setSelected([]);
+  }
+
+  function endDrag() {
+    setDragging([]);
+    setDragOver(null);
+  }
+
+  const everyone = [...formation.parties.flat(), ...formation.waiting];
+  const selectedMembers = selected
+    .map((id) => everyone.find((m) => m?.id === id))
+    .filter((m): m is NonNullable<typeof m> => Boolean(m));
+
+  /** 고른 사람들에게 모두 붙어 있는 역할. 섞여 있으면 빈 값이다. */
+  const selectedRole = selectedMembers.length && selectedMembers.every((m) =>
+    memberRole(m) === memberRole(selectedMembers[0])) ? memberRole(selectedMembers[0]) ?? "" : "";
+
+  /* 이미 모두 달고 있는 역할을 다시 누르면 뗀다. 섞여 있으면 모두에게 붙인다. */
   function applyRole(role: string) {
-    if (!selected) return;
-    setFormation((previous) => setRole(previous, selected, role));
+    if (!selected.length) return;
+    const next = selectedRole === role ? null : role;
+    setFormation((previous) => selected.reduce((f, id) => setRole(f, id, next), previous));
   }
-
-  /** 지금 고른 사람에게 붙어 있는 역할. 같은 것을 다시 누르면 떼라고 알려 준다. */
-  const selectedMember = selected
-    ? [...formation.parties.flat(), ...formation.waiting].find((m) => m?.id === selected) ?? null
-    : null;
-  const selectedRole = selectedMember
-    ? selectedMember.name.slice(baseName(selectedMember.name).length).replace(/[()]/g, "") : "";
 
   /* png 는 이미 시작된 약속이어야 한다. Safari 는 누름이 끝난 뒤에 시작한
      쓰기를 막으므로, 부르는 쪽에서 미리 만들어 넘긴다. */
@@ -190,6 +246,8 @@ export function SquadTab() {
     <div className={styles.toolbar}>
       <h2>부대 편성 <span>{assignedCount}명</span></h2>
       <div className={styles.actions}>
+        <button type="button" className={styles.button} aria-pressed={multi}
+          onClick={() => setMulti((previous) => !previous)}>여러 명 고르기</button>
         <button type="button" className={styles.button} disabled={copying}
           onClick={() => copyPng(roleLegendImage(), "역할그림.png", "역할 그림을 복사했습니다.")}>
           역할 그림 복사
@@ -228,12 +286,19 @@ export function SquadTab() {
             return <td key={key}>
               {editing?.key === key ? <NameInput key={key} value={editing.value} onCommit={commit} onCancel={() => setEditing(null)} />
                 : <button type="button" className={styles.cell}
-                  data-picked={selected && selected === member?.id ? "" : undefined}
-                  data-target={selected && selected !== member?.id ? "" : undefined}
+                  draggable={Boolean(member)}
+                  onDragStart={(event) => member && startDrag(event, member.id)}
+                  onDragEnd={endDrag}
+                  onDragOver={(event) => overDrop(event, key)}
+                  onDragLeave={() => setDragOver((previous) => previous === key ? null : previous)}
+                  onDrop={(event) => drop(event, { party: partyIndex, index })}
+                  data-picked={member && picked.has(member.id) ? "" : undefined}
+                  data-target={selected.length && !(member && picked.has(member.id)) ? "" : undefined}
+                  data-over={dragOver === key ? "" : undefined}
                   aria-label={`${partyIndex + 1}부대 ${row + 1}행 ${column + 1}열: ${label || "빈칸"}`}
-                  aria-pressed={member ? selected === member.id : undefined}
-                  title={selected ? "눌러서 이 자리로" : label ? "눌러서 고르기" : ""}
-                  onClick={() => tapCell(member, { party: partyIndex, index })}
+                  aria-pressed={member ? picked.has(member.id) : undefined}
+                  title={selected.length ? "눌러서 이 자리로" : label ? "눌러서 고르기 · 끌어서 옮기기" : ""}
+                  onClick={(event) => tapCell(member, { party: partyIndex, index }, event)}
                   onKeyDown={(event) => {
                     if (event.key === "F2") { event.preventDefault(); startEdit(); }
                     else if ((event.key === "Delete" || event.key === "Backspace") && member) {
@@ -268,35 +333,45 @@ export function SquadTab() {
         </tr>)}</tbody>
       </table>
     </div>
-    {selectedMember ? (
+    {selectedMembers.length ? (
       <div className={styles.roleBar}>
-        <strong>{baseName(selectedMember.name)}</strong>
+        <strong>{selectedMembers.length === 1
+          ? baseName(selectedMembers[0].name) : `${selectedMembers.length}명`}</strong>
         <span className={styles.roleHint}>역할</span>
         {ROLES.map((role) => (
           <button key={role} type="button"
             className={selectedRole === role ? styles.roleOn : styles.roleButton}
             onClick={() => applyRole(role)}><RoleIcon role={role} size={17} /> {role}</button>
         ))}
-        <button type="button" className={styles.button} onClick={() => setSelected(null)}>고르기 취소</button>
+        <button type="button" className={styles.button} onClick={() => setSelected([])}>고르기 취소</button>
       </div>
     ) : (
       <p className={styles.hint}>
-        사람을 누르고 갈 자리를 누르면 옮겨집니다. 사람이 있는 자리면 서로 바뀝니다.
-        고른 사람에게는 역할을 붙일 수 있습니다. 칸에서 F2 로 이름 고치기, Delete 로 미배치.
+        사람을 누르고 갈 자리를 누르면 옮겨집니다. 끌어다 놓아도 됩니다. 사람이 있는 자리면 서로 바뀝니다.
+        Ctrl(⌘)이나 Shift 를 누른 채 고르면 여러 명을 한꺼번에 옮기고 역할도 한꺼번에 붙입니다.
+        폰에서는 「여러 명 고르기」를 켜세요. 칸에서 F2 로 이름 고치기, Delete 로 미배치.
       </p>
     )}
-    <section className={styles.waiting} data-target={selected ? "" : undefined} aria-label="미배치 인원"
-      onClick={(event) => { if (selected && event.target === event.currentTarget) place(null); }}>
+    <section className={styles.waiting} aria-label="미배치 인원"
+      data-target={selected.length ? "" : undefined} data-over={dragOver === "waiting" ? "" : undefined}
+      onDragOver={(event) => overDrop(event, "waiting")}
+      onDragLeave={() => setDragOver((previous) => previous === "waiting" ? null : previous)}
+      onDrop={(event) => drop(event, null)}
+      onClick={(event) => { if (selected.length && event.target === event.currentTarget) place(null); }}>
       <h3>미배치 <span>{formation.waiting.length}명</span>
-        {selected && <button type="button" className={styles.button} onClick={() => place(null)}>여기로 보내기</button>}
+        {selected.length > 0 && <button type="button" className={styles.button} onClick={() => place(null)}>여기로 보내기</button>}
       </h3>
       <div className={styles.waitingMembers}>
         {formation.waiting.map((member) => editing?.waitingId === member.id
           ? <NameInput key={member.id} value={editing.value} onCommit={commit} onCancel={() => setEditing(null)} />
           : <button key={member.id} type="button" className={styles.waitingMember}
-            data-picked={selected === member.id ? "" : undefined}
-            aria-pressed={selected === member.id}
-            onClick={() => setSelected((previous) => previous === member.id ? null : member.id)}
+            draggable onDragStart={(event) => startDrag(event, member.id)} onDragEnd={endDrag}
+            data-picked={picked.has(member.id) ? "" : undefined}
+            aria-pressed={picked.has(member.id)}
+            onClick={(event) => (multi || event.ctrlKey || event.metaKey || event.shiftKey)
+              ? toggle(member.id)
+              : setSelected((previous) =>
+                previous.length === 1 && previous[0] === member.id ? [] : [member.id])}
             onKeyDown={(event) => { if (event.key === "F2") {
               event.preventDefault(); setEditing({ key: `waiting-${member.id}`, waitingId: member.id, value: member.name });
             } }}>{member.name}</button>)}

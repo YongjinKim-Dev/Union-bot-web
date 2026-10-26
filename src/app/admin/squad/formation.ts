@@ -112,11 +112,17 @@ export function memberRole(member: SquadMember | null | undefined): string | nul
 }
 
 /** 역할만 갈아 끼운다. 같은 역할을 다시 누르면 뗀다. */
+/**
+ * 역할을 붙이거나(role) 뗀다(null).
+ *
+ * 같은 역할을 다시 눌러 떼는 것은 부르는 쪽이 정한다. 여럿을 한꺼번에 고쳐야
+ * 하는데 여기서 각자 토글해 버리면, 이미 붙은 사람은 떨어지고 안 붙은 사람만
+ * 붙어 반반으로 갈린다.
+ */
 export function setRole(formation: Formation, id: string, role: string | null): Formation {
   const swap = (member: SquadMember) => {
     const bare = baseName(member.name);
-    const current = member.name.match(TRAILING_TAG)?.[1];
-    return { ...member, name: role && role !== current ? `${bare}(${role})` : bare };
+    return { ...member, name: role ? `${bare}(${role})` : bare };
   };
   return {
     ...formation,
@@ -309,6 +315,44 @@ export function renameParty(formation: Formation, party: number, name: string): 
   const value = name.trim();
   if (!value) return formation;
   return { ...formation, names: formation.names.map((n, i) => (i === party ? value : n)) };
+}
+
+/*
+ * 여러 명을 한꺼번에 옮긴다.
+ *
+ * 한 명일 때는 자리를 맞바꾸지만, 여럿일 때는 바꾸지 않는다. 다섯 명을 끌어다
+ * 놓았는데 그 자리에 있던 다섯 명이 튕겨 나오면 어디로 갔는지 알 수 없다.
+ * 대신 놓은 자리부터 빈칸을 찾아 차례로 채운다.
+ */
+export function moveMembers(formation: Formation, ids: string[], target: CellAddress | null): Formation {
+  if (ids.length === 1) return moveMember(formation, ids[0], target);
+  const moving: SquadMember[] = [];
+  const taken = new Set(ids);
+  const parties = formation.parties.map((party) => party.map((member) => {
+    if (!member || !taken.has(member.id)) return member;
+    moving.push(member);
+    return null;
+  }));
+  const waiting = formation.waiting.filter((member) => {
+    if (!taken.has(member.id)) return true;
+    moving.push(member);
+    return false;
+  });
+  if (!moving.length) return formation;
+  if (!target) return { ...formation, parties, waiting: [...waiting, ...moving] };
+
+  /* 놓은 자리부터 인원수만큼 비어 있으면 거기 그대로 앉힌다. 누가 앉아 있으면
+     그 자리에 끼워 넣고 아래를 민다 — 빈칸만 찾아 흩어 놓으면 같이 보낸 무리가
+     부대 끝까지 뿔뿔이 흩어진다. */
+  const party = parties[target.party];
+  if (moving.every((_, offset) => !party[target.index + offset])) {
+    while (party.length < target.index + moving.length) party.push(null);
+    moving.forEach((member, offset) => { party[target.index + offset] = member; });
+  } else {
+    while (party.length < target.index) party.push(null);
+    party.splice(target.index, 0, ...moving);
+  }
+  return { ...formation, parties, waiting };
 }
 
 export function editCell(formation: Formation, target: CellAddress, name: string, id: string): Formation {
