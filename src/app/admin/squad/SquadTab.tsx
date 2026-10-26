@@ -4,6 +4,7 @@ import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, typ
 import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMember, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type FormatKey } from "./formation";
 import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
+import { TabGuide } from "../TabGuide";
 import styles from "./squad.module.css";
 
 /** 역할 그림. 직접 그린 것이라 글자색을 그대로 따라간다. */
@@ -57,6 +58,8 @@ export function SquadTab() {
   const [selected, setSelected] = useState<string[]>([]);
   /* 폰에는 Ctrl 이 없다. 켜 두면 누르는 것이 곧 고르기가 된다. */
   const [multi, setMulti] = useState(false);
+  /* 사용법. 탭 위쪽 ? 와 같은 글을 띄운다 — 손이 가 있는 자리에서 바로 열린다. */
+  const [helpOpen, setHelpOpen] = useState(false);
   /* 끄는 동안 따라오는 사람들. 끌기가 아닌 평소에는 비어 있어야, 바깥에서
      끌어온 파일 따위를 놓았을 때 엉뚱하게 사람이 움직이지 않는다. */
   const [dragging, setDragging] = useState<string[]>([]);
@@ -245,6 +248,9 @@ export function SquadTab() {
 
     <div className={styles.toolbar}>
       <h2>부대 편성 <span>{assignedCount}명</span></h2>
+      <button type="button" className={styles.helpBtn} onClick={() => setHelpOpen(true)}
+        title="부대편성 사용법 보기" aria-label="부대편성 사용법 보기">?</button>
+      {helpOpen && <TabGuide tab="부대편성" onClose={() => setHelpOpen(false)} />}
       <div className={styles.actions}>
         <button type="button" className={styles.button} aria-pressed={multi}
           onClick={() => setMulti((previous) => !previous)}>여러 명 고르기</button>
@@ -347,9 +353,10 @@ export function SquadTab() {
       </div>
     ) : (
       <p className={styles.hint}>
-        사람을 누르고 갈 자리를 누르면 옮겨집니다. 끌어다 놓아도 됩니다. 사람이 있는 자리면 서로 바뀝니다.
-        Ctrl(⌘)이나 Shift 를 누른 채 고르면 여러 명을 한꺼번에 옮기고 역할도 한꺼번에 붙입니다.
-        폰에서는 「여러 명 고르기」를 켜세요. 칸에서 F2 로 이름 고치기, Delete 로 미배치.
+        사람을 누르고 갈 자리를 누르면 옮겨집니다. 끌어다 놓아도 됩니다.
+        여러 명은 Ctrl(⌘)이나 Shift 를 누른 채, 폰에서는 「여러 명 고르기」로 고릅니다.
+        {" "}자세한 사용법은 <button type="button" className={styles.hintLink}
+          onClick={() => setHelpOpen(true)}>?</button> 를 누르세요.
       </p>
     )}
     <section className={styles.waiting} aria-label="미배치 인원"
