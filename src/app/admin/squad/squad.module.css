@@ -1,8 +1,13 @@
 .root { min-width: 0; color: var(--color-ink); }
-.inputHeader, .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.inputHeader, .toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; }
 .inputHeader label, .toolbar h2 { font-size: 15px; font-weight: 700; margin: 0; }
 .toolbar { margin-top: 28px; flex-wrap: wrap; }
-.actions { display: flex; gap: 8px; margin-left: auto; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.formatLabel { font-size: 12px; color: var(--color-ink-dim); }
+@media (max-width: 620px) {
+  .inputHeader, .toolbar { align-items: flex-start; gap: 10px; }
+  .actions { width: 100%; margin-left: 0; }
+}
 .toolbar h2 span, .waiting h3 span { margin-left: 8px; color: var(--color-ink-faint); font-size: 12px; font-weight: 400; }
 .button, .primary { padding: 8px 14px; border: 1px solid var(--color-hairline); background: transparent; color: var(--color-ink); font: 600 12.5px var(--font-body); cursor: pointer; }
 .primary { color: var(--color-accent-tint); background: var(--color-accent-deep); border-color: var(--color-accent-deep); }

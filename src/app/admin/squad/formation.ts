@@ -162,23 +162,58 @@ export function baseName(name: string): string {
 /*
  * 부대 정원.
  *
- * 55 석짜리와 75 석짜리 두 벌뿐이라 그 사이가 비어 있었다. 60 명이 나오면 55
- * 석에 넣느라 다섯 명이, 69 명이면 열네 명이 말없이 미배치로 빠졌다. 그 구간이
- * 요즘 나오는 인원대와 그대로 겹친다. 이제 다 들어가는 쪽을 고른다.
- *
- * 100 인은 여섯 부대로 나눈다. 부대 수는 이 배열의 길이가 정하므로, 다른 모양이
- * 필요하면 여기 숫자만 바꾸면 표와 그림이 따라온다.
+ * 부대 수는 이 배열의 길이가 정한다. 표도 복사 이미지도 여기를 따라오므로,
+ * 다른 판이 생기면 숫자만 더하면 된다.
  */
-function partySizes(count: number): number[] {
-  if (count > 75) return [17, 17, 17, 17, 16, 16];
-  if (count > 55) return [20, 20, 15, 20];
-  if (count >= 50) return [15, 15, 14, 11];
+const FORMAT_SIZES = {
+  "55": [15, 15, 14, 11],
+  "75": [20, 20, 15, 20],
+  "100": [17, 17, 17, 17, 16, 16],
+} as const;
+
+export const FORMATS = [
+  { key: "auto", label: "자동" },
+  { key: "55", label: "55인" },
+  { key: "75", label: "75인" },
+  { key: "100", label: "100인" },
+] as const;
+
+export type FormatKey = (typeof FORMATS)[number]["key"];
+
+/*
+ * 자동은 온 인원으로 판을 고른다.
+ *
+ * 55 석과 75 석 두 벌뿐이던 때는 그 사이가 비어 있었다. 60 명이 나오면 55 석에
+ * 넣느라 다섯 명이, 69 명이면 열네 명이 말없이 미배치로 빠졌다. 이제 다 들어가는
+ * 쪽을 고른다. 판을 직접 고르면 인원과 상관없이 그 판으로 짠다.
+ */
+/*
+ * 판보다 사람이 적게 왔을 때, 정원을 인원만큼 줄여 모든 부대에 고루 퍼뜨린다.
+ *
+ * 그냥 두면 앞 부대부터 정원까지 채우고 뒤는 통째로 빈다 — 100 인 판에 마흔
+ * 명이면 17·17·6 뒤로 세 부대가 빈칸이다. 비율은 그대로 두므로 수비 부대가
+ * 얇은 모양도 같이 따라 줄어든다.
+ */
+function fitSizes(sizes: number[], count: number): number[] {
+  const capacity = sizes.reduce((sum, size) => sum + size, 0);
+  if (count >= capacity) return sizes;
+  const scaled = sizes.map((size) => Math.floor(size * count / capacity));
+  let left = count - scaled.reduce((sum, size) => sum + size, 0);
+  for (let i = 0; left > 0; i = (i + 1) % sizes.length) { scaled[i] += 1; left -= 1; }
+  return scaled;
+}
+
+function partySizes(count: number, format: FormatKey): number[] {
+  if (format !== "auto") return fitSizes([...FORMAT_SIZES[format]], count);
+  if (count > 75) return [...FORMAT_SIZES["100"]];
+  if (count > 55) return [...FORMAT_SIZES["75"]];
+  if (count >= 50) return [...FORMAT_SIZES["55"]];
   return Array.from({ length: 4 }, (_, i) => Math.floor(count / 4) + (i < count % 4 ? 1 : 0));
 }
 
 // 첨부한 Google Apps Script의 고정 배치 → 직업 순환 배치 → 순차 배치 순서를 유지한다.
-export function autoAssign(members: SquadMember[]): Formation {
-  const sizes = partySizes(members.length);
+export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): Formation {
+  const sizes = partySizes(members.length, format);
   const parties: SquadMember[][] = sizes.map(() => []);
   const assigned = new Set<string>();
   function place(member: SquadMember, party: number, suffix = "") {

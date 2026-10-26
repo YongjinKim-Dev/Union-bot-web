@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, moveMember, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress } from "./formation";
+import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMember, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type FormatKey } from "./formation";
 import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
 import styles from "./squad.module.css";
@@ -48,6 +48,9 @@ export function SquadTab() {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [message, setMessage] = useState("");
   const [copying, setCopying] = useState(false);
+  /* 판 크기. 자동은 온 인원으로 고르고, 직접 고르면 인원이 모자라도 그 판으로
+     짠다 — 100 인 거점전인데 여든 명만 와도 여섯 부대로 세워 두는 일이 있다. */
+  const [format, setFormat] = useState<FormatKey>("auto");
   /* 끌지 않고 두 번 눌러 옮긴다. 1부대에서 4부대까지 가로로 끌고 가는 것이
      폰에서도 트랙패드에서도 어려웠다. */
   const [selected, setSelected] = useState<string | null>(null);
@@ -77,10 +80,10 @@ export function SquadTab() {
     return () => { active = false; observer.disconnect(); };
   }, [formation, editing]);
 
-  function assign() {
+  function assign(useFormat: FormatKey = format) {
     const members = parseMembers(input);
     if (!members.length) { setMessage("닉네임 / 직업 형식으로 명단을 입력해 주세요."); return; }
-    const next = autoAssign(members);
+    const next = autoAssign(members, useFormat);
     // 고쳐 둔 부대 이름은 다시 돌려도 남긴다. 부대 수가 달라지면 되돌린다.
     setFormation((previous) => next.names.length === previous.names.length
       ? { ...next, names: previous.names } : next);
@@ -89,7 +92,14 @@ export function SquadTab() {
        그대로 넘어가 부대 없이 들어가는 사람이 생긴다. */
     setMessage(next.waiting.length
       ? `${members.length}명 중 ${next.waiting.length}명이 자리가 없어 미배치로 갔습니다. 아래에서 옮겨 주세요.`
-      : `${members.length}명을 모두 배치했습니다.`);
+      : `${members.length}명을 ${next.parties.length}개 부대에 모두 배치했습니다.`);
+  }
+
+  /* 판을 고르면 그 자리에서 다시 짠다. 고르기만 하고 가만히 있으면 왜 안 바뀌나
+     하게 된다. 명단이 비어 있으면 고르기만 해 둔다. */
+  function pickFormat(next: FormatKey) {
+    setFormat(next);
+    if (parseMembers(input).length) assign(next);
   }
 
   function commit(value: string) {
@@ -162,7 +172,16 @@ export function SquadTab() {
   return <div ref={root} className={styles.root}>
     <div className={styles.inputHeader}>
       <label htmlFor="squad-members">명단 입력</label>
-      <button type="button" className={styles.primary} onClick={assign}>부대 자동 배치</button>
+      <div className={styles.actions}>
+        <span className={styles.formatLabel}>판 크기</span>
+        {FORMATS.map((option) => (
+          <button key={option.key} type="button" className={styles.button}
+            aria-pressed={format === option.key} onClick={() => pickFormat(option.key)}>
+            {option.label}
+          </button>
+        ))}
+        <button type="button" className={styles.primary} onClick={() => assign()}>부대 자동 배치</button>
+      </div>
     </div>
     <textarea id="squad-members" className={styles.rosterInput} value={input}
       onChange={(event) => setInput(event.target.value)} spellCheck={false}
