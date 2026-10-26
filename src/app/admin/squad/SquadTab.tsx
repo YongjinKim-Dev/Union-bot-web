@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
-import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMember, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type FormatKey } from "./formation";
+import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type FormatKey } from "./formation";
 import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
 import { TabGuide } from "../TabGuide";
@@ -308,7 +308,11 @@ export function SquadTab() {
                   onKeyDown={(event) => {
                     if (event.key === "F2") { event.preventDefault(); startEdit(); }
                     else if ((event.key === "Delete" || event.key === "Backspace") && member) {
-                      event.preventDefault(); setFormation((previous) => moveMember(previous, member.id, null));
+                      // 고른 무리 안의 사람을 지우면 무리째 미배치로 내려간다.
+                      event.preventDefault();
+                      const ids = picked.has(member.id) && selected.length > 1 ? selected : [member.id];
+                      setFormation((previous) => moveMembers(previous, ids, null));
+                      setSelected([]);
                     } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
                       event.preventDefault(); startEdit(event.key);
                     }
