@@ -220,14 +220,58 @@ function partySizes(count: number, format: FormatKey): number[] {
 // 첨부한 Google Apps Script의 고정 배치 → 직업 순환 배치 → 순차 배치 순서를 유지한다.
 export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): Formation {
   const sizes = partySizes(members.length, format);
-  const parties: SquadMember[][] = sizes.map(() => []);
+  const parties: (SquadMember | null)[][] = sizes.map(() => []);
   const assigned = new Set<string>();
-  function place(member: SquadMember, party: number, suffix = "") {
+  const filled = (party: number) => parties[party].filter(Boolean).length;
+  function placeAt(member: SquadMember, party: number, index: number, suffix = "") {
     // 이미 역할이 적혀 온 이름에 또 붙이면 "예니체리(대포)(대포)" 가 된다.
     const name = suffix ? baseName(member.name) + suffix : member.name;
-    parties[party].push({ ...member, name });
+    const list = parties[party];
+    while (list.length <= index) list.push(null);
+    list[index] = { ...member, name };
     assigned.add(member.id);
   }
+  /* 위에서부터 첫 빈칸. 아래에 박아 둔 사람을 덮지 않는다. */
+  function place(member: SquadMember, party: number, suffix = "") {
+    let index = 0;
+    while (parties[party][index]) index += 1;
+    placeAt(member, party, index, suffix);
+  }
+
+  /*
+   * 맨 아랫줄에 세우는 자리.
+   *
+   * 왼쪽은 위자치, 오른쪽은 샤이다. 여럿이면 밑에서 위로 쌓는다. 급할 때 눈이
+   * 가장 먼저 닿는 자리라 늘 같은 곳에 있어야 한다.
+   *
+   * 부대마다 정원이 달라도 표의 줄 수는 하나다. 그 마지막 줄을 모든 부대가
+   * 함께 쓰므로 가로로 줄이 맞는다 — 부대마다 제 정원의 바닥을 잡으면 정원이
+   * 적은 부대만 혼자 위로 떠서 한눈에 들어오지 않는다.
+   */
+  const rows = Math.max(1, Math.ceil(Math.max(...sizes) / 2));
+  function pinBottom(jobs: string[], column: 0 | 1) {
+    const pool = members.filter((m) => jobs.includes(m.job) && !assigned.has(m.id));
+    const slots: number[] = [];
+    for (let row = rows - 1; row >= 0; row -= 1) slots.push(row * 2 + column);
+    const used = sizes.map(() => 0);
+    let party = 0;
+    for (const member of pool) {
+      let placed = false;
+      for (let tries = 0; tries < sizes.length && !placed; tries += 1) {
+        // 이미 누가 앉아 있으면 한 줄 위로 올라간다.
+        while (used[party] < slots.length && parties[party][slots[used[party]]]) used[party] += 1;
+        if (used[party] < slots.length) {
+          placeAt(member, party, slots[used[party]]);
+          used[party] += 1;
+          placed = true;
+        }
+        party = (party + 1) % sizes.length;
+      }
+      // 어느 부대에도 자리가 없으면 나머지와 함께 순서대로 채워진다.
+      if (!placed) break;
+    }
+  }
+
   function fixed(name: string, party: number, suffix = "") {
     // 명단에 역할이 붙어 오거나 영문 대소문자가 달라도 같은 사람으로 본다.
     const key = name.toLowerCase();
@@ -253,7 +297,10 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
   for (const name of ["bingegrab", "멜루", "연등"]) fixed(name, 2, "(화염탑)");
   for (const name of ["이지선다", "Sha", "염궁문"]) fixed(name, 2, "(수비)");
 
-  for (const job of ["샤이", "위치", "위자드", "자이언트"]) {
+  pinBottom(["위자드", "위치"], 0);
+  pinBottom(["샤이"], 1);
+
+  for (const job of ["자이언트"]) {
     let party = 0;
     for (const member of members) {
       if (member.job !== job || assigned.has(member.id)) continue;
@@ -268,13 +315,13 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
   for (const member of members) {
     if (assigned.has(member.id)) continue;
     // 원본은 범위 검사보다 배열 접근이 먼저여서 정원 초과 시 예외가 발생한다.
-    while (party < sizes.length && parties[party].length >= sizes[party]) party++;
+    while (party < sizes.length && filled(party) >= sizes[party]) party++;
     if (party < sizes.length) place(member, party);
   }
   return {
     parties,
     waiting: members.filter((member) => !assigned.has(member.id)),
-    rows: Math.max(1, Math.ceil(Math.max(...sizes, ...parties.map((p) => p.length)) / 2)),
+    rows: Math.max(rows, ...parties.map((p) => Math.ceil(p.length / 2))),
     names: defaultNames(sizes.length),
   };
 }
