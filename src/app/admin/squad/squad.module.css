@@ -8,24 +8,15 @@
 /*
  * 같이 보고 있는 사람들의 얼굴.
  *
- * 표 오른쪽 위에 띄워 둔다. 머리글 줄에 글자로 늘어놓으면 사람이 늘수록 다른
- * 버튼을 밀어내고, 표를 내려 보는 동안에는 보이지도 않는다. 테두리 색은
- * 사람마다 달라서, 어느 칸이 누구 손에 바뀌었는지 색으로 이어진다.
+ * 표 바로 아래 오른쪽에 둔다. 표 위에 얹으면 머리글을 덮어 눌림까지 가로채고,
+ * 화면 구석에 두면 표를 보는 내내 시야 밖이었다. 아래는 아무것도 가리지 않아
+ * 이름까지 같이 적을 수 있다.
  */
-/*
- * 같이 보고 있는 사람들의 얼굴.
- *
- * 표 머리글 오른쪽 끝에 얹는다. 판에서 눈이 떠날 일이 없는 자리다 — 화면
- * 구석에 두었더니 표를 보는 내내 시야 밖이었다.
- *
- * 바탕도 테두리도 없이 얼굴만 띄우고, 눌림은 아래로 흘려 보낸다. 부대 이름을
- * 고치려고 머리글을 누를 때 얼굴이 가로채면 안 된다.
- */
-.viewerFloat { position: sticky; top: 4px; z-index: 3; display: flex; align-items: center; justify-content: flex-end; gap: 5px; height: 0; margin-right: 9px; pointer-events: none; }
-.viewerFloat > * { transform: translateY(13px); }
+.viewerBar { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin: 7px 2px 0; }
+.viewerNames { font-size: 11.5px; color: var(--color-ink-dim); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-accent); animation: pulse 2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-.face { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 2px solid var(--color-accent); border-radius: 50%; background: #17130e; box-shadow: 0 0 0 1px #0008; overflow: hidden; font: 700 11px var(--font-body); color: #e6c884; opacity: 0.88; }
+.face { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 2px solid var(--color-accent); border-radius: 50%; background: var(--color-surface); overflow: hidden; font: 700 11px var(--font-body); color: var(--color-ink); }
 .face img { width: 100%; height: 100%; object-fit: cover; display: block; }
 /* 관리자 탭 위쪽 ? 와 같은 모양. 손이 가 있는 자리에서도 열 수 있게 둔다. */
 .helpBtn { width: 24px; height: 24px; padding: 0; border: 1px solid var(--color-hairline); border-radius: 50%; background: transparent; color: var(--color-ink-dim); font: 600 13px/1 var(--font-body); cursor: pointer; }
@@ -111,7 +102,7 @@
 .waitingMembers .nameInput { width: 140px; }
 .message { min-height: 18px; font-size: 12px; margin: 12px 0 0; color: var(--color-ink-dim); }
 @media (max-width: 600px) { .hint { font-size: 10px; } .toolbar { margin-top: 22px; }
-  .viewerFloat { margin-right: 5px; } .face { width: 21px; height: 21px; } }
+  .viewerNames { display: none; } .face { width: 21px; height: 21px; } }
 @media (prefers-reduced-motion: reduce) {
   .dot { animation: none; }
   .cell[data-flash] { animation: none; outline: 2px solid #e6c884; outline-offset: -2px; }
