@@ -149,7 +149,10 @@ export function AdminConsole({ current, queue }: AdminConsoleProps) {
       {tab === "명단 비교" && <ComparisonTab />}
       {tab === "스펙조사" && <SpecTab />}
       {tab === "추첨" && <DrawTab />}
-      <div hidden={tab !== "부대편성"}><SquadTab /></div>
+      <div hidden={tab !== "부대편성"}>
+        {/* 회차가 바뀌면 판도 바뀐다. key 로 새로 마운트해 섞이지 않게 한다. */}
+        <SquadTab key={current?.id ?? "none"} surveyId={current?.id ?? null} />
+      </div>
       {tab === "거절 기록" && <FailureLogTab />}
       {tab === "참고 자료" && <ReferenceLogTab />}
       {tab === "참여 점검" && <AttendanceTab />}

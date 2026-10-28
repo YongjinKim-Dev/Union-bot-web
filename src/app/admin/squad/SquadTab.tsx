@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
-import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type FormatKey } from "./formation";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
+import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type Formation, type FormatKey, type SquadMember } from "./formation";
 import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
+import { boardVersionAction, loadBoardAction, saveBoardAction } from "./boardActions";
 import { TabGuide } from "../TabGuide";
 import styles from "./squad.module.css";
 
@@ -43,7 +44,12 @@ function NameInput({ value, onCommit, onCancel }: {
 
 type Editing = { key: string; value: string; cell?: CellAddress; waitingId?: string; headerParty?: number };
 
-export function SquadTab() {
+/** 몇 초마다 남이 고쳤는지 물어본다. 더 짧게 하면 얻는 것 없이 DB 만 두드린다. */
+const POLL_MS = 3000;
+/* 한 번 옮길 때마다 저장하면 끄는 동안에도 계속 날아간다. 손을 멈춘 뒤에 보낸다. */
+const SAVE_DELAY_MS = 900;
+
+export function SquadTab({ surveyId }: { surveyId: string | null }) {
   const [input, setInput] = useState("");
   const [formation, setFormation] = useState(emptyFormation);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -60,6 +66,12 @@ export function SquadTab() {
   const [multi, setMulti] = useState(false);
   /* 사용법. 탭 위쪽 ? 와 같은 글을 띄운다 — 손이 가 있는 자리에서 바로 열린다. */
   const [helpOpen, setHelpOpen] = useState(false);
+  /* 저장된 판의 번호. 0 은 아직 이 회차에 저장된 것이 없다는 뜻이다. */
+  const [version, setVersion] = useState(0);
+  const [saveState, setSaveState] = useState("");
+  /* 서버가 들고 있는 것으로 아는 판. 이것과 다를 때에만 저장한다 — 남이 고친
+     것을 받아 그린 뒤에 그대로 되돌려 보내는 일이 없어야 한다. */
+  const stored = useRef<string | null>(null);
   /* 끄는 동안 따라오는 사람들. 끌기가 아닌 평소에는 비어 있어야, 바깥에서
      끌어온 파일 따위를 놓았을 때 엉뚱하게 사람이 움직이지 않는다. */
   const [dragging, setDragging] = useState<string[]>([]);
@@ -89,6 +101,77 @@ export function SquadTab() {
     void document.fonts.ready.then(() => { if (active) fitNames(); });
     return () => { active = false; observer.disconnect(); };
   }, [formation, editing]);
+
+  /* 저장된 판을 받아 그린다. 골라 둔 사람은 그 판에도 있으면 그대로 둔다. */
+  const applyBoard = useCallback((data: string, nextVersion: number) => {
+    let next: Formation;
+    try { next = JSON.parse(data) as Formation; } catch { return; }
+    if (!Array.isArray(next?.parties)) return;
+    stored.current = data;
+    setVersion(nextVersion);
+    setFormation(next);
+    const alive = new Set([...next.parties.flat(), ...next.waiting]
+      .filter((m): m is SquadMember => Boolean(m)).map((m) => m.id));
+    setSelected((previous) => previous.filter((id) => alive.has(id)));
+  }, []);
+
+  /* 탭을 열 때 한 번. 회차가 바뀌면 AdminConsole 이 key 로 새로 마운트하므로
+     여기서 되돌릴 것이 없다. */
+  useEffect(() => {
+    if (!surveyId) return;
+    let alive = true;
+    void loadBoardAction(surveyId).then((board) => {
+      if (!alive || !board) return;
+      applyBoard(board.data, board.version);
+      setMessage(`저장해 둔 편성을 불러왔습니다. 마지막 수정: ${board.updatedBy ?? "알 수 없음"}.`);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [surveyId, applyBoard]);
+
+  /* 손을 멈추면 저장한다. 끄는 중이거나 이름을 고치는 중에는 기다린다 — 반쯤
+     옮긴 판을 남에게 보내 봐야 소용이 없다. */
+  useEffect(() => {
+    if (!surveyId || editing || dragging.length) return;
+    const data = JSON.stringify(formation);
+    if (data === stored.current) return;
+    /* 받아 오기 전의 빈 판은 보내지 않는다. 느린 날 저장된 판보다 먼저 닿으면
+       남이 짜 둔 것과 쓸데없이 부딪친다. */
+    if (stored.current === null && !assignedCount && !formation.waiting.length) return;
+    const timer = setTimeout(() => {
+      setSaveState("저장 중…");
+      void saveBoardAction(surveyId, data, version).then((result) => {
+        if (result.ok) {
+          stored.current = data;
+          setVersion(result.version);
+          setSaveState("저장됨");
+          return;
+        }
+        if (!result.board) { setSaveState("저장 실패"); return; }
+        // 사이에 남이 저장했다. 덮어쓰지 않고 그쪽으로 맞춘다.
+        applyBoard(result.board.data, result.board.version);
+        setSaveState("");
+        setMessage(`${result.board.updatedBy ?? "다른 사람"}님이 먼저 저장해 그 편성으로 맞췄습니다. 방금 한 것을 다시 해 주세요.`);
+      }).catch(() => setSaveState("저장 실패"));
+    }, SAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [surveyId, formation, assignedCount, version, editing, dragging.length, applyBoard]);
+
+  /* 남이 고쳤는지 번호만 물어본다. 내가 손대는 중이거나 아직 못 보낸 변경이
+     있으면 건드리지 않는다. */
+  useEffect(() => {
+    if (!surveyId) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      if (editing || dragging.length) return;
+      if (stored.current === null || JSON.stringify(formation) !== stored.current) return;
+      void boardVersionAction(surveyId).then(async (serverVersion) => {
+        if (serverVersion <= version) return;
+        const board = await loadBoardAction(surveyId);
+        if (board) applyBoard(board.data, board.version);
+      }).catch(() => {});
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [surveyId, formation, version, editing, dragging.length, applyBoard]);
 
   function assign(useFormat: FormatKey = format) {
     const members = parseMembers(input);
@@ -250,10 +333,18 @@ export function SquadTab() {
       <h2>부대 편성 <span>{assignedCount}명</span></h2>
       <button type="button" className={styles.helpBtn} onClick={() => setHelpOpen(true)}
         title="부대편성 사용법 보기" aria-label="부대편성 사용법 보기">?</button>
+      <span className={styles.saveState} role="status">
+        {!surveyId ? "이번 회차가 없어 저장되지 않습니다" : saveState}
+      </span>
       {helpOpen && <TabGuide tab="부대편성" onClose={() => setHelpOpen(false)} />}
       <div className={styles.actions}>
         <button type="button" className={styles.button} aria-pressed={multi}
           onClick={() => setMulti((previous) => !previous)}>여러 명 고르기</button>
+        <button type="button" className={styles.button} onClick={() => {
+          setFormation(emptyFormation());
+          setSelected([]); setEditing(null); endDrag();
+          setMessage("편성을 비웠습니다.");
+        }}>새로 짜기</button>
         <button type="button" className={styles.button} disabled={copying}
           onClick={() => copyPng(roleLegendImage(), "역할그림.png", "역할 그림을 복사했습니다.")}>
           역할 그림 복사

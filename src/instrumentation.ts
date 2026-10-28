@@ -16,4 +16,6 @@ export async function register() {
   await ensureBattleTables();
   const { ensureReferenceLogTable } = await import("@/lib/referenceLog");
   await ensureReferenceLogTable();
+  const { ensureSquadBoardTable } = await import("@/lib/squadBoardQueries");
+  await ensureSquadBoardTable();
 }
