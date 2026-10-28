@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type Formation, type FormatKey, type SquadMember } from "./formation";
 import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
-import { boardPulseAction, loadBoardAction, saveBoardAction } from "./boardActions";
+import { boardPulseAction, loadBoardAction, saveBoardAction, type Viewer } from "./boardActions";
 import { TabGuide } from "../TabGuide";
 import styles from "./squad.module.css";
 
@@ -48,6 +48,19 @@ type Editing = { key: string; value: string; cell?: CellAddress; waitingId?: str
 const POLL_MS = 3000;
 /* 한 번 옮길 때마다 저장하면 끄는 동안에도 계속 날아간다. 손을 멈춘 뒤에 보낸다. */
 const SAVE_DELAY_MS = 900;
+/*
+ * 사람마다 다른 색.
+ *
+ * 이름을 숫자로 접어 색상환의 한 자리를 고른다. 같은 사람은 어느 창에서든
+ * 같은 색이 나오고, 서버가 색을 들고 다닐 필요가 없다. 밝기와 진하기는
+ * 고정이라 어두운 표 위에서 다 비슷하게 읽힌다.
+ */
+function hueOf(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) hash = (hash * 31 + name.charCodeAt(i)) % 360;
+  return hash;
+}
+
 /* 회차에 묶이지 않는 임시판. 거점전이 끝나고 다음 회차가 아직 안 올라온 동안에도
    짜 둘 데가 있어야 한다. 회차 번호는 1 부터라 0 과 부딪치지 않는다. */
 const SCRATCH_ID = "0";
@@ -76,10 +89,12 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
   const [saveState, setSaveState] = useState("");
   /* 지금 같은 판을 보고 있는 사람들. 혼자인지 아닌지가 보여야 표가 혼자
      움직이는 것처럼 느껴지지 않는다. */
-  const [viewers, setViewers] = useState<string[]>([]);
+  const [viewers, setViewers] = useState<Viewer[]>([]);
   /* 남이 방금 건드린 칸. 잠깐 반짝였다 사라진다 — 무엇이 바뀌었는지 눈으로
      따라갈 수 있어야 한다. */
   const [flash, setFlash] = useState<Set<string>>(new Set());
+  /* 그 칸을 건드린 사람의 색. 한 번에 한 사람이 보내 온 것이라 하나면 된다. */
+  const [flashHue, setFlashHue] = useState(40);
   /* 서버가 들고 있는 것으로 아는 판. 이것과 다를 때에만 저장한다 — 남이 고친
      것을 받아 그린 뒤에 그대로 되돌려 보내는 일이 없어야 한다. */
   const stored = useRef<string | null>(null);
@@ -115,7 +130,7 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
 
   /* 저장된 판을 받아 그린다. 골라 둔 사람은 그 판에도 있으면 그대로 둔다.
      받기 직전의 판은 stored 가 들고 있으므로, 둘을 견줘 바뀐 칸을 찾아낸다. */
-  const applyBoard = useCallback((data: string, nextVersion: number) => {
+  const applyBoard = useCallback((data: string, nextVersion: number, by?: string | null) => {
     let next: Formation;
     try { next = JSON.parse(data) as Formation; } catch { return; }
     if (!Array.isArray(next?.parties)) return;
@@ -140,6 +155,7 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
     setVersion(nextVersion);
     setFormation(next);
     setFlash(changed);
+    if (by) setFlashHue(hueOf(by));
     const alive = new Set([...next.parties.flat(), ...next.waiting]
       .filter((m): m is SquadMember => Boolean(m)).map((m) => m.id));
     setSelected((previous) => previous.filter((id) => alive.has(id)));
@@ -184,7 +200,7 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
         }
         if (!result.board) { setSaveState("저장 실패"); return; }
         // 사이에 남이 저장했다. 덮어쓰지 않고 그쪽으로 맞춘다.
-        applyBoard(result.board.data, result.board.version);
+        applyBoard(result.board.data, result.board.version, result.board.updatedBy);
         setSaveState("");
         setMessage(`${result.board.updatedBy ?? "다른 사람"}님이 먼저 저장해 그 편성으로 맞췄습니다. 방금 한 것을 다시 해 주세요.`);
       }).catch(() => setSaveState("저장 실패"));
@@ -206,7 +222,7 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
         if (serverVersion <= version) return;
         const board = await loadBoardAction(boardId);
         if (!board) return;
-        applyBoard(board.data, board.version);
+        applyBoard(board.data, board.version, board.updatedBy);
         setMessage(`${board.updatedBy ?? "다른 사람"}님이 편성을 바꿨습니다.`);
       }).catch(() => {});
     }, POLL_MS);
@@ -376,12 +392,7 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
       <span className={styles.saveState} role="status">
         {surveyId ? saveState : `임시판${saveState ? ` · ${saveState}` : ""}`}
       </span>
-      {viewers.length > 0 && (
-        <span className={styles.viewers} title="지금 같은 편성을 보고 있는 사람">
-          <span className={styles.dot} aria-hidden="true" />
-          {viewers.join(", ")} 같이 보는 중
-        </span>
-      )}
+
       {helpOpen && <TabGuide tab="부대편성" onClose={() => setHelpOpen(false)} />}
       <div className={styles.actions}>
         <button type="button" className={styles.button} aria-pressed={multi}
@@ -401,10 +412,23 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
         </button>
       </div>
     </div>
+    {viewers.length > 0 && (
+      <div className={styles.viewerFloat} aria-label="지금 같이 보고 있는 사람">
+        <span className={styles.dot} aria-hidden="true" />
+        {viewers.map((viewer) => (
+          <span key={viewer.name} className={styles.face} title={`${viewer.name} 같이 보는 중`}
+            style={{ borderColor: `hsl(${hueOf(viewer.name)} 72% 58%)` }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- 디스코드 CDN 의 작은 사진이라 최적화할 것이 없다. */}
+            {viewer.avatar ? <img src={viewer.avatar} alt="" /> : viewer.name.slice(0, 1)}
+          </span>
+        ))}
+      </div>
+    )}
     <div ref={sheetScroll} className={styles.sheetScroll}>
       <table className={styles.sheet} aria-label="부대 편성표" style={{
         "--sheet-column": `${SHEET.columnWidth}px`, "--sheet-row": `${SHEET.rowHeight}px`,
         "--sheet-header": `${SHEET.headerHeight}px`, "--sheet-min": `${columns * 138}px`,
+        "--flash": `hsl(${flashHue} 62% 36%)`, "--flash-soft": `hsla(${flashHue}, 62%, 36%, 0.42)`,
         fontFamily: SHEET.font,
       } as CSSProperties}>
         <colgroup>{Array.from({ length: columns }, (_, i) =>

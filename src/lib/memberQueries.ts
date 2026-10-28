@@ -33,6 +33,19 @@ export function avatarUrl(discordId: string, hash: string | null): string {
   return `https://cdn.discordapp.com/avatars/${discordId}/${hash}.${hash.startsWith("a_") ? "gif" : "png"}?size=64`;
 }
 
+/** 한 사람의 프로필 사진 주소. 사진을 올리지 않았으면 디스코드 기본 그림이다. */
+export async function memberAvatar(discordId: string): Promise<string> {
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT discord_avatar FROM user WHERE user_discord_id = ?",
+      [discordId],
+    );
+    return avatarUrl(discordId, (rows[0]?.discord_avatar as string | null) ?? null);
+  } catch {
+    return defaultAvatarUrl(discordId);
+  }
+}
+
 /*
  * 로그인할 때 한 번 적어 둔다. 매 요청마다 쓰면 로그인한 사람 수만큼 쓰기가
  * 늘어나므로, 디스코드가 프로필을 함께 주는 최초 로그인에서만 부른다.

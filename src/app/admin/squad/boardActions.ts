@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
+import { memberAvatar } from "@/lib/memberQueries";
 import {
   getSquadBoard, getSquadBoardVersion, saveSquadBoard, type SaveResult,
 } from "@/lib/squadBoardQueries";
@@ -9,7 +10,11 @@ import {
 async function admin() {
   const session = await auth();
   if (!session?.user?.isAdmin) return null;
-  return { id: session.user.dbUserId ?? null, nickname: session.user.nickname ?? null };
+  return {
+    id: session.user.dbUserId ?? null,
+    discordId: session.user.discordId ?? null,
+    nickname: session.user.nickname ?? null,
+  };
 }
 
 export interface BoardSnapshot {
@@ -38,12 +43,20 @@ export async function loadBoardAction(surveyId: string): Promise<BoardSnapshot |
  * 뜨면 비는 편이 오히려 맞다 — 그때는 아무도 안 보고 있는 것이 맞으므로.
  */
 const VIEWER_TTL_MS = 12000;
-const viewers = new Map<string, Map<string, { name: string; at: number }>>();
+
+export interface Viewer {
+  name: string;
+  avatar: string;
+}
+
+const viewers = new Map<string, Map<string, Viewer & { at: number }>>();
+/* 사진 주소는 사람마다 한 번만 찾는다. 3 초마다 DB 를 두드릴 일이 아니다. */
+const faces = new Map<string, string>();
 
 export interface BoardPulse {
   version: number;
   /** 나를 뺀, 지금 같은 판을 보고 있는 사람들. */
-  viewers: string[];
+  viewers: Viewer[];
 }
 
 export async function boardPulseAction(surveyId: string): Promise<BoardPulse> {
@@ -51,13 +64,20 @@ export async function boardPulseAction(surveyId: string): Promise<BoardPulse> {
   if (!who) return { version: 0, viewers: [] };
   const me = who.id ?? "?";
   const now = Date.now();
+
+  let face = faces.get(me);
+  if (face === undefined && who.discordId) {
+    face = await memberAvatar(who.discordId);
+    faces.set(me, face);
+  }
+
   let board = viewers.get(surveyId);
   if (!board) { board = new Map(); viewers.set(surveyId, board); }
-  board.set(me, { name: who.nickname ?? "누군가", at: now });
-  const here: string[] = [];
+  board.set(me, { name: who.nickname ?? "누군가", avatar: face ?? "", at: now });
+  const here: Viewer[] = [];
   for (const [id, seen] of board) {
     if (now - seen.at > VIEWER_TTL_MS) board.delete(id);
-    else if (id !== me) here.push(seen.name);
+    else if (id !== me) here.push({ name: seen.name, avatar: seen.avatar });
   }
   return { version: await getSquadBoardVersion(surveyId), viewers: here };
 }
