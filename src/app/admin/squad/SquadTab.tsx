@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
-import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type Formation, type FormatKey, type SquadMember } from "./formation";
+import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, mergeFormations, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type Formation, type FormatKey, type SquadMember } from "./formation";
 import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
 import { boardPulseAction, loadBoardAction, saveBoardAction, type Viewer } from "./boardActions";
@@ -61,6 +61,14 @@ function hueOf(name: string): number {
   return hash;
 }
 
+/* 남의 판 위에 내 변경만 다시 얹는다. 둘을 견줄 바탕(base)이 없으면 포기한다. */
+function mergeOnto(base: string | null, mine: Formation, theirs: string): Formation | undefined {
+  if (base === null) return undefined;
+  try {
+    return mergeFormations(JSON.parse(base) as Formation, mine, JSON.parse(theirs) as Formation);
+  } catch { return undefined; }
+}
+
 /* 회차에 묶이지 않는 임시판. 거점전이 끝나고 다음 회차가 아직 안 올라온 동안에도
    짜 둘 데가 있어야 한다. 회차 번호는 1 부터라 0 과 부딪치지 않는다. */
 const SCRATCH_ID = "0";
@@ -102,11 +110,27 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
      끌어온 파일 따위를 놓았을 때 엉뚱하게 사람이 움직이지 않는다. */
   const [dragging, setDragging] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState<string | null>(null);
+  /* 저장은 한 번에 하나만 나간다. 겹쳐 보내면 두 번째가 첫 번째가 받아 올
+     새 번호를 모른 채 옛 번호로 나가 제 저장과 부딪친다. */
+  const saving = useRef(false);
+  /* 저장이 끝날 때마다 하나 오른다. 보내는 중이라 미뤘던 저장을 다시 깨운다. */
+  const [savePass, setSavePass] = useState(0);
+  /*
+   * 지금 화면이 들고 있는 것. 3 초마다 도는 시계가 state 가 아니라 이것을 본다.
+   *
+   * state 를 보면 사람을 하나 옮길 때마다 시계를 새로 걸어야 하고, 그러면 3 초가
+   * 처음부터 다시 시작된다. 한창 짜는 사람은 그 3 초를 한 번도 넘기지 못해 남이
+   * 저장한 것을 영원히 받지 못했고, 제 판 번호가 옛것에 멈춘 채로 저장해 매번
+   * 부딪쳤다 — 가만히 보고 있는 쪽만 늘 이기는 판이었다.
+   */
+  const live = useRef({ formation, version, editing, dragging });
   const root = useRef<HTMLDivElement>(null);
   const sheetScroll = useRef<HTMLDivElement>(null);
   const rows = sheetRows(formation);
   const columns = formation.parties.length * 2;
   const assignedCount = formation.parties.reduce((sum, party) => sum + party.filter(Boolean).length, 0);
+
+  useEffect(() => { live.current = { formation, version, editing, dragging }; });
 
   useLayoutEffect(() => {
     const sheet = sheetScroll.current;
@@ -129,8 +153,12 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
   }, [formation, editing]);
 
   /* 저장된 판을 받아 그린다. 골라 둔 사람은 그 판에도 있으면 그대로 둔다.
-     받기 직전의 판은 stored 가 들고 있으므로, 둘을 견줘 바뀐 칸을 찾아낸다. */
-  const applyBoard = useCallback((data: string, nextVersion: number, by?: string | null) => {
+     받기 직전의 판은 stored 가 들고 있으므로, 둘을 견줘 바뀐 칸을 찾아낸다.
+
+     show 를 주면 받은 판 대신 그것을 그린다 — 남의 것과 내 것을 합친 판이다.
+     서버가 들고 있는 것으로 아는 판(stored)은 어느 쪽이든 받은 그대로 둔다. */
+  const applyBoard = useCallback((data: string, nextVersion: number, by?: string | null,
+    show?: Formation) => {
     let next: Formation;
     try { next = JSON.parse(data) as Formation; } catch { return; }
     if (!Array.isArray(next?.parties)) return;
@@ -153,10 +181,11 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
 
     stored.current = data;
     setVersion(nextVersion);
-    setFormation(next);
+    const board = show ?? next;
+    setFormation(board);
     setFlash(changed);
     if (by) setFlashHue(hueOf(by));
-    const alive = new Set([...next.parties.flat(), ...next.waiting]
+    const alive = new Set([...board.parties.flat(), ...board.waiting]
       .filter((m): m is SquadMember => Boolean(m)).map((m) => m.id));
     setSelected((previous) => previous.filter((id) => alive.has(id)));
   }, []);
@@ -183,13 +212,14 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
   /* 손을 멈추면 저장한다. 끄는 중이거나 이름을 고치는 중에는 기다린다 — 반쯤
      옮긴 판을 남에게 보내 봐야 소용이 없다. */
   useEffect(() => {
-    if (editing || dragging.length) return;
+    if (editing || dragging.length || saving.current) return;
     const data = JSON.stringify(formation);
     if (data === stored.current) return;
     /* 받아 오기 전의 빈 판은 보내지 않는다. 느린 날 저장된 판보다 먼저 닿으면
        남이 짜 둔 것과 쓸데없이 부딪친다. */
     if (stored.current === null && !assignedCount && !formation.waiting.length) return;
     const timer = setTimeout(() => {
+      saving.current = true;
       setSaveState("저장 중…");
       void saveBoardAction(boardId, data, version).then((result) => {
         if (result.ok) {
@@ -199,17 +229,26 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
           return;
         }
         if (!result.board) { setSaveState("저장 실패"); return; }
-        // 사이에 남이 저장했다. 덮어쓰지 않고 그쪽으로 맞춘다.
-        applyBoard(result.board.data, result.board.version, result.board.updatedBy);
+        /* 사이에 남이 저장했다. 그쪽 판에 내가 옮긴 사람만 다시 얹는다.
+           그냥 덮으면 남이 방금 옮긴 사람이, 그쪽으로 맞추기만 하면 내가 방금
+           옮긴 사람이 소리 없이 제자리로 돌아간다. 합친 판은 아래 저장이 한 번
+           더 돌며 그대로 올라간다. */
+        const merged = mergeOnto(stored.current, live.current.formation, result.board.data);
+        applyBoard(result.board.data, result.board.version, result.board.updatedBy, merged);
         setSaveState("");
-        setMessage(`${result.board.updatedBy ?? "다른 사람"}님이 먼저 저장해 그 편성으로 맞췄습니다. 방금 한 것을 다시 해 주세요.`);
-      }).catch(() => setSaveState("저장 실패"));
+        setMessage(merged
+          ? `${result.board.updatedBy ?? "다른 사람"}님이 같은 때에 고쳐 둘을 합쳤습니다.`
+          : `${result.board.updatedBy ?? "다른 사람"}님이 먼저 저장해 그 편성으로 맞췄습니다.`);
+      }).catch(() => setSaveState("저장 실패"))
+        .finally(() => { saving.current = false; setSavePass((pass) => pass + 1); });
     }, SAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [boardId, formation, assignedCount, version, editing, dragging.length, applyBoard]);
+  }, [boardId, formation, assignedCount, version, editing, dragging.length, savePass, applyBoard]);
 
   /* 남이 고쳤는지 번호만 물어본다. 내가 손대는 중이거나 아직 못 보낸 변경이
-     있으면 건드리지 않는다. */
+     있으면 받아 가지 않는다 — 곧 나갈 저장이 그 자리에서 합쳐 준다.
+     시계는 판이 바뀌어도 그대로 돈다. 바뀔 때마다 새로 걸면 손이 바쁜 동안
+     3 초가 영원히 다시 시작된다. */
   useEffect(() => {
     const timer = setInterval(() => {
       if (document.visibilityState !== "visible") return;
@@ -217,9 +256,16 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
          동안 남의 화면에서 내가 사라진다. 판을 받아 가는 것만 미룬다. */
       void boardPulseAction(boardId).then(async ({ version: serverVersion, viewers: here }) => {
         setViewers(here);
-        if (editing || dragging.length) return;
-        if (stored.current === null || JSON.stringify(formation) !== stored.current) return;
-        if (serverVersion <= version) return;
+        const now = live.current;
+        if (now.editing || now.dragging.length || saving.current) return;
+        if (serverVersion <= now.version) return;
+        /* 아직 아무것도 저장되지 않았던 판이면 stored 가 비어 있다. 그때는
+           내가 짜 둔 것이 있는지로 가린다 — 비어 있다고 영원히 안 받으면,
+           먼저 열어 둔 사람은 남이 첫 저장을 해도 끝까지 못 본다. */
+        const unsent = stored.current === null
+          ? now.formation.parties.some((party) => party.some(Boolean)) || now.formation.waiting.length > 0
+          : JSON.stringify(now.formation) !== stored.current;
+        if (unsent) return;
         const board = await loadBoardAction(boardId);
         if (!board) return;
         applyBoard(board.data, board.version, board.updatedBy);
@@ -227,7 +273,8 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
       }).catch(() => {});
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [boardId, formation, version, editing, dragging.length, applyBoard]);
+  }, [boardId, applyBoard]);
+
 
   function assign(useFormat: FormatKey = format) {
     const members = parseMembers(input);

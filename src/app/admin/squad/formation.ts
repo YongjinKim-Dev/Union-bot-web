@@ -412,3 +412,90 @@ export function editCell(formation: Formation, target: CellAddress, name: string
     : { id, name: value, job: "", awakening: "" };
   return { ...formation, parties };
 }
+
+/** 사람이 앉아 있는 자리. 미배치는 칸 번호가 없어 따로 적는다. */
+type Place = { party: number; index: number } | "waiting";
+
+function places(formation: Formation): Map<string, Place> {
+  const map = new Map<string, Place>();
+  formation.parties.forEach((party, p) => party.forEach((member, index) => {
+    if (member) map.set(member.id, { party: p, index });
+  }));
+  formation.waiting.forEach((member) => map.set(member.id, "waiting"));
+  return map;
+}
+
+function roster(formation: Formation): Map<string, SquadMember> {
+  const map = new Map<string, SquadMember>();
+  for (const member of [...formation.parties.flat(), ...formation.waiting]) {
+    if (member) map.set(member.id, member);
+  }
+  return map;
+}
+
+function samePlace(a: Place | null, b: Place | null): boolean {
+  if (!a || !b || a === "waiting" || b === "waiting") return a === b;
+  return a.party === b.party && a.index === b.index;
+}
+
+/*
+ * 둘이 같은 때에 고친 판을 하나로 합친다.
+ *
+ * base 는 내가 보고 고치기 시작한 판, mine 은 지금 내 화면, theirs 는 그 사이
+ * 남이 저장해 둔 판이다. 사람마다 "내가 옮겼는지" 만 본다 — base 에서 자리가
+ * 달라진 사람은 내 자리로, 손대지 않은 사람은 남의 자리로 간다. 그래서 서로
+ * 다른 사람을 옮겼으면 둘 다 살고, 같은 사람을 옮겼을 때에만 내 것이 남는다.
+ *
+ * 한쪽을 통째로 버리던 때는 늦게 저장한 쪽이 방금 한 일을 매번 잃었다. 둘이
+ * 같이 짜면 한 사람은 계속 "다시 해 주세요" 만 보게 되어 있었다.
+ *
+ * 양쪽이 서로 자기 것을 남겨 판이 갈리지만, "내가 옮긴 사람" 은 저장이 통하는
+ * 순간 비워진다. 그래서 손을 멈추면 한 판으로 모인다 — 늦어도 한 번 더 저장될
+ * 때까지다.
+ */
+export function mergeFormations(base: Formation, mine: Formation, theirs: Formation): Formation {
+  /* 부대 수가 달라졌으면 칸끼리 견줄 수가 없다. 판을 다시 짠 쪽을 그대로 쓴다. */
+  if (mine.parties.length !== base.parties.length) return mine;
+  if (theirs.parties.length !== base.parties.length) return theirs;
+
+  const basePlace = places(base), minePlace = places(mine), theirPlace = places(theirs);
+  const baseWho = roster(base), mineWho = roster(mine), theirWho = roster(theirs);
+
+  const claims: { member: SquadMember; place: Place; mine: boolean }[] = [];
+  for (const id of new Set([...mineWho.keys(), ...theirWho.keys()])) {
+    const moved = !samePlace(minePlace.get(id) ?? null, basePlace.get(id) ?? null);
+    const place = moved ? minePlace.get(id) : theirPlace.get(id);
+    // 한쪽이 명단에서 아예 뺀 사람. 자리가 없으므로 앉힐 것도 없다.
+    if (!place) continue;
+    /* 이름에 붙은 역할도 같은 규칙으로 고른다 — 내가 바꿨으면 내 것. */
+    const my = mineWho.get(id);
+    const member = my && my.name !== baseWho.get(id)?.name ? my : (theirWho.get(id) ?? my);
+    if (member) claims.push({ member, place, mine: moved });
+  }
+
+  const parties: (SquadMember | null)[][] = theirs.parties.map(() => []);
+  const waiting: SquadMember[] = [];
+  /* 표에 보이는 칸까지는 밀어 넣을 수 있다. 그보다 아래로는 안 보이므로 못 쓴다. */
+  const cap = Math.max(base.rows, mine.rows, theirs.rows,
+    ...[base, mine, theirs].flatMap((f) => f.parties.map((p) => Math.ceil(p.length / 2)))) * 2;
+
+  /* 내가 옮긴 사람이 자리를 먼저 잡는다. 같은 칸을 둘이 노렸을 때, 눈앞에서
+     움직인 쪽이 남아야 방금 한 일이 사라지지 않는다. */
+  for (const claim of [...claims.filter((c) => c.mine), ...claims.filter((c) => !c.mine)]) {
+    if (claim.place === "waiting") { waiting.push(claim.member); continue; }
+    const { party, index } = claim.place;
+    let seat = index;
+    while (seat < cap && parties[party][seat]) seat += 1;
+    // 밀려난 사람은 아래 빈칸으로. 그마저 없으면 미배치로 내려가 눈에 띈다.
+    if (seat >= cap) { waiting.push(claim.member); continue; }
+    while (parties[party].length <= seat) parties[party].push(null);
+    parties[party][seat] = claim.member;
+  }
+  return {
+    parties,
+    waiting,
+    rows: Math.max(mine.rows, theirs.rows),
+    names: theirs.names.map((name, i) =>
+      mine.names[i] !== undefined && mine.names[i] !== base.names[i] ? mine.names[i] : name),
+  };
+}
