@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type Formation, type FormatKey, type SquadMember } from "./formation";
 import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
-import { boardVersionAction, loadBoardAction, saveBoardAction } from "./boardActions";
+import { boardPulseAction, loadBoardAction, saveBoardAction } from "./boardActions";
 import { TabGuide } from "../TabGuide";
 import styles from "./squad.module.css";
 
@@ -74,6 +74,12 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
   /* 저장된 판의 번호. 0 은 아직 이 회차에 저장된 것이 없다는 뜻이다. */
   const [version, setVersion] = useState(0);
   const [saveState, setSaveState] = useState("");
+  /* 지금 같은 판을 보고 있는 사람들. 혼자인지 아닌지가 보여야 표가 혼자
+     움직이는 것처럼 느껴지지 않는다. */
+  const [viewers, setViewers] = useState<string[]>([]);
+  /* 남이 방금 건드린 칸. 잠깐 반짝였다 사라진다 — 무엇이 바뀌었는지 눈으로
+     따라갈 수 있어야 한다. */
+  const [flash, setFlash] = useState<Set<string>>(new Set());
   /* 서버가 들고 있는 것으로 아는 판. 이것과 다를 때에만 저장한다 — 남이 고친
      것을 받아 그린 뒤에 그대로 되돌려 보내는 일이 없어야 한다. */
   const stored = useRef<string | null>(null);
@@ -107,18 +113,44 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
     return () => { active = false; observer.disconnect(); };
   }, [formation, editing]);
 
-  /* 저장된 판을 받아 그린다. 골라 둔 사람은 그 판에도 있으면 그대로 둔다. */
+  /* 저장된 판을 받아 그린다. 골라 둔 사람은 그 판에도 있으면 그대로 둔다.
+     받기 직전의 판은 stored 가 들고 있으므로, 둘을 견줘 바뀐 칸을 찾아낸다. */
   const applyBoard = useCallback((data: string, nextVersion: number) => {
     let next: Formation;
     try { next = JSON.parse(data) as Formation; } catch { return; }
     if (!Array.isArray(next?.parties)) return;
+
+    const changed = new Set<string>();
+    if (stored.current && stored.current !== data) {
+      try {
+        const before = JSON.parse(stored.current) as Formation;
+        next.parties.forEach((party, p) => {
+          const old = before.parties[p] ?? [];
+          const count = Math.max(party.length, old.length);
+          for (let i = 0; i < count; i += 1) {
+            if ((party[i]?.id ?? null) !== (old[i]?.id ?? null)) changed.add(`${p}:${i}`);
+          }
+        });
+      } catch {
+        // 옛 판이 깨져 있으면 반짝임만 포기한다. 새 판은 그대로 그린다.
+      }
+    }
+
     stored.current = data;
     setVersion(nextVersion);
     setFormation(next);
+    setFlash(changed);
     const alive = new Set([...next.parties.flat(), ...next.waiting]
       .filter((m): m is SquadMember => Boolean(m)).map((m) => m.id));
     setSelected((previous) => previous.filter((id) => alive.has(id)));
   }, []);
+
+  // 반짝임은 잠깐이다. 계속 남아 있으면 무엇이 방금 바뀐 것인지 알 수 없다.
+  useEffect(() => {
+    if (!flash.size) return;
+    const timer = setTimeout(() => setFlash(new Set()), 2400);
+    return () => clearTimeout(timer);
+  }, [flash]);
 
   /* 탭을 열 때 한 번. 회차가 바뀌면 AdminConsole 이 key 로 새로 마운트하므로
      여기서 되돌릴 것이 없다. */
@@ -165,12 +197,17 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
   useEffect(() => {
     const timer = setInterval(() => {
       if (document.visibilityState !== "visible") return;
-      if (editing || dragging.length) return;
-      if (stored.current === null || JSON.stringify(formation) !== stored.current) return;
-      void boardVersionAction(boardId).then(async (serverVersion) => {
+      /* 손대는 중에도 "나 여기 있다" 는 보낸다. 안 보내면 내가 한참 끌고 있는
+         동안 남의 화면에서 내가 사라진다. 판을 받아 가는 것만 미룬다. */
+      void boardPulseAction(boardId).then(async ({ version: serverVersion, viewers: here }) => {
+        setViewers(here);
+        if (editing || dragging.length) return;
+        if (stored.current === null || JSON.stringify(formation) !== stored.current) return;
         if (serverVersion <= version) return;
         const board = await loadBoardAction(boardId);
-        if (board) applyBoard(board.data, board.version);
+        if (!board) return;
+        applyBoard(board.data, board.version);
+        setMessage(`${board.updatedBy ?? "다른 사람"}님이 편성을 바꿨습니다.`);
       }).catch(() => {});
     }, POLL_MS);
     return () => clearInterval(timer);
@@ -339,6 +376,12 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
       <span className={styles.saveState} role="status">
         {surveyId ? saveState : `임시판${saveState ? ` · ${saveState}` : ""}`}
       </span>
+      {viewers.length > 0 && (
+        <span className={styles.viewers} title="지금 같은 편성을 보고 있는 사람">
+          <span className={styles.dot} aria-hidden="true" />
+          {viewers.join(", ")} 같이 보는 중
+        </span>
+      )}
       {helpOpen && <TabGuide tab="부대편성" onClose={() => setHelpOpen(false)} />}
       <div className={styles.actions}>
         <button type="button" className={styles.button} aria-pressed={multi}
@@ -395,6 +438,7 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
                   data-picked={member && picked.has(member.id) ? "" : undefined}
                   data-target={selected.length && !(member && picked.has(member.id)) ? "" : undefined}
                   data-over={dragOver === key ? "" : undefined}
+                  data-flash={flash.has(key) ? "" : undefined}
                   aria-label={`${partyIndex + 1}부대 ${row + 1}행 ${column + 1}열: ${label || "빈칸"}`}
                   aria-pressed={member ? picked.has(member.id) : undefined}
                   title={selected.length ? "눌러서 이 자리로" : label ? "눌러서 고르기 · 끌어서 옮기기" : ""}

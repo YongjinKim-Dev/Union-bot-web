@@ -30,10 +30,36 @@ export async function loadBoardAction(surveyId: string): Promise<BoardSnapshot |
   };
 }
 
-/** 몇 초마다 부르는 자리. 번호만 돌려준다. */
-export async function boardVersionAction(surveyId: string): Promise<number> {
-  if (!(await admin())) return 0;
-  return getSquadBoardVersion(surveyId);
+/*
+ * 몇 초마다 부르는 자리. 번호를 돌려주면서 "나 여기 있다" 고 적어 둔다.
+ *
+ * 같이 보고 있는 사람 목록은 잠깐 살았다 사라지는 것이라 DB 에 두지 않는다.
+ * 웹은 컨테이너 하나로 도니까 이 모듈의 변수 하나면 충분하고, 서버가 다시
+ * 뜨면 비는 편이 오히려 맞다 — 그때는 아무도 안 보고 있는 것이 맞으므로.
+ */
+const VIEWER_TTL_MS = 12000;
+const viewers = new Map<string, Map<string, { name: string; at: number }>>();
+
+export interface BoardPulse {
+  version: number;
+  /** 나를 뺀, 지금 같은 판을 보고 있는 사람들. */
+  viewers: string[];
+}
+
+export async function boardPulseAction(surveyId: string): Promise<BoardPulse> {
+  const who = await admin();
+  if (!who) return { version: 0, viewers: [] };
+  const me = who.id ?? "?";
+  const now = Date.now();
+  let board = viewers.get(surveyId);
+  if (!board) { board = new Map(); viewers.set(surveyId, board); }
+  board.set(me, { name: who.nickname ?? "누군가", at: now });
+  const here: string[] = [];
+  for (const [id, seen] of board) {
+    if (now - seen.at > VIEWER_TTL_MS) board.delete(id);
+    else if (id !== me) here.push(seen.name);
+  }
+  return { version: await getSquadBoardVersion(surveyId), viewers: here };
 }
 
 export type SaveBoardResult =
