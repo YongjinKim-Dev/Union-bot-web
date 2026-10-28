@@ -413,10 +413,11 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
       </div>
     </div>
     {viewers.length > 0 && (
-      <div className={styles.viewerFloat} aria-label="지금 같이 보고 있는 사람">
+      <div className={styles.viewerFloat}
+        aria-label={`${viewers.map((v) => v.name).join(", ")} 같이 보고 있습니다`}>
         <span className={styles.dot} aria-hidden="true" />
         {viewers.map((viewer) => (
-          <span key={viewer.name} className={styles.face} title={`${viewer.name} 같이 보는 중`}
+          <span key={viewer.name} className={styles.face}
             style={{ borderColor: `hsl(${hueOf(viewer.name)} 72% 58%)` }}>
             {/* eslint-disable-next-line @next/next/no-img-element -- 디스코드 CDN 의 작은 사진이라 최적화할 것이 없다. */}
             {viewer.avatar ? <img src={viewer.avatar} alt="" /> : viewer.name.slice(0, 1)}
