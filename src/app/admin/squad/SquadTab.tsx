@@ -48,6 +48,9 @@ type Editing = { key: string; value: string; cell?: CellAddress; waitingId?: str
 const POLL_MS = 3000;
 /* 한 번 옮길 때마다 저장하면 끄는 동안에도 계속 날아간다. 손을 멈춘 뒤에 보낸다. */
 const SAVE_DELAY_MS = 900;
+/* 회차에 묶이지 않는 임시판. 거점전이 끝나고 다음 회차가 아직 안 올라온 동안에도
+   짜 둘 데가 있어야 한다. 회차 번호는 1 부터라 0 과 부딪치지 않는다. */
+const SCRATCH_ID = "0";
 
 export function SquadTab({ surveyId }: { surveyId: string | null }) {
   const [input, setInput] = useState("");
@@ -66,6 +69,8 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
   const [multi, setMulti] = useState(false);
   /* 사용법. 탭 위쪽 ? 와 같은 글을 띄운다 — 손이 가 있는 자리에서 바로 열린다. */
   const [helpOpen, setHelpOpen] = useState(false);
+  // 묶인 회차가 없으면 임시판에 저장한다.
+  const boardId = surveyId ?? SCRATCH_ID;
   /* 저장된 판의 번호. 0 은 아직 이 회차에 저장된 것이 없다는 뜻이다. */
   const [version, setVersion] = useState(0);
   const [saveState, setSaveState] = useState("");
@@ -118,20 +123,19 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
   /* 탭을 열 때 한 번. 회차가 바뀌면 AdminConsole 이 key 로 새로 마운트하므로
      여기서 되돌릴 것이 없다. */
   useEffect(() => {
-    if (!surveyId) return;
     let alive = true;
-    void loadBoardAction(surveyId).then((board) => {
+    void loadBoardAction(boardId).then((board) => {
       if (!alive || !board) return;
       applyBoard(board.data, board.version);
       setMessage(`저장해 둔 편성을 불러왔습니다. 마지막 수정: ${board.updatedBy ?? "알 수 없음"}.`);
     }).catch(() => {});
     return () => { alive = false; };
-  }, [surveyId, applyBoard]);
+  }, [boardId, applyBoard]);
 
   /* 손을 멈추면 저장한다. 끄는 중이거나 이름을 고치는 중에는 기다린다 — 반쯤
      옮긴 판을 남에게 보내 봐야 소용이 없다. */
   useEffect(() => {
-    if (!surveyId || editing || dragging.length) return;
+    if (editing || dragging.length) return;
     const data = JSON.stringify(formation);
     if (data === stored.current) return;
     /* 받아 오기 전의 빈 판은 보내지 않는다. 느린 날 저장된 판보다 먼저 닿으면
@@ -139,7 +143,7 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
     if (stored.current === null && !assignedCount && !formation.waiting.length) return;
     const timer = setTimeout(() => {
       setSaveState("저장 중…");
-      void saveBoardAction(surveyId, data, version).then((result) => {
+      void saveBoardAction(boardId, data, version).then((result) => {
         if (result.ok) {
           stored.current = data;
           setVersion(result.version);
@@ -154,24 +158,23 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
       }).catch(() => setSaveState("저장 실패"));
     }, SAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [surveyId, formation, assignedCount, version, editing, dragging.length, applyBoard]);
+  }, [boardId, formation, assignedCount, version, editing, dragging.length, applyBoard]);
 
   /* 남이 고쳤는지 번호만 물어본다. 내가 손대는 중이거나 아직 못 보낸 변경이
      있으면 건드리지 않는다. */
   useEffect(() => {
-    if (!surveyId) return;
     const timer = setInterval(() => {
       if (document.visibilityState !== "visible") return;
       if (editing || dragging.length) return;
       if (stored.current === null || JSON.stringify(formation) !== stored.current) return;
-      void boardVersionAction(surveyId).then(async (serverVersion) => {
+      void boardVersionAction(boardId).then(async (serverVersion) => {
         if (serverVersion <= version) return;
-        const board = await loadBoardAction(surveyId);
+        const board = await loadBoardAction(boardId);
         if (board) applyBoard(board.data, board.version);
       }).catch(() => {});
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [surveyId, formation, version, editing, dragging.length, applyBoard]);
+  }, [boardId, formation, version, editing, dragging.length, applyBoard]);
 
   function assign(useFormat: FormatKey = format) {
     const members = parseMembers(input);
@@ -334,7 +337,7 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
       <button type="button" className={styles.helpBtn} onClick={() => setHelpOpen(true)}
         title="부대편성 사용법 보기" aria-label="부대편성 사용법 보기">?</button>
       <span className={styles.saveState} role="status">
-        {!surveyId ? "이번 회차가 없어 저장되지 않습니다" : saveState}
+        {surveyId ? saveState : `임시판${saveState ? ` · ${saveState}` : ""}`}
       </span>
       {helpOpen && <TabGuide tab="부대편성" onClose={() => setHelpOpen(false)} />}
       <div className={styles.actions}>
