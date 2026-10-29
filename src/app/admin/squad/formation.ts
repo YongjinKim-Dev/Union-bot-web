@@ -268,7 +268,7 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
     const key = name.toLowerCase();
     const member = members.find((m) => baseName(m.name).toLowerCase() === key && !assigned.has(m.id));
     if (!member) return false;
-    if (member.job === "샤이") return false;
+    if (member.job === "샤이" || member.job === "자이언트") return false;
     place(member, party, suffix);
     return true;
   }
@@ -295,6 +295,7 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
 
   const hasRoom = (party: number) => filled(party) < sizes[party];
   const shais = sizes.map(() => [] as SquadMember[]);
+  const giants = sizes.map(() => [] as SquadMember[]);
   function placeClass(member: SquadMember, party: number, groups: SquadMember[][]) {
     place(member, party);
     groups[party].push(member);
@@ -310,18 +311,23 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
   for (const party of [0, 1, 2, 3]) {
     if (hasRoom(party) && shaiPool.length) placeClass(shaiPool.shift()!, party, shais);
   }
-  for (const member of shaiPool) placeMain(member, shais);
-
-  for (const job of ["자이언트"]) {
-    let party = 0;
-    for (const member of members) {
-      if (member.job !== job || assigned.has(member.id)) continue;
-      place(member, party);
-      party = (party + 1) % sizes.length;
-    }
+  // 자동배치를 실행할 때만 섞고, 부대 이력은 사용하지 않는다.
+  const giantPool = members.filter((m) => m.job === "자이언트" && !assigned.has(m.id));
+  for (let i = giantPool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [giantPool[i], giantPool[j]] = [giantPool[j], giantPool[i]];
   }
+  // 두 본대에 한 명씩 먼저 확보한 뒤 수비에 한 명만 배치한다.
+  for (const party of [0, 1]) {
+    if (hasRoom(party) && giantPool.length) placeClass(giantPool.shift()!, party, giants);
+  }
+  if (giants[0].length && giants[1].length && giantPool.length && hasRoom(2)) {
+    placeClass(giantPool.shift()!, 2, giants);
+  }
+  for (const member of shaiPool) placeMain(member, shais);
+  for (const member of giantPool) placeMain(member, giants);
 
-  const classMembers = new Set(shais.flat().map((m) => m.id));
+  const classMembers = new Set([...shais.flat(), ...giants.flat()].map((m) => m.id));
   // 직업별 자리를 먼저 확보한 뒤 빈칸을 일반 인원으로 채운다.
   for (const list of parties) {
     for (let i = 0; i < list.length; i++) {
@@ -332,14 +338,14 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
     .filter((m, index): m is SquadMember => Boolean(m) && index % 2 === column);
   const columns: { party: number; column: number; top: SquadMember[]; bottom: SquadMember[] }[] = [];
   for (const party of [0, 1]) {
-    if (shais[party].length) columns.push({
-      party, column: 1, top: columnMembers(party, 1), bottom: shais[party],
+    if (giants[party].length || shais[party].length) columns.push({
+      party, column: 1, top: [...giants[party], ...columnMembers(party, 1)], bottom: shais[party],
     });
   }
-  if (shais[2].length) {
+  if (shais[2].length || giants[2].length) {
     const left = columnMembers(2, 0).filter((m) => !wizardIds.has(m.id));
     const wizards = columnMembers(2, 0).filter((m) => wizardIds.has(m.id));
-    columns.push({ party: 2, column: 0, top: left, bottom: [...wizards, ...shais[2]] });
+    columns.push({ party: 2, column: 0, top: left, bottom: [...wizards, ...giants[2], ...shais[2]] });
   }
   if (shais[3].length) columns.push({
     party: 3, column: 1, top: [...shais[3], ...columnMembers(3, 1)], bottom: [],
@@ -368,7 +374,7 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
   // 직업 분배에서 자리가 없던 인원을 일반 배치로 다른 부대에 넘기지 않는다.
   let party = 0;
   for (const member of members) {
-    if (assigned.has(member.id) || member.job === "샤이") continue;
+    if (assigned.has(member.id) || member.job === "샤이" || member.job === "자이언트") continue;
     while (party < sizes.length && filled(party) >= sizes[party]) party++;
     if (party < sizes.length) place(member, party);
   }
