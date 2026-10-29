@@ -345,7 +345,7 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
   if (shais[2].length || giants[2].length) {
     const left = columnMembers(2, 0).filter((m) => !wizardIds.has(m.id));
     const wizards = columnMembers(2, 0).filter((m) => wizardIds.has(m.id));
-    columns.push({ party: 2, column: 0, top: left, bottom: [...wizards, ...giants[2], ...shais[2]] });
+    columns.push({ party: 2, column: 0, top: left, bottom: [...wizards, ...shais[2], ...giants[2]] });
   }
   if (shais[3].length) columns.push({
     party: 3, column: 1, top: [...shais[3], ...columnMembers(3, 1)], bottom: [],
