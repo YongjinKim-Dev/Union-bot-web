@@ -371,6 +371,15 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
     bottom.forEach((member, row) => { list[(finalRows - bottom.length + row) * 2 + column] = member; });
   }
 
+  // 원거리 직업은 2부대, 1부대 순서로 남은 자리를 먼저 채운다.
+  const rangedJobs = ["아처", "레인저", "에이전트", "데드아이"];
+  for (const party of [1, 0]) {
+    for (const member of members) {
+      if (!hasRoom(party)) break;
+      if (!assigned.has(member.id) && rangedJobs.includes(member.job)) place(member, party);
+    }
+  }
+
   // 직업 분배에서 자리가 없던 인원을 일반 배치로 다른 부대에 넘기지 않는다.
   let party = 0;
   for (const member of members) {
